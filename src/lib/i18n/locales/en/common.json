@@ -1,0 +1,33 @@
+{
+  "app": { "name": "LegalEagle", "tagline": "Legal Firm Management" },
+  "actions": {
+    "save": "Save", "cancel": "Cancel", "delete": "Delete", "edit": "Edit",
+    "add": "Add", "create": "Create", "update": "Update", "close": "Close",
+    "open": "Open", "view": "View", "export": "Export", "import": "Import",
+    "search": "Search", "filter": "Filter", "reset": "Reset", "clear": "Clear",
+    "confirm": "Confirm", "back": "Back", "next": "Next", "submit": "Submit",
+    "approve": "Approve", "reject": "Reject", "download": "Download",
+    "upload": "Upload", "send": "Send", "copy": "Copy", "refresh": "Refresh"
+  },
+  "status": {
+    "active": "Active", "inactive": "Inactive", "pending": "Pending",
+    "approved": "Approved", "rejected": "Rejected", "draft": "Draft",
+    "completed": "Completed", "open": "Open", "closed": "Closed"
+  },
+  "table": {
+    "noData": "No records found", "loading": "Loading...",
+    "rowsPerPage": "Rows per page", "of": "of", "page": "Page",
+    "actions": "Actions", "filters": "Filters", "activeFilters": "Active filters"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "notFound": "The requested resource was not found.",
+    "unauthorized": "You are not authorized to perform this action.",
+    "network": "Network error. Please check your connection."
+  },
+  "dates": {
+    "today": "Today", "yesterday": "Yesterday", "fromDate": "From Date",
+    "toDate": "To Date", "dateRange": "Date Range"
+  },
+  "pagination": { "showing": "Showing {{from}}-{{to}} of {{total}}" }
+}

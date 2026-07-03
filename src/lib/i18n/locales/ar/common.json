@@ -1,0 +1,31 @@
+{
+  "app": { "name": "ليغل ايغل", "tagline": "إدارة المكاتب القانونية" },
+  "actions": {
+    "save": "حفظ", "cancel": "إلغاء", "delete": "حذف", "edit": "تعديل",
+    "add": "إضافة", "create": "إنشاء", "update": "تحديث", "close": "إغلاق",
+    "open": "فتح", "view": "عرض", "export": "تصدير", "import": "استيراد",
+    "search": "بحث", "filter": "تصفية", "reset": "إعادة تعيين", "clear": "مسح",
+    "confirm": "تأكيد", "back": "رجوع", "next": "التالي", "submit": "إرسال",
+    "approve": "موافقة", "reject": "رفض", "download": "تنزيل",
+    "upload": "رفع", "send": "إرسال", "copy": "نسخ", "refresh": "تحديث"
+  },
+  "status": {
+    "active": "نشط", "inactive": "غير نشط", "pending": "معلق",
+    "approved": "معتمد", "rejected": "مرفوض", "draft": "مسودة",
+    "completed": "مكتمل", "open": "مفتوح", "closed": "مغلق"
+  },
+  "table": {
+    "noData": "لا توجد سجلات", "loading": "جار التحميل...",
+    "rowsPerPage": "صفوف في الصفحة", "of": "من", "page": "صفحة",
+    "actions": "إجراءات", "filters": "تصفية", "activeFilters": "التصفية النشطة"
+  },
+  "errors": {
+    "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    "notFound": "المورد المطلوب غير موجود.",
+    "unauthorized": "غير مصرح لك بتنفيذ هذا الإجراء.",
+    "network": "خطأ في الشبكة. يرجى التحقق من الاتصال."
+  },
+  "dates": { "today": "اليوم", "yesterday": "أمس", "fromDate": "من تاريخ",
+    "toDate": "إلى تاريخ", "dateRange": "نطاق التاريخ" },
+  "pagination": { "showing": "عرض {{from}}-{{to}} من {{total}}" }
+}

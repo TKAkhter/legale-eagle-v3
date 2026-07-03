@@ -1,0 +1,52 @@
+import { Box, Typography, Snackbar, Alert } from '@mui/material'
+import CheckIcon from '@mui/icons-material/Check'
+import CloseIcon from '@mui/icons-material/Close'
+import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { DataGrid } from '@components/data-grid/DataGrid'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { axiosClient } from '@lib/api/axios'
+import { formatDate } from '@lib/utils/formatDate'
+import type { GridParams } from '@/types/common.types'
+
+async function fetchTaskApprovals(_p: GridParams) {
+  const r = await axiosClient.get('/api/task/get/type/approval')
+  const list = r.data?.data??r.data??[]
+  return { content:list, totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 }
+}
+
+export default function TaskApprovalPage() {
+  const qc = useQueryClient()
+  const [snack,setSnack] = useState<{open:boolean;msg:string;severity:'success'|'error'}>({open:false,msg:'',severity:'success'})
+
+  async function handleAction(row: Record<string,unknown>, approve: boolean) {
+    try {
+      await axiosClient.post('/api/task/approve',{ taskId:row.id, status: approve?'Completed':'Rejected' })
+      setSnack({open:true,msg:approve?'Task approved':'Task rejected',severity:'success'})
+      qc.invalidateQueries({queryKey:['tasks','approval']})
+    } catch { setSnack({open:true,msg:'Action failed',severity:'error'}) }
+  }
+
+  return (
+    <Box>
+      <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>Task Approvals</Typography>
+      <DataGrid
+        columns={[
+          { field:'taskName', header:'Task' },
+          { field:'taskType', header:'Related To' },
+          { field:'assignedTo', header:'Assigned', renderCell:(v)=>{ const u=v as Record<string,string>; return u?`${u.firstName??''} ${u.lastName??''}`.trim():'—' } },
+          { field:'taskDeadLine', header:'Deadline', renderCell:(v)=>formatDate(String(v??'')) },
+          { field:'taskStatus', header:'Status', renderCell:(v)=><StatusBadge status={String(v??'')} /> },
+        ]}
+        queryKey={['tasks','approval']} queryFn={fetchTaskApprovals} isPaginated={false}
+        rowMenuItems={(row)=>[
+          { label:'Approve', icon:<CheckIcon fontSize="small"/>, onClick:()=>handleAction(row,true) },
+          { label:'Reject', icon:<CloseIcon fontSize="small"/>, color:'error', onClick:()=>handleAction(row,false) },
+        ]}
+      />
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={()=>setSnack(s=>({...s,open:false}))}>
+        <Alert severity={snack.severity}>{snack.msg}</Alert>
+      </Snackbar>
+    </Box>
+  )
+}
