@@ -1,9 +1,10 @@
 import { Box, Typography, Paper, Skeleton } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import ReactApexChart from 'react-apexcharts'
+import { ApexChart } from '@components/charts/ApexChart'
 import { axiosClient } from '@lib/api/axios'
 import { QK } from '@lib/query/keys'
 import { formatCurrency } from '@lib/utils/formatCurrency'
+import { ChartEmptyState } from '@components/ui/ChartEmptyState'
 
 function KpiCard({ title, value, loading, prefix = '', suffix = '' }: { title: string; value?: number | string; loading: boolean; prefix?: string; suffix?: string }) {
   return (
@@ -79,36 +80,36 @@ export default function DashboardPage() {
       {/* Charts row */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
         <ChartCard title="Matter Activity (Monthly)" loading={ch1}>
-          {matterHistoryCounts.length > 0 && (
-            <ReactApexChart
+          {matterHistoryCounts.length > 0 ? (
+            <ApexChart
               type="area" height={200}
               series={[{ name: 'Matters', data: matterHistoryCounts }]}
-              options={{ chart: { toolbar: { show: false }, sparkline: { enabled: false } }, xaxis: { categories: matterHistoryMonths }, stroke: { curve: 'smooth', width: 2 }, fill: { type: 'gradient' }, dataLabels: { enabled: false }, colors: ['#4f46e5'], grid: { strokeDashArray: 4 } }}
+              options={{ chart: { toolbar: { show: false }, sparkline: { enabled: false } }, xaxis: { categories: matterHistoryMonths }, stroke: { curve: 'smooth', width: 2 }, fill: { type: 'gradient' }, dataLabels: { enabled: false }, colors: ['#0F3C6E'], grid: { strokeDashArray: 4 } }}
             />
-          )}
+          ) : <ChartEmptyState />}
         </ChartCard>
 
         <ChartCard title="Revenue Breakdown (Monthly)" loading={ch3}>
-          {revenueLabels.length > 0 && (
-            <ReactApexChart
+          {revenueLabels.length > 0 ? (
+            <ApexChart
               type="bar" height={200}
               series={[{ name: 'Fixed Fees', data: fixedFees }, { name: 'Time Logs', data: timelogs }]}
-              options={{ chart: { toolbar: { show: false }, stacked: false }, xaxis: { categories: revenueLabels }, colors: ['#4f46e5','#0ea5e9'], dataLabels: { enabled: false }, plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } }, grid: { strokeDashArray: 4 } }}
+              options={{ chart: { toolbar: { show: false }, stacked: false }, xaxis: { categories: revenueLabels }, colors: ['#0F3C6E','#00B4A6'], dataLabels: { enabled: false }, plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } }, grid: { strokeDashArray: 4 } }}
             />
-          )}
+          ) : <ChartEmptyState />}
         </ChartCard>
       </Box>
 
       {/* Timelog breakdown donut + Upcoming hearings */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
         <ChartCard title="Time Log Categories" loading={ch2}>
-          {timelogHours.length > 0 && (
-            <ReactApexChart
+          {timelogHours.length > 0 ? (
+            <ApexChart
               type="donut" height={220}
               series={timelogHours}
-              options={{ labels: timelogCategories, colors: ['#4f46e5','#0ea5e9','#8b5cf6','#06b6d4','#10b981'], legend: { position: 'bottom' }, dataLabels: { enabled: true } }}
+              options={{ labels: timelogCategories, colors: ['#0F3C6E','#00B4A6','#365E92','#33C7BB','#08254A'], legend: { position: 'bottom' }, dataLabels: { enabled: true } }}
             />
-          )}
+          ) : <ChartEmptyState />}
         </ChartCard>
 
         <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>

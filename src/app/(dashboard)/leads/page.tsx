@@ -12,6 +12,8 @@ import { getLeadsColumns } from './_components/LeadsColumns'
 import { LeadsFilterPanel } from './_components/LeadsFilterPanel'
 import type { GridParams } from '@/types/common.types'
 import { LeadFormDrawer } from './_components/LeadFormDrawer'
+import { LeadConvertDialog } from './_components/LeadConvertDialog'
+import ConvertIcon from '@mui/icons-material/SwapHoriz'
 import { useState } from 'react'
 
 async function fetchLeads(params: GridParams) {
@@ -28,6 +30,7 @@ export default function LeadsPage() {
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editLeadId, setEditLeadId] = useState<string | undefined>()
+  const [convertLead, setConvertLead] = useState<{ id: string; name: string } | null>(null)
   const qc = useQueryClient()
 
   function openCreate() { setEditLeadId(undefined); setDrawerOpen(true) }
@@ -50,6 +53,8 @@ export default function LeadsPage() {
         detailPath={(row) => `/leads/${row.id}`}
         rowMenuItems={(row) => [
           { label: 'Edit', icon: <EditIcon fontSize="small" />, permission: PERMISSIONS.LEADS_EDIT, onClick: () => openEdit(String(row.id)) },
+          { label: 'Convert to Client', icon: <ConvertIcon fontSize="small" />, permission: PERMISSIONS.CLIENTS_CREATE,
+            onClick: () => setConvertLead({ id: String(row.id), name: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || String(row.companyName ?? '') }) },
         ]}
         defaultSortBy="createdAt" defaultSortDir="desc"
       />
@@ -59,6 +64,9 @@ export default function LeadsPage() {
         leadId={editLeadId}
         onSuccess={() => qc.invalidateQueries({ queryKey: ['leads', 'list'] })}
       />
+      {convertLead && (
+        <LeadConvertDialog open={!!convertLead} onClose={() => setConvertLead(null)} leadId={convertLead.id} leadName={convertLead.name} />
+      )}
     </Box>
   )
 }

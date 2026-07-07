@@ -1,57 +1,57 @@
-import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosError } from 'axios'
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosError,
+} from 'axios'
 import { env } from '@config/featureFlags'
 
 /**
  * axios.ts — base HTTP client
  *
  * Two instances:
- *   axiosClient  — standard JSON requests (used everywhere)
+ *   axiosClient  — standard JSON requests
  *   axiosBlob    — binary responses for Excel/PDF exports
  *
- * Key behaviours:
- *   1. Attaches Bearer token from authStore on every request
- *   2. Attaches X-Access-Scope header (multi-tenant) from authStore
- *   3. On 401: attempts silent token refresh, then retries original request
- *   4. On second 401 (refresh failed): clears auth store, redirects to /login
+ * Circular-dependency fix:
+ *   Previously this file used a dynamic `await import('@lib/store/authStore')`
+ *   inside attemptRefresh() to avoid circular deps. This caused Vite to emit
+ *   an "ineffective dynamic import" warning because authStore is also
+ *   statically imported by many other modules already in the main chunk.
  *
- * IMPORTANT — backend API quirk:
- *   Many endpoints mix query params + request body in POST requests.
- *   The custom mutator (buildQueryParams util) handles serialisation.
- *   axiosClient never transforms params automatically — always explicit.
- *
- * Next.js migration note:
- *   Replace getToken/getAccessScope with server-side cookie reads in
- *   lib/api/serverAxios.ts — client instance stays identical.
+ *   Fix: all auth state access goes through the four callback functions
+ *   registered by bootstrapAxiosAuth() at startup. No store import needed here.
  */
 
-// Lazily import stores to avoid circular dependencies at module load time
-let _getToken: (() => string | null) | null = null
-let _getAccessScope: (() => string) | null = null
-let _clearAuth: (() => void) | null = null
-let _setToken: ((token: string) => void) | null = null
+// ─── Auth callbacks (registered by AuthProvider on mount) ────────────────────
+let _getToken:       () => string | null  = () => null
+let _getRefreshToken:() => string | null  = () => null
+let _getUserId:      () => string | null  = () => null
+let _getAccessScope: () => string         = () => ''
+let _clearAuth:      () => void           = () => undefined
+let _setToken:       (t: string) => void  = () => undefined
 
 export function bootstrapAxiosAuth(opts: {
-  getToken: () => string | null
-  getAccessScope: () => string
-  clearAuth: () => void
-  setToken: (token: string) => void
+  getToken:        () => string | null
+  getRefreshToken: () => string | null
+  getUserId:       () => string | null
+  getAccessScope:  () => string
+  clearAuth:       () => void
+  setToken:        (token: string) => void
 }) {
-  _getToken = opts.getToken
-  _getAccessScope = opts.getAccessScope
-  _clearAuth = opts.clearAuth
-  _setToken = opts.setToken
+  _getToken        = opts.getToken
+  _getRefreshToken = opts.getRefreshToken
+  _getUserId       = opts.getUserId
+  _getAccessScope  = opts.getAccessScope
+  _clearAuth       = opts.clearAuth
+  _setToken        = opts.setToken
 }
 
-// ─── Create base instance ─────────────────────────────────────────────────────
-
+// ─── Create instances ─────────────────────────────────────────────────────────
 function createInstance(config: AxiosRequestConfig = {}): AxiosInstance {
   return axios.create({
     baseURL: env.VITE_API_BASE_URL,
     timeout: 30_000,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     ...config,
   })
 }
@@ -59,65 +59,52 @@ function createInstance(config: AxiosRequestConfig = {}): AxiosInstance {
 export const axiosClient = createInstance()
 export const axiosBlob   = createInstance({ responseType: 'blob', timeout: 120_000 })
 
-// ─── Request interceptor — attach token + accessScope ────────────────────────
-
+// ─── Request interceptor ──────────────────────────────────────────────────────
 function attachAuthHeaders(instance: AxiosInstance) {
   instance.interceptors.request.use(
     (config) => {
-      const token       = _getToken?.()
-      const accessScope = _getAccessScope?.()
-
-      if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`
-      }
-      if (accessScope) {
-        config.headers['X-Access-Scope'] = accessScope
-      }
+      const token       = _getToken()
+      const accessScope = _getAccessScope()
+      if (token)       config.headers['Authorization']  = `Bearer ${token}`
+      if (accessScope) config.headers['X-Access-Scope'] = accessScope
       return config
     },
     (error) => Promise.reject(error),
   )
 }
-
 attachAuthHeaders(axiosClient)
 attachAuthHeaders(axiosBlob)
 
-// ─── Response interceptor — silent token refresh on 401 ──────────────────────
-
-let isRefreshing = false
+// ─── Token refresh (no dynamic import) ───────────────────────────────────────
+let isRefreshing  = false
 let refreshQueue: Array<(token: string) => void> = []
 
 function processQueue(token: string) {
-  refreshQueue.forEach((resolve) => resolve(token))
+  refreshQueue.forEach(resolve => resolve(token))
   refreshQueue = []
 }
 
 async function attemptRefresh(): Promise<string> {
-  // Import dynamically to avoid circular dep at module load
-  const { useAuthStore } = await import('@lib/store/authStore')
-  const store = useAuthStore.getState()
+  const refreshToken = _getRefreshToken()
+  const userId       = _getUserId()
+  const accessScope  = _getAccessScope()
+  const currentToken = _getToken()
 
-  const refreshToken = store.refreshToken
-  const userId       = store.user?.id
-  const accessScope  = store.accessScope
+  if (!refreshToken || !userId) throw new Error('No refresh credentials')
 
-  if (!refreshToken || !userId) throw new Error('No refresh token')
+  const response = await axios.post(
+    `${env.VITE_API_BASE_URL}/api/auth/refresh/token`,
+    { token: currentToken, refreshToken, userId, accessScope },
+  )
 
-  const response = await axios.post(`${env.VITE_API_BASE_URL}/api/auth/refresh/token`, {
-    token: store.accessToken,
-    refreshToken,
-    userId,
-    accessScope,
-  })
-
-  // Backend returns { token, refreshToken } or { accessToken, ... }
   const newToken = response.data?.token ?? response.data?.accessToken
   if (!newToken) throw new Error('Refresh response missing token')
 
-  _setToken?.(newToken)
+  _setToken(newToken)
   return newToken
 }
 
+// ─── Response interceptor ─────────────────────────────────────────────────────
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -125,13 +112,9 @@ axiosClient.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        // Queue this request until refresh completes
-        return new Promise((resolve, reject) => {
+        return new Promise(resolve => {
           refreshQueue.push((token: string) => {
-            originalRequest.headers = {
-              ...originalRequest.headers,
-              Authorization: `Bearer ${token}`,
-            }
+            originalRequest.headers = { ...originalRequest.headers, Authorization: `Bearer ${token}` }
             resolve(axiosClient(originalRequest))
           })
         })
@@ -143,14 +126,11 @@ axiosClient.interceptors.response.use(
       try {
         const newToken = await attemptRefresh()
         processQueue(newToken)
-        originalRequest.headers = {
-          ...originalRequest.headers,
-          Authorization: `Bearer ${newToken}`,
-        }
+        originalRequest.headers = { ...originalRequest.headers, Authorization: `Bearer ${newToken}` }
         return axiosClient(originalRequest)
       } catch {
         refreshQueue = []
-        _clearAuth?.()
+        _clearAuth()
         window.location.href = '/login'
         return Promise.reject(error)
       } finally {
@@ -162,20 +142,16 @@ axiosClient.interceptors.response.use(
   },
 )
 
-// ─── Blob download interceptor ────────────────────────────────────────────────
-
+// ─── Blob error handler ───────────────────────────────────────────────────────
 axiosBlob.interceptors.response.use(
-  (response) => response,
+  response => response,
   async (error: AxiosError) => {
-    // Blob errors — parse the error body if it's JSON wrapped in a blob
     if (error.response?.data instanceof Blob) {
       try {
         const text = await (error.response.data as Blob).text()
         const json = JSON.parse(text)
         error.message = json.message ?? error.message
-      } catch {
-        // ignore parse failure
-      }
+      } catch { /* ignore parse failure */ }
     }
     return Promise.reject(error)
   },

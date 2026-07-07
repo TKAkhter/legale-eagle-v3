@@ -1,8 +1,9 @@
-import { Box, Typography, Button } from '@mui/material'
+import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
 import { Can } from '@components/ui/Can'
@@ -13,24 +14,17 @@ import { formatDate } from '@lib/utils/formatDate'
 import { formatCurrency } from '@lib/utils/formatCurrency'
 import { ClientSelectFilter } from '@components/filters/ClientSelectFilter'
 import { DateRangeFilter } from '@components/filters/DateRangeFilter'
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
+import { InvoiceFormDrawer } from './_components/InvoiceFormDrawer'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams, InvoiceStatus } from '@/types/common.types'
 
-const STATUSES: InvoiceStatus[] = ['Due', 'Paid', 'Overdue', 'Draft', 'Partially_Paid', 'Void', 'Canceled', 'Approval']
+const STATUSES: InvoiceStatus[] = ['Due','Paid','Overdue','Draft','Partially_Paid','Void','Canceled','Approval']
 
 async function fetchInvoices(params: GridParams) {
   const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
   const f = params.filters ?? {}
   const res = await axiosClient.post('/api/invoice/filter/all/v2', {}, {
-    params: {
-      ...qp,
-      clientId: f.clientId ?? '',
-      matterId: f.matterId ?? '',
-      invoiceStatus: f.invoiceStatus ?? 'All',
-      fromDate: f.fromDate ?? '',
-      toDate: f.toDate ?? '',
-    },
+    params: { ...qp, clientId: f.clientId ?? '', matterId: f.matterId ?? '', invoiceStatus: f.invoiceStatus ?? 'All', fromDate: f.fromDate ?? '', toDate: f.toDate ?? '' },
   })
   return res.data?.data ?? res.data
 }
@@ -43,7 +37,7 @@ function InvoiceFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
       <ClientSelectFilter value={String(f.clientId ?? '')} onChange={v => set('clientId', v)} />
       <FormControl size="small" sx={{ minWidth: 160 }}>
         <InputLabel>Status</InputLabel>
-        <Select label="Status" value={f.invoiceStatus ?? ''} onChange={(e) => set('invoiceStatus', e.target.value)}>
+        <Select label="Status" value={f.invoiceStatus ?? ''} onChange={e => set('invoiceStatus', e.target.value)}>
           <MenuItem value=""><em>All</em></MenuItem>
           {STATUSES.map(s => <MenuItem key={s} value={s}>{s.replace('_', ' ')}</MenuItem>)}
         </Select>
@@ -59,12 +53,15 @@ function InvoiceFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 
 export default function BillingsPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
+  const [createOpen, setCreateOpen] = useState(false)
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Billing</Typography>
         <Can do={PERMISSIONS.BILLING_CREATE}>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/billings/new')}>New Invoice</Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>New Invoice</Button>
         </Can>
       </Box>
       <DataGrid
@@ -86,6 +83,11 @@ export default function BillingsPage() {
           { label: 'Download PDF', icon: <FileDownloadIcon fontSize="small" />, onClick: () => window.open(`/api/invoice/pdf/download?invoiceId=${row.id}`, '_blank') },
         ]}
         defaultSortBy="issueDate" defaultSortDir="desc"
+      />
+      <InvoiceFormDrawer
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['invoices', 'list'] })}
       />
     </Box>
   )

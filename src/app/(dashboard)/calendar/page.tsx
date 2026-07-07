@@ -22,7 +22,7 @@ async function fetchCalendarEvents(range: { start: string; end: string }): Promi
     title: String(e.title ?? 'Event'),
     start: String(e.startDateTime ?? e.start ?? range.start),
     end: e.endDateTime ? String(e.endDateTime) : undefined,
-    color: '#4f46e5',
+    color: '#0F3C6E',
     extendedProps: e,
   }))
 }

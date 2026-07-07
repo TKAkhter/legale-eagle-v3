@@ -10,6 +10,7 @@ import { ControlledInput } from '@components/forms/ControlledInput'
 import { ControlledSelect } from '@components/forms/ControlledSelect'
 import { ControlledCheckbox } from '@components/forms/ControlledCheckbox'
 import { QK } from '@lib/query/keys'
+import { registerOneDriveFolder } from '@lib/utils/onedrive'
 import { clientSchema, type ClientForm } from '@lib/validations/client.schema'
 
 interface Props { open: boolean; onClose: () => void; clientId?: string; onSuccess?: () => void }
@@ -58,7 +59,10 @@ export function ClientFormDrawer({ open, onClose, clientId, onSuccess }: Props) 
     if (isEdit) {
       await axiosClient.post('/api/client/edit', { ...payload, clientId })
     } else {
-      await axiosClient.post('/api/client/add', payload)
+      const res = await axiosClient.post('/api/client/add', payload)
+      const newId = res.data?.data?.id ?? res.data?.id
+      const name = data.companyName || `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim()
+      if (newId) registerOneDriveFolder(newId, name, 'Client')
     }
     qc.invalidateQueries({ queryKey: QK.clients.all() })
     onSuccess?.()

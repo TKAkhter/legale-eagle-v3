@@ -14,6 +14,8 @@ import { BillingTypeFilter } from '@components/filters/BillingTypeFilter'
 import { useState } from 'react'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
+import { LfaFormDrawer } from './_components/LfaFormDrawer'
+import { useQueryClient } from '@tanstack/react-query'
 
 async function fetchLfas(params: GridParams) {
   const qp = buildQueryParams(params, { paginationConvention:'pageNumber-pageSize' })
@@ -41,11 +43,13 @@ function LfaFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 
 export default function LfaPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
+  const [drawerOpen, setDrawerOpen] = useState(false)
   return (
     <Box>
       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
         <Typography variant="h5" sx={{ fontWeight:600 }}>LFA — Legal Fee Agreements</Typography>
-        <Can do={PERMISSIONS.LFA_CREATE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>navigate('/lfa/new')}>New LFA</Button></Can>
+        <Can do={PERMISSIONS.LFA_CREATE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setDrawerOpen(true)}>New LFA</Button></Can>
       </Box>
       <DataGrid
         columns={[
@@ -63,6 +67,7 @@ export default function LfaPage() {
         hasFilters hasExport syncWithUrl
         detailPath={(row)=>`/lfa/${row.id}`}
       />
+      <LfaFormDrawer open={drawerOpen} onClose={()=>setDrawerOpen(false)} onSuccess={()=>qc.invalidateQueries({queryKey:['lfa','list']})} />
     </Box>
   )
 }

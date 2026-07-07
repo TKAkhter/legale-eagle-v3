@@ -30,6 +30,7 @@ const router = createBrowserRouter([
       { path: '/my-leads',          loader: protectedLoader(PERMISSIONS.MY_LEADS_VIEW),    element: L(() => import('./app/(dashboard)/my-leads/page')) },
       { path: '/clients',           loader: protectedLoader(PERMISSIONS.CLIENTS_VIEW),     element: L(() => import('./app/(dashboard)/clients/page')) },
       { path: '/clients/:clientId', loader: protectedLoader(PERMISSIONS.CLIENTS_VIEW),     element: L(() => import('./app/(dashboard)/clients/[clientId]/page')) },
+      { path: '/matters/check-conflict', loader: protectedLoader(PERMISSIONS.MATTERS_VIEW), element: L(() => import('./app/(dashboard)/matters/check-conflict/page')) },
       { path: '/matters',           loader: protectedLoader(PERMISSIONS.MATTERS_VIEW),     element: L(() => import('./app/(dashboard)/matters/page')) },
       { path: '/matters/:matterId', loader: protectedLoader(PERMISSIONS.MATTERS_VIEW),     element: L(() => import('./app/(dashboard)/matters/[matterId]/page')) },
       { path: '/time-log-entries',  loader: protectedLoader(PERMISSIONS.TIMELOGS_VIEW),    element: L(() => import('./app/(dashboard)/time-log-entries/page')) },

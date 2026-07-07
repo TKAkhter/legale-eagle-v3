@@ -15,6 +15,7 @@ import { useThemeStore } from '@lib/store/themeStore'
 import { useAuthStore } from '@lib/store/authStore'
 import { msalSignOut } from '@lib/auth/msal'
 import { StopwatchWidget } from './StopwatchWidget'
+import { NotificationsPanel } from './NotificationsPanel'
 
 /**
  * Toolbar
@@ -79,6 +80,7 @@ export function Toolbar({ height, sidebarWidth }: Props) {
           <IconButton size="small" onClick={toggleSidebar}><MenuIcon /></IconButton>
           <Box sx={{ flex: 1 }} />
           <StopwatchWidget />
+          <NotificationsPanel />
           <Tooltip title="Toggle theme">
             <IconButton size="small" onClick={toggleColorMode}><Brightness4Icon /></IconButton>
           </Tooltip>

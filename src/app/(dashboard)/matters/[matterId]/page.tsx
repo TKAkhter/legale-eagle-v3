@@ -10,6 +10,8 @@ import { formatCurrency } from '@lib/utils/formatCurrency'
 import { useStopwatchStore } from '@lib/store/stopwatchStore'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import AddIcon from '@mui/icons-material/Add'
+import { HearingFormDrawer } from '../_components/HearingFormDrawer'
+import { MatterCloseDialog } from '../_components/MatterCloseDialog'
 import { ActivityFormDrawer } from '../../time-log-entries/_components/ActivityFormDrawer'
 import { useState } from 'react'
 import type { GridParams } from '@/types/common.types'
@@ -18,6 +20,8 @@ export default function MatterDetailPage() {
   const { matterId } = useParams()
   const startStopwatch = useStopwatchStore(s => s.start)
   const [logTimeOpen, setLogTimeOpen] = useState(false)
+  const [hearingOpen, setHearingOpen] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
 
   const { data: matter, isLoading } = useQuery({
     queryKey: ['matters', 'detail', matterId],
@@ -70,6 +74,10 @@ export default function MatterDetailPage() {
               onClick={() => setLogTimeOpen(true)}>
               Log Time
             </Button>
+            <Button variant="outlined" size="small" color="error"
+              onClick={() => setCloseOpen(true)}>
+              Close Matter
+            </Button>
           </Box>
         </Box>
       </Paper>
@@ -95,17 +103,22 @@ export default function MatterDetailPage() {
         {
           label: 'Hearings',
           content: (
+            <Box>
+            <Box sx={{ display:'flex', justifyContent:'flex-end', mb:1.5 }}>
+              <Button size="small" variant="outlined" startIcon={<AddIcon/>} onClick={()=>setHearingOpen(true)}>Schedule Hearing</Button>
+            </Box>
             <DataGrid
               columns={[
-                { field: 'caseNo', header: 'Case No' },
-                { field: 'hearingDate', header: 'Date', renderCell: (v) => formatDate(String(v ?? '')) },
-                { field: 'hearingTime', header: 'Time' },
-                { field: 'status', header: 'Status', renderCell: (v) => <StatusBadge status={String(v ?? '')} /> },
+                { field:'caseNo', header:'Case No' },
+                { field:'hearingDate', header:'Date', renderCell:(v)=>formatDate(String(v??'')) },
+                { field:'hearingTime', header:'Time' },
+                { field:'status', header:'Status', renderCell:(v)=><StatusBadge status={String(v??'')} /> },
               ]}
-              queryKey={['matters', 'hearings', matterId]}
+              queryKey={['matters','hearings',matterId]}
               queryFn={fetchHearings}
               isPaginated={false}
             />
+            </Box>
           ),
         },
         {
@@ -147,6 +160,8 @@ export default function MatterDetailPage() {
         },
         { label: 'Documents', content: <Typography color="text.secondary" sx={{ p: 2 }}>Documents are stored in OneDrive. Configure the integration under Integrations → OneDrive.</Typography> },
       ]} />
+      <MatterCloseDialog open={closeOpen} onClose={()=>setCloseOpen(false)} matterId={matterId!} matterTitle={matter?.title??''} />
+      <HearingFormDrawer open={hearingOpen} onClose={()=>setHearingOpen(false)} matterId={matterId!} />
       <ActivityFormDrawer
         open={logTimeOpen}
         onClose={() => setLogTimeOpen(false)}

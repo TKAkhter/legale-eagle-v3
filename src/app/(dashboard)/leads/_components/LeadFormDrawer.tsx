@@ -11,6 +11,7 @@ import { ControlledSelect } from '@components/forms/ControlledSelect'
 import { ControlledAsyncSelect } from '@components/forms/ControlledAsyncSelect'
 import { ControlledDatePicker } from '@components/forms/ControlledDatePicker'
 import { QK } from '@lib/query/keys'
+import { registerOneDriveFolder } from '@lib/utils/onedrive'
 import { leadSchema, type LeadForm } from '@lib/validations/lead.schema'
 
 interface Props {
@@ -75,7 +76,10 @@ export function LeadFormDrawer({ open, onClose, leadId, onSuccess }: Props) {
     if (isEdit) {
       await axiosClient.post('/api/leads/edit', { ...payload, leadId })
     } else {
-      await axiosClient.post('/api/leads/add', payload)
+      const res = await axiosClient.post('/api/leads/add', payload)
+      const newId = res.data?.data?.id ?? res.data?.id
+      const name = `${payload.firstName ?? ''} ${payload.lastName ?? ''}`.trim() || (payload.companyName ?? '')
+      if (newId) registerOneDriveFolder(newId, name, 'Leads')
     }
     qc.invalidateQueries({ queryKey: QK.leads.all() })
     onSuccess?.()
