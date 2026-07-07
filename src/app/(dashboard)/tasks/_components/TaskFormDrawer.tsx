@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Alert } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -17,6 +18,7 @@ interface Props { open: boolean; onClose: () => void; taskId?: string; onSuccess
 
 export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const isEdit = !!taskId
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
     resolver: zodResolver(taskSchema),
@@ -29,6 +31,8 @@ export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
   const userOpts = (users as Record<string, string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
 
   async function onSubmit(data: TaskForm) {
+    setSubmitError(null)
+    try {
     const payload = {
       taskName: data.taskName,
       eventType: data.eventType,
@@ -47,6 +51,13 @@ export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
     qc.invalidateQueries({ queryKey: QK.tasks.all() })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -55,6 +66,7 @@ export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel={isEdit ? 'Update' : 'Create Task'}>
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Task Info">
         <ControlledInput name="taskName" control={control} label="Task Name" required />
         <ControlledSelect name="priority" control={control} label="Priority"

@@ -5,6 +5,7 @@ import { axiosClient } from '@lib/api/axios'
 import { QK } from '@lib/query/keys'
 import { formatCurrency } from '@lib/utils/formatCurrency'
 import { ChartEmptyState } from '@components/ui/ChartEmptyState'
+import { DashboardSetup } from './_components/DashboardSetup'
 
 function KpiCard({ title, value, loading, prefix = '', suffix = '' }: { title: string; value?: number | string; loading: boolean; prefix?: string; suffix?: string }) {
   return (
@@ -65,7 +66,10 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>Dashboard</Typography>
+      <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', mb:3 }}>
+        <Typography variant="h5" sx={{ fontWeight:600 }}>Dashboard</Typography>
+        <DashboardSetup />
+      </Box>
 
       {/* KPI Cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 2, mb: 3 }}>

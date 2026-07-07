@@ -1,9 +1,9 @@
 import { Box, Typography, Alert } from '@mui/material'
 import { Link } from 'react-router-dom'
-import { featureFlags } from '@config/featureFlags'
+import { env } from '@config/featureFlags'
 
 export default function RegisterPage() {
-  if (!featureFlags.enableUserRegistration) {
+  if (!env.VITE_ENABLE_USER_REGISTRATION) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Alert severity="info">

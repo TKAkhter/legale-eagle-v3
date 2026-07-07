@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Box } from '@mui/material'
+import { Box, Alert } from '@mui/material'
 import { useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -27,6 +27,7 @@ interface Props { open: boolean; onClose: () => void; leadId: string; onSuccess?
 
 export function FollowupFormDrawer({ open, onClose, leadId, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: { stageCompleted: false, followUpTime: new Date().toISOString().slice(0,10) },
@@ -38,6 +39,8 @@ export function FollowupFormDrawer({ open, onClose, leadId, onSuccess }: Props) 
   const userOpts = (users as Record<string,string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
 
   async function onSubmit(data: Form) {
+    setSubmitError(null)
+    try {
     await axiosClient.post('/api/leads/add/followup', {
       leadId,
       followUpContent:  data.followUpContent,
@@ -50,6 +53,13 @@ export function FollowupFormDrawer({ open, onClose, leadId, onSuccess }: Props) 
     qc.invalidateQueries({ queryKey: ['leads','followups', leadId] })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -57,6 +67,7 @@ export function FollowupFormDrawer({ open, onClose, leadId, onSuccess }: Props) 
       subtitle="Record activity or schedule the next follow-up"
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel="Save Follow-up" width={440}>
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Follow-up Details">
         <ControlledInput name="followUpContent" control={control} label="Notes *" multiline rows={4} required />
         <ControlledDatePicker name="followUpTime"     control={control} label="Follow-up Date *" required />

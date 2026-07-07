@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Box } from '@mui/material'
+import { Box, Alert } from '@mui/material'
 import { useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -25,11 +25,14 @@ interface Props { open: boolean; onClose: () => void; matterId: string; hearingI
 
 export function HearingFormDrawer({ open, onClose, matterId, hearingId }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
 
   useEffect(() => { if (!open) reset() }, [open, reset])
 
   async function onSubmit(data: Form) {
+    setSubmitError(null)
+    try {
     const payload = { ...data, matter: { id: matterId } }
     if (hearingId) {
       await axiosClient.post('/api/hearing/edit', { ...payload, hearingId })
@@ -38,6 +41,13 @@ export function HearingFormDrawer({ open, onClose, matterId, hearingId }: Props)
     }
     qc.invalidateQueries({ queryKey: ['matters','hearings', matterId] })
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -45,6 +55,7 @@ export function HearingFormDrawer({ open, onClose, matterId, hearingId }: Props)
       title={hearingId ? 'Edit Hearing' : 'Schedule Hearing'}
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel={hearingId ? 'Update' : 'Schedule'} width={440}>
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Hearing Details">
         <ControlledInput name="caseNo" control={control} label="Case Number" />
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>

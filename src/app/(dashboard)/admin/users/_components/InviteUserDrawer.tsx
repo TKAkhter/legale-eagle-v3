@@ -1,6 +1,8 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { z } from 'zod'
+import { Alert } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -25,6 +27,7 @@ interface Props { open: boolean; onClose: () => void; onSuccess?: () => void }
 
 export function InviteUserDrawer({ open, onClose, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { companyUserType: 'ATTORNEY' },
@@ -39,6 +42,8 @@ export function InviteUserDrawer({ open, onClose, onSuccess }: Props) {
   const groupOpts = (groups       as Record<string,string>[]).map(g => ({ value: g.id, label: g.name }))
 
   async function onSubmit(data: Form) {
+    setSubmitError(null)
+    try {
     await axiosClient.post('/api/user/sendRequest', {
       firstName:       data.firstName,
       lastName:        data.lastName,
@@ -52,6 +57,13 @@ export function InviteUserDrawer({ open, onClose, onSuccess }: Props) {
     onSuccess?.()
     onClose()
     reset()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -59,6 +71,7 @@ export function InviteUserDrawer({ open, onClose, onSuccess }: Props) {
       subtitle="Send an invitation email to a new team member"
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting} submitLabel="Send Invitation">
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Personal Details">
         <ControlledInput name="firstName" control={control} label="First Name" required />
         <ControlledInput name="lastName" control={control} label="Last Name" />

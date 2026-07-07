@@ -9,6 +9,8 @@ import { formatCurrency } from '@lib/utils/formatCurrency'
 import { downloadBlob } from '@lib/utils/downloadBlob'
 import { RecordPaymentDialog } from '../_components/RecordPaymentDialog'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import EmailIcon from '@mui/icons-material/Email'
+import DescriptionIcon from '@mui/icons-material/Description'
 import PaidIcon from '@mui/icons-material/Paid'
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -24,6 +26,8 @@ export default function InvoiceDetailPage() {
   const { invoiceId } = useParams()
   const [downloading, setDownloading] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
+  const [emailing, setEmailing] = useState(false)
+  const [dlWord, setDlWord] = useState(false)
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoices', 'detail', invoiceId],
@@ -33,6 +37,20 @@ export default function InvoiceDetailPage() {
     },
     enabled: !!invoiceId,
   })
+
+  async function emailInvoice() {
+    setEmailing(true)
+    try { await axiosClient.post('/api/invoice/send/email', null, { params: { invoiceId } }) }
+    finally { setEmailing(false) }
+  }
+
+  async function downloadWord() {
+    setDlWord(true)
+    try {
+      const r = await axiosBlob.get('/api/invoice/convert/word', { params: { invoiceId } })
+      downloadBlob(r.data as Blob, `invoice-${invoice?.invoiceNo ?? invoiceId}.docx`)
+    } finally { setDlWord(false) }
+  }
 
   async function downloadPdf() {
     setDownloading(true)
@@ -60,6 +78,12 @@ export default function InvoiceDetailPage() {
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadPdf} disabled={downloading}>
             {downloading ? 'Downloading…' : 'PDF'}
+          </Button>
+          <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={downloadWord} disabled={dlWord}>
+            {dlWord ? 'Exporting…' : 'Word'}
+          </Button>
+          <Button variant="outlined" startIcon={<EmailIcon />} onClick={emailInvoice} disabled={emailing}>
+            {emailing ? 'Sending…' : 'Email'}
           </Button>
           {balance > 0 && (
             <Button variant="contained" color="success" startIcon={<PaidIcon />} onClick={() => setPayOpen(true)}>

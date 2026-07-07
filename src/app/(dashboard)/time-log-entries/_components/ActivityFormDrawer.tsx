@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Box } from '@mui/material'
+import { Box, Alert } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -18,6 +18,7 @@ interface Props { open: boolean; onClose: () => void; prefillMatterId?: string; 
 
 export function ActivityFormDrawer({ open, onClose, prefillMatterId, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
     resolver: zodResolver(activitySchema),
     defaultValues: { activityType: 'Time', billable: true, entryDate: new Date().toISOString().slice(0, 10), matterId: prefillMatterId ?? '' },
@@ -32,6 +33,8 @@ export function ActivityFormDrawer({ open, onClose, prefillMatterId, onSuccess }
   const userOpts = (users as Record<string, string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
 
   async function onSubmit(data: ActivityForm) {
+    setSubmitError(null)
+    try {
     await axiosClient.post('/api/activity/add/v2', {
       activity: data.activity,
       matter: { id: data.matterId },
@@ -48,6 +51,13 @@ export function ActivityFormDrawer({ open, onClose, prefillMatterId, onSuccess }
     qc.invalidateQueries({ queryKey: ['activities'] })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -55,6 +65,7 @@ export function ActivityFormDrawer({ open, onClose, prefillMatterId, onSuccess }
       subtitle="Record billable time, expense, or fixed fee"
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting} submitLabel="Save Entry">
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Activity">
         <ControlledInput name="activity" control={control} label="Activity Description" required multiline rows={2} />
         <ControlledSelect name="activityType" control={control} label="Type"

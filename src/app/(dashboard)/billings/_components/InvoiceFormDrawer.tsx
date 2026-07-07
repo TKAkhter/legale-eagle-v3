@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Box, Typography, Checkbox, Paper, Chip } from '@mui/material'
+import { Box, Alert, Typography, Checkbox, Paper, Chip } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -16,6 +16,7 @@ interface Props { open: boolean; onClose: () => void; onSuccess?: () => void }
 
 export function InvoiceFormDrawer({ open, onClose, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const [selectedActivities, setSelectedActivities] = useState<string[]>([])
   const [activities, setActivities] = useState<Record<string, unknown>[]>([])
 
@@ -73,6 +74,8 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess }: Props) {
   }
 
   async function onSubmit(data: Record<string, unknown>) {
+    setSubmitError(null)
+    try {
     await axiosClient.post('/api/invoice/add', {
       matter:      { id: data.matterId },
       lfa:         data.lfaId ? { id: data.lfaId } : undefined,
@@ -86,6 +89,13 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess }: Props) {
     qc.invalidateQueries({ queryKey: ['invoices', 'list'] })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   const totalSelected = activities
@@ -98,6 +108,7 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess }: Props) {
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel="Create Invoice" width={600}>
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Matter & Agreement">
         <ControlledAsyncSelect name="matterId" control={control} label="Matter *" options={matterOpts} required />
         <ControlledAsyncSelect name="lfaId"    control={control} label="LFA (optional)" options={lfaOpts} />

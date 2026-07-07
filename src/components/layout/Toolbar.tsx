@@ -15,6 +15,7 @@ import { useThemeStore } from '@lib/store/themeStore'
 import { useAuthStore } from '@lib/store/authStore'
 import { msalSignOut } from '@lib/auth/msal'
 import { StopwatchWidget } from './StopwatchWidget'
+import { GlobalSearch } from './GlobalSearch'
 import { NotificationsPanel } from './NotificationsPanel'
 
 /**
@@ -78,7 +79,8 @@ export function Toolbar({ height, sidebarWidth }: Props) {
       >
         <Box sx={{ px: 2, gap: 1, display: 'flex', alignItems: 'center', height: '100%' }}>
           <IconButton size="small" onClick={toggleSidebar}><MenuIcon /></IconButton>
-          <Box sx={{ flex: 1 }} />
+          <GlobalSearch />
+          <Box sx={{ flex:1 }} />
           <StopwatchWidget />
           <NotificationsPanel />
           <Tooltip title="Toggle theme">

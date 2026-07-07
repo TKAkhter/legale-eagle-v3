@@ -7,7 +7,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { axiosClient } from '@lib/api/axios'
 import { useAuthStore } from '@lib/store/authStore'
 import { extractAccessScope } from '@lib/auth/jwt'
-import { featureFlags } from '@config/featureFlags'
+import { env } from '@config/featureFlags'
 import { ControlledInput } from '@components/forms/ControlledInput'
 import { msalLoginPopup } from '@lib/auth/msal'
 import WindowIcon from '@mui/icons-material/Window'
@@ -53,7 +53,7 @@ export default function LoginPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {!featureFlags.forceMicrosoftSSO && (
+      {!env.VITE_FORCE_MICROSOFT_SSO && (
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <ControlledInput name="username" control={control} label="Email address" type="email" required />
           <Box>
@@ -73,7 +73,7 @@ export default function LoginPage() {
         Continue with Microsoft
       </Button>
 
-      {featureFlags.enableUserRegistration && (
+      {env.VITE_ENABLE_USER_REGISTRATION && (
         <Typography variant="body2" sx={{ mt: 2.5, textAlign: 'center' }} color="text.secondary">
           Don't have an account?{' '}
           <Link to="/register" style={{ color: '#0F3C6E', fontWeight: 500 }}>Create one</Link>

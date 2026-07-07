@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Box } from '@mui/material'
+import { Box, Alert } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -22,6 +22,7 @@ interface Props { open: boolean; onClose: () => void; matterId?: string; onSucce
 
 export function MatterFormDrawer({ open, onClose, matterId, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const isEdit = !!matterId
 
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
@@ -75,6 +76,8 @@ export function MatterFormDrawer({ open, onClose, matterId, onSuccess }: Props) 
   const paOpts   = (practiceAreas as Record<string, string>[]).map(p => ({ value: p.id, label: p.name }))
 
   async function onSubmit(data: MatterForm) {
+    setSubmitError(null)
+    try {
     const payload = {
       title: data.title,
       client: { id: data.clientId },
@@ -97,6 +100,13 @@ export function MatterFormDrawer({ open, onClose, matterId, onSuccess }: Props) 
     qc.invalidateQueries({ queryKey: QK.matters.all() })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -106,6 +116,7 @@ export function MatterFormDrawer({ open, onClose, matterId, onSuccess }: Props) 
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel={isEdit ? 'Update' : 'Open Matter'} width={560}>
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Matter Details">
         <ControlledInput name="title" control={control} label="Matter Title" required />
         <ControlledInput name="caseNo" control={control} label="Case / Reference Number" />

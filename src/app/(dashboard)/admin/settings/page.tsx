@@ -2,7 +2,7 @@ import { Box, Typography, Paper, Divider, Switch, FormControlLabel, Tabs as MuiT
 import { useState } from 'react'
 import { useThemeStore } from '@lib/store/themeStore'
 import { useAuthStore } from '@lib/store/authStore'
-import { featureFlags } from '@config/featureFlags'
+import { env } from '@config/featureFlags'
 import { LookupManager } from './_components/LookupManager'
 
 export default function SettingsPage() {
@@ -59,8 +59,8 @@ export default function SettingsPage() {
           <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
             <Typography variant="body2"><strong>API URL:</strong> {import.meta.env['VITE_API_BASE_URL']}</Typography>
             <Typography variant="body2"><strong>Environment:</strong> {import.meta.env['VITE_APP_ENV'] ?? 'development'}</Typography>
-            <Typography variant="body2"><strong>Microsoft SSO:</strong> {featureFlags.forceMicrosoftSSO ? 'Enabled' : 'Disabled'}</Typography>
-            <Typography variant="body2"><strong>User Registration:</strong> {featureFlags.enableUserRegistration ? 'Enabled' : 'Disabled'}</Typography>
+            <Typography variant="body2"><strong>Microsoft SSO:</strong> {env.VITE_FORCE_MICROSOFT_SSO ? 'Enabled' : 'Disabled'}</Typography>
+            <Typography variant="body2"><strong>User Registration:</strong> {env.VITE_ENABLE_USER_REGISTRATION ? 'Enabled' : 'Disabled'}</Typography>
           </Box>
         </Paper>
       )}

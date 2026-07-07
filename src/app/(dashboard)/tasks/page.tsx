@@ -1,4 +1,4 @@
-import { Box, Typography, Button } from '@mui/material'
+import { Box, Typography, Button, Chip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
@@ -35,7 +35,10 @@ export default function TasksPage() {
         columns={[
           { field: 'taskName', header: 'Task' },
           { field: 'taskType', header: 'Related To' },
-          { field: 'priority', header: 'Priority', renderCell: (v) => <StatusBadge status={String(v ?? 'Normal')} /> },
+          { field: 'priority', header: 'Priority', renderCell: (v) => {
+            const color = v === 'High' ? 'error' : v === 'Low' ? 'default' : 'warning'
+            return <Chip size="small" label={String(v ?? 'Normal')} color={color as 'error'|'warning'|'default'} variant="outlined" />
+          }},
           { field: 'taskDeadLine', header: 'Deadline', renderCell: (v) => formatDate(String(v ?? '')) },
         ]}
         queryKey={['tasks', 'list']}

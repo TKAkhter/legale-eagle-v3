@@ -8,7 +8,21 @@ import { useStopwatchStore, formatElapsed } from '@lib/store/stopwatchStore'
 import { axiosClient } from '@lib/api/axios'
 
 export function StopwatchWidget() {
-  const { status, elapsed, matterId, matterTitle, tick, pause, resume, end } = useStopwatchStore()
+  const { status, elapsed, matterId, matterTitle, tick, pause, resume, end, start, setElapsed } = useStopwatchStore()
+
+  // Sync with backend stopwatch state on mount
+  useEffect(() => {
+    axiosClient.get('/api/activity/stopwatch/info')
+      .then(r => {
+        const info = r.data?.data ?? r.data
+        if (info?.activityTimerStatus === 'Start' || info?.activityTimerStatus === 'Resume') {
+          if (!info.matterId) return
+          start(info.matterId, info.matterTitle ?? '', info.stopwatchId)
+          setElapsed(info.elapsedSeconds ?? 0)
+        }
+      })
+      .catch(() => { /* stopwatch info unavailable, ignore */ })
+  }, [])
 
   useEffect(() => {
     if (status !== 'running') return

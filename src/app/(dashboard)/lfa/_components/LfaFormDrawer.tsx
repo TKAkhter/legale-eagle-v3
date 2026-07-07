@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Box } from '@mui/material'
+import { Box, Alert } from '@mui/material'
 import { useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -18,6 +18,7 @@ interface Props { open:boolean; onClose:()=>void; lfaId?:string; onSuccess?:()=>
 
 export function LfaFormDrawer({ open, onClose, lfaId, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const isEdit = !!lfaId
 
   const { control, handleSubmit, watch, reset, formState:{ isSubmitting } } = useForm({
@@ -32,6 +33,8 @@ export function LfaFormDrawer({ open, onClose, lfaId, onSuccess }: Props) {
   useEffect(() => { if (!open) reset() }, [open, reset])
 
   async function onSubmit(data: Record<string, unknown>) {
+    setSubmitError(null)
+    try {
     const payload = {
       agreementNo:         data.agreementNo,
       lfaTitle:            data.lfaTitle,
@@ -54,6 +57,13 @@ export function LfaFormDrawer({ open, onClose, lfaId, onSuccess }: Props) {
     qc.invalidateQueries({ queryKey: QK.lfa.all() })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -63,6 +73,7 @@ export function LfaFormDrawer({ open, onClose, lfaId, onSuccess }: Props) {
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel={isEdit ? 'Update' : 'Create LFA'} width={520}>
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Agreement Info">
         <ControlledInput name="agreementNo" control={control} label="Agreement Number" />
         <ControlledInput name="lfaTitle"    control={control} label="Title / Description" />

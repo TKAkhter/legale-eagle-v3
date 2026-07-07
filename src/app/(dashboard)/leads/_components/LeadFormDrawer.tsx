@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Box, MenuItem } from '@mui/material'
+import { Box, Alert, MenuItem } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -23,6 +23,7 @@ interface Props {
 
 export function LeadFormDrawer({ open, onClose, leadId, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const isEdit = !!leadId
 
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
@@ -61,6 +62,8 @@ export function LeadFormDrawer({ open, onClose, leadId, onSuccess }: Props) {
   const { data: sources = [] } = useQuery({ queryKey: QK.sources.list(), queryFn: () => axiosClient.get('/api/lead-source/get').then(r => r.data?.data ?? []) })
 
   async function onSubmit(data: LeadForm) {
+    setSubmitError(null)
+    try {
     const payload = {
       firstName: data.firstName,
       lastName: data.lastName,
@@ -84,6 +87,13 @@ export function LeadFormDrawer({ open, onClose, leadId, onSuccess }: Props) {
     qc.invalidateQueries({ queryKey: QK.leads.all() })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   const userOptions = (users as Record<string, string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
@@ -96,6 +106,7 @@ export function LeadFormDrawer({ open, onClose, leadId, onSuccess }: Props) {
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel={isEdit ? 'Update' : 'Create Lead'}>
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Basic Info">
         <ControlledSelect name="leadType" control={control} label="Lead Type"
           options={[{ value: 'PERSON', label: 'Individual' }, { value: 'COMPANY', label: 'Company' }]} />

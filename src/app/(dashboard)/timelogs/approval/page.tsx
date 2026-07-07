@@ -50,6 +50,17 @@ export default function TimelogsApprovalPage() {
         ]}
         queryKey={['timelogs','approval']} queryFn={fetchForApproval}
         FilterPanel={FilterPanel} hasFilters syncWithUrl
+        hasRowSelection
+        bulkActions={[{
+          label: 'Approve Selected',
+          onClick: async (rows) => {
+            try {
+              await axiosClient.post('/api/activity/approve', { activityIds: rows.map(r => r.id), status: 'APPROVED' })
+              qc.invalidateQueries({ queryKey: ['timelogs','approval'] })
+              setSnack({ open:true, msg:`${rows.length} entries approved`, severity:'success' })
+            } catch { setSnack({ open:true, msg:'Bulk approval failed', severity:'error' }) }
+          }
+        }]}
         rowMenuItems={(row)=>[
           { label:'Approve', icon:<CheckIcon fontSize="small"/>, permission:'timelogs:approve', onClick:()=>handleAction(row,true) },
           { label:'Reject',  icon:<CloseIcon fontSize="small"/>,  permission:'timelogs:approve', color:'error', onClick:()=>handleAction(row,false) },

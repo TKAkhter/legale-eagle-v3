@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Box } from '@mui/material'
+import { Box, Alert } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -17,6 +17,7 @@ interface Props { open: boolean; onClose: () => void; clientId?: string; onSucce
 
 export function ClientFormDrawer({ open, onClose, clientId, onSuccess }: Props) {
   const qc = useQueryClient()
+  const [submitError, setSubmitError] = useState<string|null>(null)
   const isEdit = !!clientId
 
   const { control, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm({
@@ -51,6 +52,8 @@ export function ClientFormDrawer({ open, onClose, clientId, onSuccess }: Props) 
   useEffect(() => { if (!open) reset() }, [open, reset])
 
   async function onSubmit(data: ClientForm) {
+    setSubmitError(null)
+    try {
     const payload = {
       ...data,
       email: data.email ? [{ emailId: data.email, type: 'Work', primary: true }] : [],
@@ -67,6 +70,13 @@ export function ClientFormDrawer({ open, onClose, clientId, onSuccess }: Props) 
     qc.invalidateQueries({ queryKey: QK.clients.all() })
     onSuccess?.()
     onClose()
+    } catch (e: unknown) {
+      setSubmitError(
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
+        ?? 'Something went wrong. Please try again.'
+      )
+    }
   }
 
   return (
@@ -76,6 +86,7 @@ export function ClientFormDrawer({ open, onClose, clientId, onSuccess }: Props) 
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
       submitLabel={isEdit ? 'Update' : 'Create Client'}>
 
+      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Basic Info">
         <ControlledSelect name="clientType" control={control} label="Client Type"
           options={[{ value: 'PERSON', label: 'Individual' }, { value: 'COMPANY', label: 'Company' }]} />
