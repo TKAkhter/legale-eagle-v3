@@ -1,0 +1,10 @@
+// Re-export infrastructure from existing lib/ (backward compatible during migration)
+export { axiosClient as apiClient, axiosBlob as blobClient, bootstrapAxiosAuth as bootstrapAuth } from "../lib/api/axios"
+export { queryClient } from "../lib/query/queryClient"
+export { QK }          from "../lib/query/keys"
+export { formatDate, formatDateTime, fromNow } from "../lib/utils/formatDate"
+export { formatCurrency }       from "../lib/utils/formatCurrency"
+export { downloadBlob }         from "../lib/utils/downloadBlob"
+export { useAuthStore }         from "../lib/store/authStore"
+export { useThemeStore }        from "../lib/store/themeStore"
+export { useStopwatchStore }    from "../lib/store/stopwatchStore"

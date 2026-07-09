@@ -22,7 +22,7 @@
 import { redirect } from 'react-router-dom'
 import { useAuthStore } from '@lib/store/authStore'
 import { isTokenExpired } from '@lib/auth/jwt'
-import { env } from '@config/featureFlags'
+import { featureFlags } from '@config/featureFlags'
 import { hasPermission } from '@lib/auth/permissions'
 
 type MiddlewareFn = () => Response | null
@@ -36,7 +36,7 @@ export function authMiddleware(): Response | null {
 }
 
 export function ssoMiddleware(): Response | null {
-  if (env.VITE_FORCE_MICROSOFT_SSO) {
+  if (featureFlags.forceMicrosoftSSO) {
     const { accessToken } = useAuthStore.getState()
     if (!accessToken) {
       return redirect('/login?sso=1') as unknown as Response
@@ -73,7 +73,7 @@ export function runMiddleware(fns: MiddlewareFn[]): Response | null {
 export function protectedLoader(permission?: string) {
   return () => {
     const chain: MiddlewareFn[] = [authMiddleware]
-    if (env.VITE_FORCE_MICROSOFT_SSO) chain.push(ssoMiddleware)
+    if (featureFlags.forceMicrosoftSSO) chain.push(ssoMiddleware)
     if (permission) chain.push(() => rbacMiddleware(permission))
     return runMiddleware(chain)
   }

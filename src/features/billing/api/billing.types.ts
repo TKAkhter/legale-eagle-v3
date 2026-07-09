@@ -1,0 +1,2 @@
+export interface Invoice { id: string; invoiceNo: string; billingType?: string; matter?: { id: string; title?: string }; client?: { id: string; companyName?: string; firstName?: string }; amount?: number; vatAmount?: number; taxableAmount?: number; paidAmount?: number; balanceAmount?: number; invoiceStatus: string; issueDate?: string; dueDate?: string }
+export interface CreateInvoiceDto { matterId: string; lfaId?: string; issueDate: string; dueDate: string; tax: number; discount: number; notes?: string; activityIds?: string[] }

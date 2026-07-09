@@ -1,0 +1,2 @@
+export interface LfaItem { id: string; agreementNo?: string; lfaTitle?: string; billingType: string; fixedBillingAmount?: number; current?: boolean; agreementDate?: string }
+export interface CreateLfaDto { agreementNo?: string; lfaTitle?: string; billingType: string; fixedBillingAmount?: number; cap: boolean; capAmount?: number; retainer: boolean; retainerAmount?: number; referral: boolean; referralPercentage?: number; agreementDate?: string }

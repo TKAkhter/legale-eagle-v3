@@ -7,12 +7,12 @@ import { useNavigate, Link } from 'react-router-dom'
 import { axiosClient } from '@lib/api/axios'
 import { useAuthStore } from '@lib/store/authStore'
 import { extractAccessScope } from '@lib/auth/jwt'
-import { env } from '@config/featureFlags'
+import { featureFlags } from '@config/featureFlags'
 import { ControlledInput } from '@components/forms/ControlledInput'
 import { msalLoginPopup } from '@lib/auth/msal'
 import WindowIcon from '@mui/icons-material/Window'
 
-const schema = z.object({ username: z.string().email('Invalid email'), password: z.string().min(1, 'Required') })
+const schema = z.object({ email: z.string().email('Invalid email'), password: z.string().min(1, 'Required') })
 type Form = z.infer<typeof schema>
 
 export default function LoginPage() {
@@ -53,9 +53,9 @@ export default function LoginPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {!env.VITE_FORCE_MICROSOFT_SSO && (
+      {!featureFlags.forceMicrosoftSSO && (
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <ControlledInput name="username" control={control} label="Email address" type="email" required />
+          <ControlledInput name="email" control={control} label="Email address" type="email" required />
           <Box>
             <ControlledInput name="password" control={control} label="Password" type="password" required />
             <Box sx={{ textAlign: 'right', mt: 0.5 }}>
@@ -73,7 +73,7 @@ export default function LoginPage() {
         Continue with Microsoft
       </Button>
 
-      {env.VITE_ENABLE_USER_REGISTRATION && (
+      {featureFlags.enableUserRegistration && (
         <Typography variant="body2" sx={{ mt: 2.5, textAlign: 'center' }} color="text.secondary">
           Don't have an account?{' '}
           <Link to="/register" style={{ color: '#0F3C6E', fontWeight: 500 }}>Create one</Link>

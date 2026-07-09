@@ -1,0 +1,2 @@
+export interface Task { id: string; taskName: string; priority: "High"|"Normal"|"Low"; taskStatus: string; taskDeadLine?: string; taskDescription?: string; assignedTo?: { id: string; firstName: string; lastName: string } }
+export interface CreateTaskDto { taskName: string; eventType: "MATTER"|"CLIENT"|"LEAD"|"GENERAL"; assignedToId?: string; taskDeadLine?: string; priority: "High"|"Normal"|"Low"; taskDescription?: string; requiresApproval: boolean }

@@ -1,0 +1,2 @@
+export interface TimelogEntry { id: string; activity: string; matter?: Record<string,string>; totalHours?: number; billing?: number; revenueStatus?: string; entryDate?: string }
+export interface CreateActivityDto { matterId: string; activity: string; activityType: "Time"|"Expense"|"Fixed"; hours?: number; minutes?: number; rate?: number; billable: boolean; entryDate: string; responsiblePersonId?: string }

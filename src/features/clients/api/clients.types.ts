@@ -1,0 +1,3 @@
+export interface Client { id: string; firstName?: string; lastName?: string; companyName?: string; clientType: "PERSON"|"COMPANY"; email?: string; phone?: string; trnNo?: string; nationality?: string; referral?: boolean; referralName?: string; active?: boolean }
+export interface CreateClientDto { firstName: string; lastName?: string; companyName?: string; clientType: "PERSON"|"COMPANY"; email?: string; phone?: string; trnNo?: string; nationality?: string; referral?: boolean; referralName?: string }
+export interface ClientShortInfo { id: string; companyName?: string; firstName?: string; lastName?: string }
