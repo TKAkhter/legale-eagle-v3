@@ -30,6 +30,7 @@ export function ControlledInput<T extends FieldValues>({
       render={({ field, fieldState }) => (
         <TextField
           {...field}
+          value={field.value ?? ''}
           label={label}
           type={resolvedType}
           multiline={multiline}

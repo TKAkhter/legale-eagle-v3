@@ -12,7 +12,7 @@ import { ControlledInput } from '@components/forms/ControlledInput'
 import { msalLoginPopup } from '@lib/auth/msal'
 import WindowIcon from '@mui/icons-material/Window'
 
-const schema = z.object({ email: z.string().email('Invalid email'), password: z.string().min(1, 'Required') })
+const schema = z.object({ username: z.string().email('Invalid email'), password: z.string().min(1, 'Required') })
 type Form = z.infer<typeof schema>
 
 export default function LoginPage() {
@@ -55,7 +55,7 @@ export default function LoginPage() {
 
       {!featureFlags.forceMicrosoftSSO && (
         <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <ControlledInput name="email" control={control} label="Email address" type="email" required />
+          <ControlledInput name="username" control={control} label="Email address" type="email" required />
           <Box>
             <ControlledInput name="password" control={control} label="Password" type="password" required />
             <Box sx={{ textAlign: 'right', mt: 0.5 }}>
