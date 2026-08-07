@@ -1,35 +1,52 @@
 /**
- * config/env.ts — single source of truth for ALL environment variables and feature flags.
+ * config/env.ts — ALL environment variables in one place.
  *
- * Usage:
- *   import { env } from "@/config/env"
- *   if (env.USE_STATIC_DATA) { ... }
+ * Copy .env.example to .env.local and set values for your environment.
  *
- * VITE_USE_STATIC_DATA=true  → use src/data/static.ts (no backend, no network calls)
- * VITE_USE_STATIC_DATA=false → call real API at VITE_API_BASE_URL
+ * Key flags:
+ *   VITE_USE_STATIC_DATA=true   → no backend needed, uses src/data/static.ts
+ *   VITE_USE_STATIC_DATA=false  → calls real backend APIs
+ *
+ *   VITE_ENABLE_LOGS=true       → show debug logs in console (dev only)
+ *   VITE_ENABLE_LOGS=false      → silent (production)
+ *
+ *   VITE_DYNAMIC_NAV=true       → sidebar nav comes from /api/user/get/access/menu
+ *   VITE_DYNAMIC_NAV=false      → sidebar nav uses static config/navigation.ts
  */
 export const env = {
-  // API
-  API_BASE_URL:       import.meta.env["VITE_API_BASE_URL"]              as string ?? "",
+  // ── Backend ────────────────────────────────────────────────────────────────
+  API_BASE_URL:       (import.meta.env["VITE_API_BASE_URL"]        as string) ?? "",
 
-  // Data mode — THE most important flag
-  USE_STATIC_DATA:    import.meta.env["VITE_USE_STATIC_DATA"]           === "true",
+  // ── Data mode ─────────────────────────────────────────────────────────────
+  /** true = use static fixtures, no network calls to backend */
+  USE_STATIC_DATA:    import.meta.env["VITE_USE_STATIC_DATA"]      === "true",
 
-  // Auth
-  FORCE_MS_SSO:       import.meta.env["VITE_FORCE_MICROSOFT_SSO"]       === "true",
-  ENABLE_REGISTER:    import.meta.env["VITE_ENABLE_USER_REGISTRATION"]   === "true",
+  // ── Navigation ────────────────────────────────────────────────────────────
+  /**
+   * true  = sidebar nav driven by /api/user/get/access/menu response
+   * false = sidebar nav uses static navigationConfig in config/navigation.ts
+   *         (useful when building UI without a backend)
+   */
+  DYNAMIC_NAV:        import.meta.env["VITE_DYNAMIC_NAV"]          !== "false",
 
-  // Microsoft / OneDrive
-  AZURE_CLIENT_ID:    import.meta.env["AZURE_CLIENT_ID"]           as string ?? "",
-  AZURE_TENANT_ID:    import.meta.env["VITE_AZURE_TENANT_ID"]           as string ?? "",
-  AZURE_REDIRECT_URI: import.meta.env["VITE_AZURE_REDIRECT_URI"]        as string ?? "http://localhost:3000",
-  ONEDRIVE_CLIENT_ID: import.meta.env["ONEDRIVE_CLIENT_ID"]        as string ?? "",
+  // ── Logging ───────────────────────────────────────────────────────────────
+  /** true = show debug/info/warn/error logs in browser console */
+  ENABLE_LOGS:        import.meta.env["VITE_ENABLE_LOGS"]          === "true",
 
-  // App
-  APP_ENV:            (import.meta.env["VITE_APP_ENV"] as string)        ?? "development",
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  FORCE_MS_SSO:       import.meta.env["VITE_FORCE_MICROSOFT_SSO"]  === "true",
+  ENABLE_REGISTER:    import.meta.env["VITE_ENABLE_USER_REGISTRATION"] === "true",
+
+  // ── Microsoft / Azure ─────────────────────────────────────────────────────
+  AZURE_CLIENT_ID:    (import.meta.env["VITE_AZURE_CLIENT_ID"]     as string) ?? "",
+  AZURE_TENANT_ID:    (import.meta.env["VITE_AZURE_TENANT_ID"]     as string) ?? "",
+  AZURE_REDIRECT_URI: (import.meta.env["VITE_AZURE_REDIRECT_URI"]  as string) ?? "http://localhost:3000",
+  ONEDRIVE_CLIENT_ID: (import.meta.env["VITE_ONEDRIVE_CLIENT_ID"]  as string) ?? "",
+
+  // ── App ───────────────────────────────────────────────────────────────────
+  APP_ENV: (import.meta.env["VITE_APP_ENV"] as string) ?? "development",
 } as const
 
-// Derived flags — computed once from env
-export const isDev        = env.APP_ENV === "development"
-export const isProd       = env.APP_ENV === "production"
-export const useStaticData = env.USE_STATIC_DATA
+/** Convenience flags — avoids repeating env.APP_ENV checks */
+export const isDev  = env.APP_ENV === "development"
+export const isProd = env.APP_ENV === "production"

@@ -66,11 +66,19 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
       >
         <Box sx={{ height: 56, display:"flex", alignItems:"center", px: 2, gap: 1 }}>
           {/* Mobile menu toggle */}
-          {!isDesktop && (
-            <IconButton size="small" onClick={onMobileMenuClick} edge="start">
-              <MenuIcon />
-            </IconButton>
-          )}
+          {/* Hamburger — all viewports
+               Desktop: toggles sidebar collapsed/expanded
+               Tablet:  toggles sidebar collapsed/expanded
+               Mobile:  opens/closes overlay drawer */}
+          <IconButton
+            size="small"
+            onClick={onMobileMenuClick}
+            edge="start"
+            aria-label="Toggle navigation"
+            sx={{ mr: 0.5 }}
+          >
+            <MenuIcon />
+          </IconButton>
 
           <GlobalSearch />
           <Box sx={{ flex: 1 }} />

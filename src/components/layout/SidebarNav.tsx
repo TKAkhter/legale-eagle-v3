@@ -1,10 +1,31 @@
-import { useState } from 'react'
+/**
+ * SidebarNav.tsx — renders the sidebar navigation items.
+ *
+ * Nav source (controlled by VITE_DYNAMIC_NAV env flag):
+ *   true  → filters navigationConfig by what /api/user/get/access/menu returned.
+ *            Only shows items the logged-in user has permission to see.
+ *   false → shows all items from navigationConfig (useful for dev/demo without BE).
+ *
+ * Static data mode (VITE_USE_STATIC_DATA=true):
+ *   Uses the static menu from src/data/static.ts which mirrors the API shape.
+ *
+ * Collapsed state:
+ *   - Shows only icons (no labels)
+ *   - Tooltips appear on hover to show the label
+ *   - Sub-menus are hidden when collapsed
+ *
+ * onNavClick:
+ *   Called when a nav item is clicked.
+ *   On mobile, this closes the overlay drawer.
+ */
+import { useState, useMemo } from "react"
 import {
-  List, ListItemButton, ListItemIcon, ListItemText, Collapse, Tooltip, Box,
-} from '@mui/material'
-import { useNavigate, useLocation } from 'react-router-dom'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+  List, ListItemButton, ListItemIcon, ListItemText,
+  Collapse, Tooltip, Box, Skeleton,
+} from "@mui/material"
+import { useNavigate, useLocation } from "react-router-dom"
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore"
+import ChevronRightIcon from "@mui/icons-material/ChevronRight"
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined'
 import PersonSearchOutlinedIcon from '@mui/icons-material/PersonSearchOutlined'
@@ -53,154 +74,207 @@ import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
 import ReceiptOutlinedIcon from '@mui/icons-material/ReceiptOutlined'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
 import IntegrationInstructionsOutlinedIcon from '@mui/icons-material/IntegrationInstructionsOutlined'
-import { useAuthStore } from '@lib/store/authStore'
-import { hasPermission } from '@lib/auth/permissions'
-import { navigationConfig, type NavItem } from '@config/navigation'
-import { useTranslation } from 'react-i18next'
+import { useAuthStore }  from "@lib/store/authStore"
+import { hasPermission } from "@lib/auth/permissions"
+import { navigationConfig, type NavItem } from "@config/navigation"
+import { useTranslation } from "react-i18next"
+import { env } from "@/config/env"
+import { logger } from "@/lib/logger"
 
-// Curated icon map — avoids importing all 3,000+ MUI icons at once
-const ICON_MAP: Record<string, React.ElementType> = {
-  DashboardOutlined: DashboardOutlinedIcon,
-  TrendingUpOutlined: TrendingUpOutlinedIcon,
-  PersonSearchOutlined: PersonSearchOutlinedIcon,
-  BusinessOutlined: BusinessOutlinedIcon,
-  GavelOutlined: GavelOutlinedIcon,
-  FolderOutlined: FolderOutlinedIcon,
-  FindInPageOutlined: FindInPageOutlinedIcon,
-  AccessTimeOutlined: AccessTimeOutlinedIcon,
-  CalendarMonthOutlined: CalendarMonthOutlinedIcon,
-  TaskAltOutlined: TaskAltOutlinedIcon,
-  ReceiptLongOutlined: ReceiptLongOutlinedIcon,
-  ReceiptOutlined: ReceiptOutlinedIcon,
-  FactCheckOutlined: FactCheckOutlinedIcon,
-  AssignmentTurnedInOutlined: AssignmentTurnedInOutlinedIcon,
-  AssignmentOutlined: AssignmentOutlinedIcon,
-  ArticleOutlined: ArticleOutlinedIcon,
-  DescriptionOutlined: DescriptionOutlinedIcon,
-  LibraryBooksOutlined: LibraryBooksOutlinedIcon,
-  SummarizeOutlined: SummarizeOutlinedIcon,
-  BarChartOutlined: BarChartOutlinedIcon,
-  SpeedOutlined: SpeedOutlinedIcon,
-  HistoryOutlined: HistoryOutlinedIcon,
-  TrendingDownOutlined: TrendingDownOutlinedIcon,
-  GroupsOutlined: GroupsOutlinedIcon,
-  GroupOutlined: GroupOutlinedIcon,
-  EventNoteOutlined: EventNoteOutlinedIcon,
-  ReviewsOutlined: ReviewsOutlinedIcon,
-  PendingActionsOutlined: PendingActionsOutlinedIcon,
-  HowToRegOutlined: HowToRegOutlinedIcon,
-  CloudOutlined: CloudOutlinedIcon,
-  AccountBalanceWalletOutlined: AccountBalanceWalletOutlinedIcon,
-  CreditCardOutlined: CreditCardOutlinedIcon,
-  PriceChangeOutlined: PriceChangeOutlinedIcon,
-  SavingsOutlined: SavingsOutlinedIcon,
-  AdminPanelSettingsOutlined: AdminPanelSettingsOutlinedIcon,
-  ManageAccountsOutlined: ManageAccountsOutlinedIcon,
-  GroupWorkOutlined: GroupWorkOutlinedIcon,
-  LockOutlined: LockOutlinedIcon,
-  LocationOnOutlined: LocationOnOutlinedIcon,
-  SettingsOutlined: SettingsOutlinedIcon,
-  ConfirmationNumberOutlined: ConfirmationNumberOutlinedIcon,
-  WorkOutlineOutlined: WorkOutlineOutlinedIcon,
-  PaidOutlined: PaidOutlinedIcon,
-  AccountBalanceOutlined: AccountBalanceOutlinedIcon,
-  CollectionsBookmarkOutlined: CollectionsBookmarkOutlinedIcon,
-  TimerOutlined: TimerOutlinedIcon,
-  CheckCircleOutlined: CheckCircleOutlinedIcon,
-  IntegrationInstructionsOutlined: IntegrationInstructionsOutlinedIcon,
+interface Props {
+  collapsed:    boolean
+  /** Called when any nav item is clicked (used to close mobile drawer) */
+  onNavClick?:  () => void
 }
 
-function NavIcon({ name }: { name?: string }) {
-  if (!name) return null
-  const Icon = ICON_MAP[name]
-  return Icon ? <Icon fontSize="small" /> : null
-}
+export function SidebarNav({ collapsed, onNavClick }: Props) {
+  const navigate    = useNavigate()
+  const location    = useLocation()
+  const { t }       = useTranslation()
+  const menuItems   = useAuthStore(s => (s as { menuItems?: { url?: string }[] }).menuItems ?? [])
+  const permissions = (useAuthStore(s => (s as { permissions?: Set<string> }).permissions) ?? new Set<string>()) as Set<string>
 
-interface Props { collapsed: boolean }
+  // Track which groups are open in the nav
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
-export function SidebarNav({ collapsed }: Props) {
-  const { t } = useTranslation('nav')
-  const permissions = useAuthStore((s) => s.menuItems)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const menuItems: any[] = (useAuthStore as any)(((s: any) => s.menuItems))
-  const location = useLocation()
-  const navigate = useNavigate()
-  const [open, setOpen] = useState<Record<string, boolean>>({})
+  /**
+   * Build the set of allowed URLs from the API menu response.
+   * Only used when VITE_DYNAMIC_NAV=true.
+   */
+  const allowedUrls = useMemo(() => {
+    if (!env.DYNAMIC_NAV) return null  // null = allow all
 
-  function filterItems(items: NavItem[]): NavItem[] {
-    // Use menu items from API to determine visibility.
-    // If the menu has loaded, only show items whose path appears in the API menu.
-    // If not loaded yet (empty), show all items (prevents blank sidebar on load).
-    const apiUrls = new Set(menuItems.map((m) => m.url ?? ""))
-    const menuLoaded = menuItems.length > 0
+    const urls = new Set<string>()
+    menuItems.forEach((item: { url?: string; submenu?: { url?: string }[] }) => {
+      if (item.url) urls.add(item.url)
+      item.submenu?.forEach(sub => { if (sub.url) urls.add(sub.url) })
+    })
 
-    return items
-      .filter(item => {
-        if (!item.path) return true  // group headers always show
-        if (!menuLoaded) return true // not loaded yet — show all
-        return apiUrls.has(item.path)
-      })
-      .map(item =>
-        item.children
-          ? { ...item, children: filterItems(item.children) }
-          : item
-      )
-      .filter(item => !item.children || item.children.length > 0)
+    logger.debug("SidebarNav", `Dynamic nav — ${urls.size} allowed URLs`, [...urls])
+    return urls
+  }, [menuItems])
+
+  /**
+   * Check if a nav item should be shown.
+   * - If DYNAMIC_NAV=true: item must be in the allowed URL set
+   * - If DYNAMIC_NAV=false: item is always shown (static nav)
+   * - Permission check always applies
+   */
+  function isVisible(item: NavItem): boolean {
+    if (item.permission && !hasPermission(permissions, item.permission)) return false
+    if (!allowedUrls) return true       // DYNAMIC_NAV=false → show all
+    if (!item.path) return true         // group headers always show
+    return allowedUrls.has(item.path)
   }
 
-  const items = filterItems([...navigationConfig])
+  function isActive(path?: string): boolean {
+    if (!path) return false
+    return location.pathname === path || location.pathname.startsWith(path + "/")
+  }
 
+  function toggleGroup(id: string) {
+    setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  function handleClick(item: NavItem) {
+    if (item.children?.length) {
+      toggleGroup(item.id)
+    } else if (item.path) {
+      logger.info("SidebarNav", `Navigating to ${item.path}`)
+      navigate(item.path)
+      onNavClick?.()  // close mobile drawer if open
+    }
+  }
+
+  /** Render one nav item (recursively for children) */
   function renderItem(item: NavItem, depth = 0): React.ReactNode {
-    const hasChildren = item.children && item.children.length > 0
-    const isActive = item.path ? location.pathname === item.path || location.pathname.startsWith(item.path + '/') : false
-    const isOpen = open[item.id] ?? false
-    const label = t(item.id, { defaultValue: item.title })
+    if (!isVisible(item)) return null
 
-    const btn = (
+    const hasChildren = (item.children?.length ?? 0) > 0
+    const active      = isActive(item.path)
+    // Auto-open group if a child is currently active
+    const childActive = item.children?.some(c => isActive(c.path))
+    const isOpen      = openGroups[item.id] ?? !!childActive
+
+    const button = (
       <ListItemButton
-        key={item.id}
-        selected={isActive}
-        onClick={() => {
-          if (hasChildren) setOpen(p => ({ ...p, [item.id]: !p[item.id] }))
-          else if (item.path) navigate(item.path)
-        }}
+        selected={active}
+        onClick={() => handleClick(item)}
         sx={{
-          pl: collapsed ? 1.5 : 2 + depth * 2,
-          borderRadius: 1, mx: 1, mb: 0.25,
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          '&.Mui-selected': {
-            bgcolor: 'primary.main', color: 'white',
-            '&:hover': { bgcolor: 'primary.dark' },
-            '& .MuiListItemIcon-root': { color: 'white' },
+          mx: 1,
+          borderRadius: "6px",
+          mb: 0.25,
+          pl: collapsed ? 1.5 : 1.5 + depth * 1.5,
+          pr: 1.5,
+          py: 0.75,
+          minHeight: 40,
+          // Smooth background transition on hover/select
+          transition: "background-color 150ms ease, padding 200ms ease",
+          "&.Mui-selected": {
+            bgcolor: "action.selected",
+            "& .MuiListItemIcon-root": { color: "secondary.main" },
           },
+          "&:hover": { bgcolor: "action.hover" },
         }}
       >
-        <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, color: 'inherit', justifyContent: 'center' }}>
-          <NavIcon name={item.icon} />
+        {/* Icon — always visible, colour changes on active */}
+        <ListItemIcon
+          sx={{
+            minWidth: collapsed ? 0 : 32,
+            mr: collapsed ? 0 : 1,
+            color: active ? "secondary.main" : "text.secondary",
+            justifyContent: "center",
+            transition: "color 150ms ease",
+          }}
+        >
+          {item.icon}
         </ListItemIcon>
+
+        {/* Label — hidden when sidebar is collapsed */}
         {!collapsed && (
           <ListItemText
-            primary={label}
-            sx={{ '& .MuiListItemText-primary': { fontSize: 13, fontWeight: isActive ? 600 : 400 } }}
+            primary={t(`nav.${item.id}`, { defaultValue: item.title })}
+            slotProps={{
+              primary: {
+                sx: {
+                  fontSize: depth > 0 ? 12.5 : 13,
+                  fontWeight: active ? 600 : 400,
+                  color: active ? "secondary.main" : "text.primary",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  transition: "color 150ms ease",
+                },
+              },
+            }}
           />
         )}
-        {!collapsed && hasChildren && (isOpen ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />)}
+
+        {/* Expand/collapse chevron for groups */}
+        {!collapsed && hasChildren && (
+          <Box
+            sx={{
+              color: "text.secondary",
+              display: "flex",
+              transition: "transform 200ms ease",
+              transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)",
+            }}
+          >
+            {isOpen
+              ? <ExpandMoreIcon sx={{ fontSize: 16 }} />
+              : <ChevronRightIcon sx={{ fontSize: 16 }} />}
+          </Box>
+        )}
       </ListItemButton>
     )
 
+    // Wrap with tooltip when collapsed (shows label on hover)
+    const wrapped = collapsed && item.path
+      ? (
+        <Tooltip
+          key={item.id}
+          title={t(`nav.${item.id}`, { defaultValue: item.title })}
+          placement="right"
+          arrow
+        >
+          <span>{button}</span>
+        </Tooltip>
+      )
+      : <span key={item.id}>{button}</span>
+
+    if (!hasChildren) return wrapped
+
+    // Render group with collapsible children
     return (
       <Box key={item.id}>
-        {collapsed ? <Tooltip title={label} placement="right">{btn}</Tooltip> : btn}
-        {hasChildren && !collapsed && (
-          <Collapse in={isOpen}>
-            <List disablePadding>
-              {item.children!.map(c => renderItem(c, depth + 1))}
-            </List>
-          </Collapse>
-        )}
+        {wrapped}
+        <Collapse in={!collapsed && isOpen} timeout={200} unmountOnExit>
+          <List disablePadding>
+            {item.children!.map(child => renderItem(child, depth + 1))}
+          </List>
+        </Collapse>
       </Box>
     )
   }
 
-  return <List disablePadding sx={{ pt: 1 }}>{items.map(i => renderItem(i))}</List>
+  // Show skeleton while menu is loading (dynamic nav mode)
+  const menuLoaded = !env.DYNAMIC_NAV || menuItems.length > 0
+  if (!menuLoaded) {
+    return (
+      <List disablePadding sx={{ pt: 1, px: 1 }}>
+        {[1, 2, 3, 4, 5].map(i => (
+          <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1, py: 0.75, mb: 0.25 }}>
+            <Skeleton variant="circular" width={20} height={20} sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />
+            {!collapsed && <Skeleton width={100} height={16} sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />}
+          </Box>
+        ))}
+      </List>
+    )
+  }
+
+  return (
+    <List disablePadding sx={{ pt: 1 }}>
+      {navigationConfig.map(item => renderItem(item))}
+    </List>
+  )
 }
