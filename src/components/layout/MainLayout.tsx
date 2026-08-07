@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom"
 import { Sidebar, SIDEBAR_W, COLLAPSED_W } from "./Sidebar"
 import { Toolbar } from "./Toolbar"
 import { useThemeStore } from "@lib/store/themeStore"
+import { ToastContainer } from '@/components/ui/ToastContainer'
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
 
 const TOOLBAR_H = 56
@@ -31,6 +32,7 @@ export function MainLayout() {
             <ErrorBoundary>
               <Outlet />
             </ErrorBoundary>
+            <ToastContainer />
           </Box>
         </Box>
       </Box>

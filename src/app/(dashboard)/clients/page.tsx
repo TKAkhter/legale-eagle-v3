@@ -1,60 +1,71 @@
-import { Box, Typography, Button } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import { useNavigate } from 'react-router-dom'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { Can } from '@components/ui/Can'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { SearchInput } from '@components/filters/SearchInput'
-import { useState } from 'react'
-import type { GridParams } from '@/types/common.types'
-import { ClientFormDrawer } from './_components/ClientFormDrawer'
-import { useQueryClient } from '@tanstack/react-query'
+import { useState } from "react"
+import { Button, Box, Chip } from "@mui/material"
+import AddIcon   from "@mui/icons-material/Add"
+import EditIcon  from "@mui/icons-material/Edit"
+import { PageShell }     from "@/components/ui/PageShell"
+import { DataGrid }      from "@components/data-grid/DataGrid"
+import { StatusBadge }   from "@components/ui/StatusBadge"
+import { SearchInput }   from "@components/filters/SearchInput"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { clientsApi }    from "@/api/clients"
+import { toast }         from "@/lib/toast"
+import { useAuthStore }  from "@lib/store/authStore"
+import { PERMISSIONS }   from "@lib/auth/permissions"
+import type { GridParams } from "@/types/common.types"
+import type { FilterPanelProps } from "@components/data-grid/types"
+import { ClientFormDrawer } from "./_components/ClientFormDrawer"
 
-async function fetchClients(params: GridParams) {
-  const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
-  const res = await axiosClient.get('/api/client/get/short-info', { params: { ...qp, clientName: params.filters?.clientName ?? '' } })
-  return res.data?.data ?? res.data
-}
-
-function ClientsFilterPanel({ onSearch, filters }: { onSearch: (f: Record<string, unknown>) => void; onReset: () => void; filters: Record<string, unknown> }) {
-  const [name, setName] = useState(String(filters.clientName ?? ''))
-  return <SearchInput value={name} onChange={(v) => { setName(v); onSearch({ clientName: v }) }} placeholder="Search client name..." />
+function ClientFilters({ onSearch, onReset, filters }: FilterPanelProps) {
+  const [q, setQ] = useState(String(filters.searchText ?? ""))
+  return (
+    <Box sx={{ display:"flex", gap:1.5, alignItems:"flex-end" }}>
+      <SearchInput value={q} onChange={setQ} placeholder="Search clients..." />
+      <Button variant="contained" size="small" onClick={() => onSearch({ searchText: q })}>Search</Button>
+      <Button size="small" onClick={() => { setQ(""); onReset() }}>Reset</Button>
+    </Box>
+  )
 }
 
 export default function ClientsPage() {
-  const navigate = useNavigate()
-  const qc = useQueryClient()
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [editId, setEditId] = useState<string | undefined>()
+  const hasPermission = useAuthStore(s => (s as {hasPermission:(p:string)=>boolean}).hasPermission)
+  const canCreate = hasPermission(PERMISSIONS.CLIENTS_CREATE)
+
+  const [drawerOpen,  setDrawerOpen]  = useState(false)
+  const [editId,      setEditId]      = useState<string>()
+  const [gridKey,     setGridKey]     = useState(0)
+
+  function openCreate() { setEditId(undefined); setDrawerOpen(true) }
+  function openEdit(id: string) { setEditId(id); setDrawerOpen(true) }
+  function onSaved() { setDrawerOpen(false); setGridKey(k => k+1); toast.success(editId ? "Client updated" : "Client created") }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>Clients</Typography>
-        <Can do={PERMISSIONS.CLIENTS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Client</Button></Can>
-      </Box>
+    <PageShell
+      title="Clients"
+      description="Manage firm clients"
+      action={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Client</Button> : undefined}
+    >
       <DataGrid
+        key={gridKey}
         columns={[
-          { field: 'companyName', header: 'Client', renderCell: (_, row) => (row as Record<string,string>).companyName || `${(row as Record<string,string>).firstName ?? ''} ${(row as Record<string,string>).lastName ?? ''}`.trim() },
-          { field: 'clientType', header: 'Type' },
-          { field: 'status', header: 'Status', renderCell: (v) => <StatusBadge status={String(v ?? 'OPEN')} /> },
-          { field: 'openMatter', header: 'Open Matters', align: 'right' },
-          { field: 'lfaCount', header: 'LFAs', align: 'right' },
+          { field:"firstName", header:"Name", renderCell:(_,row) => {
+            const r = row as Record<string,string>
+            return r.clientType === "COMPANY" ? (r.companyName || "—") : `${r.firstName??""} ${r.lastName??""}`.trim() || "—"
+          }},
+          { field:"clientType", header:"Type",   renderCell:(v) => <Chip size="small" label={String(v??"")} variant="outlined" /> },
+          { field:"email",      header:"Email",  renderCell:(v) => String(v??"—") },
+          { field:"phone",      header:"Phone",  renderCell:(v) => String(v??"—") },
+          { field:"active",     header:"Status", renderCell:(v) => <StatusBadge status={v ? "active" : "inactive"} /> },
         ]}
-        queryKey={['clients', 'list']}
-        queryFn={fetchClients}
-        FilterPanel={ClientsFilterPanel}
-        hasFilters hasExport syncWithUrl
-        detailPath={(row) => `/clients/${row.id}`}
+        queryKey={["clients","list"]}
+        queryFn={(p: GridParams) => clientsApi.getAll(p) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>}
+        FilterPanel={ClientFilters}
+        hasFilters syncWithUrl
+        detailPath={(row) => `/clients/${(row as Record<string,string>).id}`}
         rowMenuItems={(row) => [
-          { label: 'Edit', icon: <></>, permission: 'clients:edit', onClick: () => { setEditId(String(row.id)); setDrawerOpen(true) } },
+          { label:"Edit", icon:<EditIcon fontSize="small" />, onClick:() => openEdit(String((row as Record<string,string>).id)) },
         ]}
       />
-      <ClientFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} clientId={editId}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['clients','list'] })} />
-    </Box>
+      <ClientFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} clientId={editId} onSaved={onSaved} />
+    </PageShell>
   )
 }

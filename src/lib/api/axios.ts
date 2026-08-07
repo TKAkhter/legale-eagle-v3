@@ -106,6 +106,11 @@ async function attemptRefresh(): Promise<string> {
 
 // ─── Response interceptor ─────────────────────────────────────────────────────
 // In static data mode, suppress 401 logout (token is a placeholder)
+// In static data mode, return empty success response instead of hitting network
+if (import.meta.env["VITE_USE_STATIC_DATA"] === "true") {
+  axiosClient.interceptors.request.use(config => config, err => Promise.reject(err))
+}
+
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {

@@ -1,10 +1,16 @@
+export const PERMISSIONS = {
+  LEADS_VIEW:"/leads", LEADS_CREATE:"/leads", CLIENTS_VIEW:"/clients", CLIENTS_CREATE:"/clients",
+  MATTERS_VIEW:"/matters", MATTERS_CREATE:"/matters", DASHBOARD_VIEW:"/dashboard",
+  BILLING_VIEW:"/billings", TASKS_VIEW:"/tasks", TIMELOGS_VIEW:"/time-log-entries",
+  ADMIN_VIEW:"/admin/users", REPORTS_VIEW:"/reports/wip", LFA_VIEW:"/lfa",
+} as const
+
 import type {
   ApiMenuItem,
   ApiUserGroup,
   ApiSubmenuPermission,
   PermissionSet,
 } from '@/types/auth.types'
-import { PERMISSIONS } from '@config/permissions'
 
 /**
  * permissions.ts

@@ -1,112 +1,87 @@
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Box, Alert } from '@mui/material'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@lib/api/axios'
-import { FormDrawer } from '@components/ui/FormDrawer'
-import { FormSection } from '@components/forms/FormSection'
-import { ControlledInput } from '@components/forms/ControlledInput'
-import { ControlledSelect } from '@components/forms/ControlledSelect'
-import { ControlledCheckbox } from '@components/forms/ControlledCheckbox'
-import { QK } from '@lib/query/keys'
-import { registerOneDriveFolder } from '@lib/utils/onedrive'
-import { clientSchema, type ClientForm } from '@lib/validations/client.schema'
+import { useEffect, useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { Alert } from "@mui/material"
+import { useQuery } from "@tanstack/react-query"
+import { FormDrawer } from "@components/ui/FormDrawer"
+import { ControlledInput, ControlledSelect, FormSection } from "@components/forms"
+import { clientsApi } from "@/api/clients"
 
-interface Props { open: boolean; onClose: () => void; clientId?: string; onSuccess?: () => void }
+const schema = z.object({
+  firstName:   z.string().min(1, "Required"),
+  lastName:    z.string().optional(),
+  companyName: z.string().optional(),
+  clientType:  z.enum(["COMPANY","PERSON"]),
+  email:       z.string().email("Invalid email").optional().or(z.literal("")),
+  phone:       z.string().optional(),
+  trnNo:       z.string().optional(),
+})
+type Form = z.infer<typeof schema>
 
-export function ClientFormDrawer({ open, onClose, clientId, onSuccess }: Props) {
-  const qc = useQueryClient()
-  const [submitError, setSubmitError] = useState<string|null>(null)
+interface Props { open: boolean; onClose: () => void; clientId?: string; onSaved: () => void }
+
+export function ClientFormDrawer({ open, onClose, clientId, onSaved }: Props) {
   const isEdit = !!clientId
+  const [error, setError] = useState("")
 
-  const { control, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm({
-    resolver: zodResolver(clientSchema),
-    defaultValues: { clientType: 'PERSON', referral: false },
+  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({
+    resolver: zodResolver(schema),
+    defaultValues: { clientType: "PERSON" },
   })
 
-  const hasReferral = watch('referral')
-
-  useQuery({
-    queryKey: QK.clients.detail(clientId!),
-    queryFn: async () => {
-      const r = await axiosClient.get('/api/client/get/by/company/' + clientId)
-      const c = r.data?.data ?? r.data
-      reset({
-        firstName:    c?.firstName,
-        lastName:     c?.lastName,
-        companyName:  c?.companyName,
-        clientType:   c?.clientType ?? 'PERSON',
-        email:        c?.email?.[0]?.emailId ?? '',
-        phone:        c?.phones?.[0]?.phoneNo ?? '',
-        trnNo:        c?.trnNo ?? '',
-        nationality:  c?.nationality ?? '',
-        referral:     c?.referral ?? false,
-        referralName: c?.referralName ?? '',
-      })
-      return c
-    },
+  const { data: existing } = useQuery({
+    queryKey: ["clients","detail",clientId],
+    queryFn: () => clientsApi.getById(clientId!),
     enabled: !!clientId && open,
   })
 
-  useEffect(() => { if (!open) reset() }, [open, reset])
+  useEffect(() => { if (!open) { reset({ clientType: "PERSON" }); setError("") } }, [open, reset])
 
-  async function onSubmit(data: ClientForm) {
-    setSubmitError(null)
+  useEffect(() => {
+    if (existing && isEdit) {
+      const e = existing as Record<string,unknown>
+      reset({
+        firstName: String(e.firstName??""), lastName: String(e.lastName??""),
+        companyName: String(e.companyName??""), clientType: (e.clientType as "PERSON"|"COMPANY") ?? "PERSON",
+        email: (e.email as {emailId:string}[])?.[0]?.emailId ?? String(e.email??""),
+        phone: (e.phones as {phoneNo:string}[])?.[0]?.phoneNo ?? String(e.phone??""),
+        trnNo: String(e.trnNo??""),
+      })
+    }
+  }, [existing, isEdit, reset])
+
+  async function onSubmit(vals: Form) {
+    setError("")
     try {
-    const payload = {
-      ...data,
-      email: data.email ? [{ emailId: data.email, type: 'Work', primary: true }] : [],
-      phones: data.phone ? [{ phoneNo: data.phone, type: 'Mobile', codeNo: '+971', primary: true }] : [],
-    }
-    if (isEdit) {
-      await axiosClient.post('/api/client/edit', { ...payload, clientId })
-    } else {
-      const res = await axiosClient.post('/api/client/add', payload)
-      const newId = res.data?.data?.id ?? res.data?.id
-      const name = data.companyName || `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim()
-      if (newId) registerOneDriveFolder(newId, name, 'Client')
-    }
-    qc.invalidateQueries({ queryKey: QK.clients.all() })
-    onSuccess?.()
-    onClose()
+      const payload = {
+        ...vals,
+        email:  vals.email ? [{ emailId: vals.email, type: "Work", primary: true }] : [],
+        phones: vals.phone ? [{ phoneNo: vals.phone, type: "Mobile", codeNo: "+971", primary: true }] : [],
+      }
+      if (isEdit) await clientsApi.update(clientId!, payload as Record<string,unknown>)
+      else        await clientsApi.create(payload as Record<string,unknown>)
+      onSaved()
     } catch (e: unknown) {
-      setSubmitError(
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? (e as { message?: string })?.message
-        ?? 'Something went wrong. Please try again.'
-      )
+      setError((e as {response?:{data?:{message?:string}}})?.response?.data?.message ?? "Something went wrong")
     }
   }
 
   return (
-    <FormDrawer open={open} onClose={onClose}
-      title={isEdit ? 'Edit Client' : 'New Client'}
-      subtitle={isEdit ? 'Update client information' : 'Add a new client to the firm'}
-      onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
-      submitLabel={isEdit ? 'Update' : 'Create Client'}>
-
-      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
+    <FormDrawer open={open} onClose={onClose} title={isEdit ? "Edit Client" : "New Client"}
+      onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting} submitLabel={isEdit ? "Update" : "Create Client"}>
+      {error && <Alert severity="error" sx={{ mb:2 }} onClose={() => setError("")}>{error}</Alert>}
       <FormSection title="Basic Info">
         <ControlledSelect name="clientType" control={control} label="Client Type"
-          options={[{ value: 'PERSON', label: 'Individual' }, { value: 'COMPANY', label: 'Company' }]} />
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <ControlledInput name="firstName" control={control} label="First Name" required />
-          <ControlledInput name="lastName" control={control} label="Last Name" />
-        </Box>
-        <ControlledInput name="companyName" control={control} label="Company / Trading Name" />
-        <ControlledInput name="trnNo" control={control} label="TRN Number" />
-        <ControlledInput name="nationality" control={control} label="Nationality" />
+          options={[{value:"PERSON",label:"Individual"},{value:"COMPANY",label:"Company"}]} />
+        <ControlledInput name="firstName"   control={control} label="First Name"    required />
+        <ControlledInput name="lastName"    control={control} label="Last Name" />
+        <ControlledInput name="companyName" control={control} label="Company Name" />
+        <ControlledInput name="trnNo"       control={control} label="TRN / VAT Number" />
       </FormSection>
-
       <FormSection title="Contact">
         <ControlledInput name="email" control={control} label="Email" type="email" />
         <ControlledInput name="phone" control={control} label="Phone" />
-      </FormSection>
-
-      <FormSection title="Referral">
-        <ControlledCheckbox name="referral" control={control} label="This client was referred" />
-        {hasReferral && <ControlledInput name="referralName" control={control} label="Referred By" />}
       </FormSection>
     </FormDrawer>
   )

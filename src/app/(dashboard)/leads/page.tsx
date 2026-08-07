@@ -1,72 +1,115 @@
-import { Box, Typography, Button } from '@mui/material'
-import AddIcon from '@mui/icons-material/Add'
-import EditIcon from '@mui/icons-material/Edit'
-import { useNavigate } from 'react-router-dom'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { Can } from '@components/ui/Can'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
-import { useQueryClient } from '@tanstack/react-query'
-import { buildQueryParams, buildPostWithQuery } from '@lib/utils/buildQueryParams'
-import { getLeadsColumns } from './_components/LeadsColumns'
-import { LeadsFilterPanel } from './_components/LeadsFilterPanel'
-import type { GridParams } from '@/types/common.types'
-import { LeadFormDrawer } from './_components/LeadFormDrawer'
-import { LeadConvertDialog } from './_components/LeadConvertDialog'
-import ConvertIcon from '@mui/icons-material/SwapHoriz'
-import { useState } from 'react'
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { Button, Box, Chip, FormControl, InputLabel, Select, MenuItem } from "@mui/material"
+import AddIcon        from "@mui/icons-material/Add"
+import EditIcon       from "@mui/icons-material/Edit"
+import DeleteIcon     from "@mui/icons-material/Delete"
+import SwapHorizIcon  from "@mui/icons-material/SwapHoriz"
+import { PageShell }   from "@/components/ui/PageShell"
+import { DataGrid }    from "@components/data-grid/DataGrid"
+import { StatusBadge } from "@components/ui/StatusBadge"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { SearchInput } from "@components/filters/SearchInput"
+import { leadsApi }   from "@/api/leads"
+import { toast }      from "@/lib/toast"
+import { useAuthStore } from "@lib/store/authStore"
+import { PERMISSIONS }  from "@lib/auth/permissions"
+import type { GridParams } from "@/types/common.types"
+import type { FilterPanelProps } from "@components/data-grid/types"
+import { LeadFormDrawer } from "./_components/LeadFormDrawer"
 
-async function fetchLeads(params: GridParams) {
-  const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize', queryFilterKeys: ['firstName','pa','status','fromDate','toDate','sortBy','sortDirection','pageNumber','pageSize'] })
-  const { params: qParams, data: body } = buildPostWithQuery(
-    { ...qp, ...params.filters, pa: '', firstName: params.filters?.firstName ?? '' },
-    { queryKeys: ['firstName','pa','status','fromDate','toDate','sortBy','sortDirection','pageNumber','pageSize'], bodyKeys: ['attorneyIds','departmentIds','procuredByIds'] }
+const STATUSES = ["NEW","FOLLOW_UP","PROPOSAL","CONVERTED","CLOSED","WRITE_OFF"]
+
+function LeadFilters({ onSearch, onReset, filters }: FilterPanelProps) {
+  const [f, setF] = useState<Record<string,unknown>>(filters)
+  return (
+    <Box sx={{ display:"flex", flexWrap:"wrap", gap:1.5, alignItems:"flex-end" }}>
+      <SearchInput value={String(f.searchText??"")} onChange={v => setF(p => ({...p,searchText:v}))} placeholder="Search leads..." />
+      <FormControl size="small" sx={{ minWidth:140 }}>
+        <InputLabel>Status</InputLabel>
+        <Select label="Status" value={String(f.currentStatus??"")} onChange={e => setF(p => ({...p,currentStatus:e.target.value}))}>
+          <MenuItem value=""><em>All</em></MenuItem>
+          {STATUSES.map(s => <MenuItem key={s} value={s}>{s.replace(/_/g," ")}</MenuItem>)}
+        </Select>
+      </FormControl>
+      <Box sx={{ display:"flex", gap:1 }}>
+        <Button variant="contained" size="small" onClick={() => onSearch(f)}>Search</Button>
+        <Button size="small" onClick={() => { setF({}); onReset() }}>Reset</Button>
+      </Box>
+    </Box>
   )
-  const res = await axiosClient.post('/api/leads/list/filter', body, { params: qParams })
-  return res.data?.data ?? res.data
 }
 
 export default function LeadsPage() {
   const navigate = useNavigate()
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [editLeadId, setEditLeadId] = useState<string | undefined>()
-  const [convertLead, setConvertLead] = useState<{ id: string; name: string } | null>(null)
-  const qc = useQueryClient()
+  const hasPermission = useAuthStore(s => (s as {hasPermission:(p:string)=>boolean}).hasPermission)
+  const canCreate = hasPermission(PERMISSIONS.LEADS_CREATE)
+  const canEdit   = hasPermission(PERMISSIONS.LEADS_VIEW)
+
+  const [drawerOpen,  setDrawerOpen]  = useState(false)
+  const [editLeadId,  setEditLeadId]  = useState<string>()
+  const [deleteId,    setDeleteId]    = useState<string>()
+  const [gridKey,     setGridKey]     = useState(0)
 
   function openCreate() { setEditLeadId(undefined); setDrawerOpen(true) }
   function openEdit(id: string) { setEditLeadId(id); setDrawerOpen(true) }
+  function onSaved() { setDrawerOpen(false); setGridKey(k => k+1); toast.success(editLeadId ? "Lead updated" : "Lead created") }
+
+  async function handleWriteOff() {
+    if (!deleteId) return
+    await leadsApi.writeOff(deleteId)
+    setGridKey(k => k+1)
+    toast.success("Lead written off")
+  }
 
   return (
-    <Box>
-      <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>Leads</Typography>
-        <Can do={PERMISSIONS.LEADS_CREATE}>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Lead</Button>
-        </Can>
-      </Box>
+    <PageShell
+      title="Leads"
+      description="Track prospective clients and conversion pipeline"
+      action={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Lead</Button> : undefined}
+    >
       <DataGrid
-        columns={getLeadsColumns()}
-        queryKey={['leads','list']}
-        queryFn={fetchLeads}
-        FilterPanel={LeadsFilterPanel}
-        hasFilters hasExport hasRowSelection syncWithUrl
-        detailPath={(row) => `/leads/${row.id}`}
-        rowMenuItems={(row) => [
-          { label: 'Edit', icon: <EditIcon fontSize="small" />, permission: PERMISSIONS.LEADS_EDIT, onClick: () => openEdit(String(row.id)) },
-          { label: 'Convert to Client', icon: <ConvertIcon fontSize="small" />, permission: PERMISSIONS.CLIENTS_CREATE,
-            onClick: () => setConvertLead({ id: String(row.id), name: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || String(row.companyName ?? '') }) },
+        key={gridKey}
+        columns={[
+          { field:"firstName", header:"Name", renderCell:(_,row) => {
+            const r = row as Record<string,string>
+            return `${r.firstName??""} ${r.lastName??""}`.trim() || r.companyName || "—"
+          }},
+          { field:"companyName", header:"Company" },
+          { field:"currentStatus", header:"Status", renderCell:(v) => <StatusBadge status={String(v??"")} /> },
+          { field:"practiceArea",  header:"Practice Area", renderCell:(v) => (v as Record<string,string>)?.name ?? "—" },
+          { field:"lawyer",        header:"Attorney", renderCell:(v) => { const u = v as Record<string,string>; return u ? `${u.firstName} ${u.lastName}` : "—" } },
+          { field:"createdAt",     header:"Created", renderCell:(v) => v ? new Date(String(v)).toLocaleDateString("en-GB") : "—" },
+          { field:"leadType",      header:"Type", renderCell:(v) => <Chip size="small" label={String(v??"")} variant="outlined" /> },
         ]}
-        defaultSortBy="createdAt" defaultSortDir="desc"
+        queryKey={["leads","list"]}
+        queryFn={(p: GridParams) => leadsApi.getAll(p) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>}
+        FilterPanel={LeadFilters}
+        hasFilters syncWithUrl
+        detailPath={(row) => `/leads/${(row as Record<string,string>).id}`}
+        rowMenuItems={(row) => [
+          ...(canEdit ? [{ label:"Edit", icon:<EditIcon fontSize="small" />, onClick:() => openEdit(String((row as Record<string,string>).id)) }] : []),
+          { label:"Convert", icon:<SwapHorizIcon fontSize="small" />, onClick:() => navigate(`/leads/${(row as Record<string,string>).id}`) },
+          ...(canEdit ? [{ label:"Write Off", icon:<DeleteIcon fontSize="small" />, onClick:() => setDeleteId(String((row as Record<string,string>).id)) }] : []),
+        ]}
       />
+
       <LeadFormDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         leadId={editLeadId}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['leads', 'list'] })}
+        onSaved={onSaved}
       />
-      {convertLead && (
-        <LeadConvertDialog open={!!convertLead} onClose={() => setConvertLead(null)} leadId={convertLead.id} leadName={convertLead.name} />
-      )}
-    </Box>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(undefined)}
+        onConfirm={handleWriteOff}
+        title="Write Off Lead"
+        message="Are you sure you want to write off this lead? This action cannot be undone."
+        confirmLabel="Write Off"
+        severity="error"
+      />
+    </PageShell>
   )
 }

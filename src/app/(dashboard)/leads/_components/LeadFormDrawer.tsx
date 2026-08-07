@@ -1,134 +1,113 @@
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Box, Alert, MenuItem } from '@mui/material'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@lib/api/axios'
-import { FormDrawer } from '@components/ui/FormDrawer'
-import { FormSection } from '@components/forms/FormSection'
-import { ControlledInput } from '@components/forms/ControlledInput'
-import { ControlledSelect } from '@components/forms/ControlledSelect'
-import { ControlledAsyncSelect } from '@components/forms/ControlledAsyncSelect'
-import { ControlledDatePicker } from '@components/forms/ControlledDatePicker'
-import { QK } from '@lib/query/keys'
-import { registerOneDriveFolder } from '@lib/utils/onedrive'
-import { leadSchema, type LeadForm } from '@lib/validations/lead.schema'
+import { useEffect, useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { Box, Alert } from "@mui/material"
+import { useQuery } from "@tanstack/react-query"
+import { FormDrawer } from "@components/ui/FormDrawer"
+import { ControlledInput, ControlledSelect, ControlledAsyncSelect, FormSection } from "@components/forms"
+import { leadsApi } from "@/api/leads"
+import { adminApi } from "@/api/admin"
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  leadId?: string        // if provided: edit mode
-  onSuccess?: () => void
-}
+const schema = z.object({
+  firstName:      z.string().min(1, "Required"),
+  lastName:       z.string().optional(),
+  companyName:    z.string().optional(),
+  leadType:       z.enum(["COMPANY","PERSON"]),
+  email:          z.string().email("Invalid email").optional().or(z.literal("")),
+  phone:          z.string().optional(),
+  practiceAreaId: z.string().optional(),
+  leadSourceId:   z.string().optional(),
+  lawyerId:       z.string().optional(),
+  description:    z.string().optional(),
+})
+type Form = z.infer<typeof schema>
 
-export function LeadFormDrawer({ open, onClose, leadId, onSuccess }: Props) {
-  const qc = useQueryClient()
-  const [submitError, setSubmitError] = useState<string|null>(null)
+interface Props { open: boolean; onClose: () => void; leadId?: string; onSaved: () => void }
+
+export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
   const isEdit = !!leadId
+  const [error, setError] = useState("")
 
-  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
-    resolver: zodResolver(leadSchema),
-    defaultValues: { leadType: 'PERSON', billable: true } as LeadForm & { billable?: boolean },
+  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({
+    resolver: zodResolver(schema),
+    defaultValues: { leadType: "PERSON" },
   })
 
-  // Load existing lead for edit mode
-  useQuery({
-    queryKey: QK.leads.detail(leadId!),
-    queryFn: async () => {
-      const r = await axiosClient.get('/api/leads/get/single', { params: { leadId } })
-      const lead = r.data?.data ?? r.data
-      reset({
-        firstName:      lead?.firstName,
-        lastName:       lead?.lastName,
-        companyName:    lead?.companyName,
-        leadType:       lead?.leadType ?? 'PERSON',
-        email:          lead?.emails?.[0]?.emailId ?? '',
-        phone:          lead?.phones?.[0]?.phoneNo ?? '',
-        practiceAreaId: lead?.practiceArea?.id,
-        leadSourceId:   lead?.leadSource?.id,
-        lawyerId:       lead?.lawyer?.id,
-        description:    lead?.description,
-      })
-      return lead
-    },
+  const { data: existing } = useQuery({
+    queryKey: ["leads","detail",leadId],
+    queryFn: () => leadsApi.getById(leadId!),
     enabled: !!leadId && open,
   })
 
-  useEffect(() => { if (!open) reset() }, [open, reset])
+  const { data: users  = [] } = useQuery({ queryKey: ["users","min"],      queryFn: () => adminApi.getUsersMin()      })
+  const { data: pas    = [] } = useQuery({ queryKey: ["practiceAreas"],    queryFn: () => adminApi.getPracticeAreas() })
+  const { data: srcs   = [] } = useQuery({ queryKey: ["leadSources"],      queryFn: () => adminApi.getLeadSources()   })
 
-  // Lookup data
-  const { data: users = [] } = useQuery({ queryKey: QK.users.mini(), queryFn: () => axiosClient.get('/api/user/get/min').then(r => r.data?.data ?? []) })
-  const { data: practiceAreas = [] } = useQuery({ queryKey: QK.practiceAreas.list(), queryFn: () => axiosClient.get('/api/practice-area/get').then(r => r.data?.data ?? []) })
-  const { data: sources = [] } = useQuery({ queryKey: QK.sources.list(), queryFn: () => axiosClient.get('/api/lead-source/get').then(r => r.data?.data ?? []) })
+  useEffect(() => {
+    if (!open) { reset({ leadType: "PERSON" }); setError("") }
+  }, [open, reset])
 
-  async function onSubmit(data: LeadForm) {
-    setSubmitError(null)
+  useEffect(() => {
+    if (existing && isEdit) {
+      const e = existing as Record<string,unknown>
+      reset({
+        firstName: String(e.firstName??""), lastName: String(e.lastName??""),
+        companyName: String(e.companyName??""), leadType: (e.leadType as "PERSON"|"COMPANY") ?? "PERSON",
+        email: (e.emails as {emailId:string}[])?.[0]?.emailId ?? String(e.email??""),
+        phone: (e.phones as {phoneNo:string}[])?.[0]?.phoneNo ?? String(e.phone??""),
+        practiceAreaId: (e.practiceArea as {id:string})?.id,
+        leadSourceId:   (e.leadSource   as {id:string})?.id,
+        lawyerId:       (e.lawyer       as {id:string})?.id,
+        description:    String(e.description??""),
+      })
+    }
+  }, [existing, isEdit, reset])
+
+  const toOpts = (arr: unknown[]) => (arr as Record<string,string>[]).map(x => ({ value: x.id, label: x.firstName ? `${x.firstName} ${x.lastName}` : x.name }))
+
+  async function onSubmit(vals: Form) {
+    setError("")
     try {
-    const payload = {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      companyName: data.companyName,
-      leadType: data.leadType,
-      emails: data.email ? [{ emailId: data.email, type: 'Work', primary: true }] : [],
-      phones: data.phone ? [{ phoneNo: data.phone, type: 'Mobile', primary: true }] : [],
-      practiceArea: data.practiceAreaId ? { id: data.practiceAreaId } : undefined,
-      leadSource: data.leadSourceId ? { id: data.leadSourceId } : undefined,
-      lawyer: data.lawyerId ? { id: data.lawyerId } : undefined,
-      description: data.description,
-    }
-    if (isEdit) {
-      await axiosClient.post('/api/leads/edit', { ...payload, leadId })
-    } else {
-      const res = await axiosClient.post('/api/leads/add', payload)
-      const newId = res.data?.data?.id ?? res.data?.id
-      const name = `${payload.firstName ?? ''} ${payload.lastName ?? ''}`.trim() || (payload.companyName ?? '')
-      if (newId) registerOneDriveFolder(newId, name, 'Leads')
-    }
-    qc.invalidateQueries({ queryKey: QK.leads.all() })
-    onSuccess?.()
-    onClose()
+      const payload = {
+        ...vals,
+        emails: vals.email ? [{ emailId: vals.email, type: "Work", primary: true }] : [],
+        phones: vals.phone ? [{ phoneNo: vals.phone, type: "Mobile", primary: true }] : [],
+        practiceArea: vals.practiceAreaId ? { id: vals.practiceAreaId } : undefined,
+        leadSource:   vals.leadSourceId   ? { id: vals.leadSourceId }   : undefined,
+        lawyer:       vals.lawyerId       ? { id: vals.lawyerId }       : undefined,
+      }
+      if (isEdit) await leadsApi.update(leadId!, payload as Record<string,unknown>)
+      else        await leadsApi.create(payload as Record<string,unknown>)
+      onSaved()
     } catch (e: unknown) {
-      setSubmitError(
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? (e as { message?: string })?.message
-        ?? 'Something went wrong. Please try again.'
-      )
+      setError((e as {response?:{data?:{message?:string}}})?.response?.data?.message ?? "Something went wrong")
     }
   }
 
-  const userOptions = (users as Record<string, string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
-  const paOptions   = (practiceAreas as Record<string, string>[]).map(p => ({ value: p.id, label: p.name }))
-  const srcOptions  = (sources as Record<string, string>[]).map(s => ({ value: s.id, label: s.name }))
-
   return (
-    <FormDrawer open={open} onClose={onClose} title={isEdit ? 'Edit Lead' : 'New Lead'}
-      subtitle={isEdit ? 'Update lead information' : 'Add a new prospective client'}
-      onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting}
-      submitLabel={isEdit ? 'Update' : 'Create Lead'}>
-
-      {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
+    <FormDrawer open={open} onClose={onClose} title={isEdit ? "Edit Lead" : "New Lead"}
+      onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting} submitLabel={isEdit ? "Update" : "Create Lead"}>
+      {error && <Alert severity="error" sx={{ mb:2 }} onClose={() => setError("")}>{error}</Alert>}
       <FormSection title="Basic Info">
         <ControlledSelect name="leadType" control={control} label="Lead Type"
-          options={[{ value: 'PERSON', label: 'Individual' }, { value: 'COMPANY', label: 'Company' }]} />
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          options={[{value:"PERSON",label:"Individual"},{value:"COMPANY",label:"Company"}]} />
+        <Box sx={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2 }}>
           <ControlledInput name="firstName" control={control} label="First Name" required />
-          <ControlledInput name="lastName" control={control} label="Last Name" />
+          <ControlledInput name="lastName"  control={control} label="Last Name" />
         </Box>
         <ControlledInput name="companyName" control={control} label="Company Name" />
       </FormSection>
-
       <FormSection title="Contact">
         <ControlledInput name="email" control={control} label="Email" type="email" />
         <ControlledInput name="phone" control={control} label="Phone" />
       </FormSection>
-
       <FormSection title="Assignment">
-        <ControlledAsyncSelect name="lawyerId" control={control} label="Responsible Attorney" options={userOptions} />
-        <ControlledAsyncSelect name="practiceAreaId" control={control} label="Practice Area" options={paOptions} />
-        <ControlledAsyncSelect name="leadSourceId" control={control} label="Lead Source" options={srcOptions} />
+        <ControlledAsyncSelect name="lawyerId"       control={control} label="Responsible Attorney" options={toOpts(users)} />
+        <ControlledAsyncSelect name="practiceAreaId" control={control} label="Practice Area"        options={toOpts(pas)}   />
+        <ControlledAsyncSelect name="leadSourceId"   control={control} label="Lead Source"          options={toOpts(srcs)}  />
       </FormSection>
-
-      <FormSection title="Details">
+      <FormSection title="Notes">
         <ControlledInput name="description" control={control} label="Notes" multiline rows={3} />
       </FormSection>
     </FormDrawer>
