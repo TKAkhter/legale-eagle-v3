@@ -19,6 +19,7 @@ import { Box, useMediaQuery } from "@mui/material"
 import { Outlet }        from "react-router-dom"
 import { Sidebar, SIDEBAR_W, COLLAPSED_W } from "./Sidebar"
 import { Toolbar }       from "./Toolbar"
+import { CommandPalette } from './CommandPalette'
 import { ToastContainer } from "@/components/ui/ToastContainer"
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
 import { useThemeStore } from "@lib/store/themeStore"
@@ -113,6 +114,8 @@ export function MainLayout() {
         </Box>
       </Box>
 
+      {/* Global command palette — Ctrl+K opens from anywhere */}
+      <CommandPalette />
       {/* Global toast notifications */}
       <ToastContainer />
     </Box>

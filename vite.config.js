@@ -38,7 +38,7 @@ export default defineConfig({
         chunkSizeWarningLimit: 600,
         rollupOptions: {
             output: {
-                manualChunks: function (id) {
+                manualChunks: (id) => {
                     if (id.includes('node_modules/@mui/icons-material'))
                         return 'vendor-mui-icons';
                     if (id.includes('node_modules/@mui/'))
