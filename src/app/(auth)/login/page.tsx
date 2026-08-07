@@ -1,82 +1,138 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Box, Button, Divider, Alert, CircularProgress, Typography } from '@mui/material'
-import { useNavigate, Link } from 'react-router-dom'
-import { axiosClient } from '@lib/api/axios'
-import { useAuthStore } from '@lib/store/authStore'
-import { extractAccessScope } from '@lib/auth/jwt'
-import { featureFlags } from '@config/featureFlags'
-import { ControlledInput } from '@components/forms/ControlledInput'
-import { msalLoginPopup } from '@lib/auth/msal'
-import WindowIcon from '@mui/icons-material/Window'
+"use client"
+import { useState } from "react"
+import { useNavigate, Link as RouterLink } from "react-router-dom"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { Box, Button, Alert, CircularProgress, Typography, Divider, Link } from "@mui/material"
+import WindowIcon from "@mui/icons-material/Window"
+import { env } from "@/config/env"
+import { authApi } from "@/api/auth"
+import { useAuthStore } from "@lib/store/authStore"
+import { ControlledInput } from "@/components/forms/ControlledInput"
 
-const schema = z.object({ username: z.string().email('Invalid email'), password: z.string().min(1, 'Required') })
+const schema = z.object({
+  username: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+})
 type Form = z.infer<typeof schema>
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const setAuth = useAuthStore(s => s.setAuth)
-  const [error, setError] = useState('')
+  const login    = useAuthStore((s) => s.setAuth)
+  const [error, setError]       = useState("")
+  const [ssoLoading, setSsoLoading] = useState(false)
 
-  const { control, handleSubmit, formState: { isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
+  const { control, handleSubmit, formState: { isSubmitting } } = useForm<Form>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      username: env.USE_STATIC_DATA ? "admin@legaleagle.com" : "",
+      password: env.USE_STATIC_DATA ? "password" : "",
+    },
+  })
 
-  async function onSubmit(data: Form) {
-    setError('')
+  async function onSubmit({ username, password }: Form) {
+    setError("")
     try {
-      const res = await axiosClient.post('/api/auth/signin', data)
-      const payload = res.data?.data ?? res.data
-      const token = payload?.token ?? payload?.accessToken
-      setAuth({ user: payload?.user ?? payload, accessToken: token, refreshToken: payload?.refreshToken, accessScope: extractAccessScope(token) })
-      navigate('/dashboard')
+      const signinData = await authApi.signin(username, password)
+      const token = String(signinData.token ?? '')
+      const [menu, groups] = await Promise.all([
+        authApi.getMenu(token),
+        authApi.getGroups(token),
+      ])
+      login({
+        user: {
+          id: String(signinData.id ?? ''), firstName: String(signinData.firstName ?? ''),
+          lastName: String(signinData.lastName ?? ''), email: String(signinData.email ?? ''),
+          phone: signinData.phone as string | undefined,
+          companyUserType: "ATTORNEY" as "ATTORNEY" | "ADMIN",
+          accessScope: String(signinData.accessScope ?? ''),
+          token, active: true, hod: false, backEntry: false,
+          department: signinData.department as undefined,
+        },
+        accessToken: token,
+        accessScope: String(signinData.accessScope ?? ''),
+        refreshToken: undefined,
+      })
+      // Resolve permissions from menu and store
+      const { resolvePermissions } = await import("@lib/auth/permissions")
+      const permissions = resolvePermissions(menu as import("@/types/auth.types").ApiMenuItem[], groups as import("@/types/auth.types").ApiUserGroup[])
+      useAuthStore.getState().setMenuItems(menu as import("@/types/auth.types").ApiMenuItem[], permissions)
+      navigate("/dashboard", { replace: true })
     } catch (e: unknown) {
-      setError((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Invalid email or password')
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setError(msg ?? "Invalid email or password. Please try again.")
     }
   }
 
-  async function handleMSLogin() {
+  async function handleSSO() {
+    if (!env.AZURE_CLIENT_ID) {
+      setError("Microsoft SSO requires AZURE_CLIENT_ID to be configured.")
+      return
+    }
+    setSsoLoading(true)
     try {
-      const result = await msalLoginPopup()
-      const res = await axiosClient.post('/api/auth/signin/app', { msToken: result.accessToken })
-      const payload = res.data?.data ?? res.data
-      const token = payload?.token ?? payload?.accessToken
-      setAuth({ user: payload?.user ?? payload, accessToken: token, refreshToken: payload?.refreshToken, accessScope: extractAccessScope(token) })
-      navigate('/dashboard')
-    } catch { setError('Microsoft login failed') }
+      const { msalLogin } = await import("@/lib/auth/msal")
+      await msalLogin()
+      navigate("/dashboard", { replace: true })
+    } catch {
+      setError("Microsoft sign-in failed. Please try email login.")
+    } finally {
+      setSsoLoading(false)
+    }
   }
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.75, color: 'text.primary' }}>Welcome back</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Sign in to your LegalEagle account</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, color: "text.primary" }}>
+        Welcome back
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Sign in to your LegalEagle account
+      </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {env.USE_STATIC_DATA && (
+        <Alert severity="info" sx={{ mb: 2, fontSize: 12 }}>
+          <strong>Static mode</strong> — use <code>admin@legaleagle.com</code> / <code>password</code>
+        </Alert>
+      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
 
-      {!featureFlags.forceMicrosoftSSO && (
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {!env.FORCE_MS_SSO && (
+        <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <ControlledInput name="username" control={control} label="Email address" type="email" required />
           <Box>
             <ControlledInput name="password" control={control} label="Password" type="password" required />
-            <Box sx={{ textAlign: 'right', mt: 0.5 }}>
-              <Link to="/forgot-password" style={{ fontSize: 12, color: '#00B4A6', textDecoration: 'none' }}>Forgot password?</Link>
+            <Box sx={{ textAlign: "right", mt: 0.75 }}>
+              <Link component={RouterLink} to="/forgot-password"
+                sx={{ fontSize: 12, color: "secondary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
+                Forgot password?
+              </Link>
             </Box>
           </Box>
           <Button type="submit" variant="contained" size="large" disabled={isSubmitting} fullWidth sx={{ mt: 0.5 }}>
-            {isSubmitting ? <CircularProgress size={20} color="inherit" /> : 'Sign in'}
+            {isSubmitting ? <CircularProgress size={20} color="inherit" /> : "Sign in"}
           </Button>
         </Box>
       )}
 
-      <Divider sx={{ my: 2.5 }}><Typography variant="caption" color="text.secondary">or</Typography></Divider>
-      <Button variant="outlined" size="large" startIcon={<WindowIcon />} onClick={handleMSLogin} fullWidth>
-        Continue with Microsoft
+      <Divider sx={{ my: 2.5 }}>
+        <Typography variant="caption" color="text.disabled">or continue with</Typography>
+      </Divider>
+      <Button variant="outlined" size="large" fullWidth disabled={ssoLoading}
+        startIcon={ssoLoading ? <CircularProgress size={16} /> : <WindowIcon />}
+        onClick={handleSSO}
+        sx={{ color: "text.primary", borderColor: "divider", "&:hover": { borderColor: "primary.main" } }}>
+        Microsoft
       </Button>
 
-      {featureFlags.enableUserRegistration && (
-        <Typography variant="body2" sx={{ mt: 2.5, textAlign: 'center' }} color="text.secondary">
-          Don't have an account?{' '}
-          <Link to="/register" style={{ color: '#0F3C6E', fontWeight: 500 }}>Create one</Link>
+      {env.ENABLE_REGISTER && (
+        <Typography variant="body2" sx={{ textAlign: "center", mt: 3, color: "text.secondary" }}>
+          Don't have an account?{" "}
+          <Link component={RouterLink} to="/register"
+            sx={{ color: "primary.main", fontWeight: 500, textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
+            Request access
+          </Link>
         </Typography>
       )}
     </Box>

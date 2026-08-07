@@ -2,16 +2,16 @@ import { Box, Typography, Paper, Divider, Switch, FormControlLabel, Tabs as MuiT
 import { useState } from 'react'
 import { useThemeStore } from '@lib/store/themeStore'
 import { useAuthStore } from '@lib/store/authStore'
-import { featureFlags } from '@config/featureFlags'
+import { env } from '@/config/env'
 import { LookupManager } from './_components/LookupManager'
 
 export default function SettingsPage() {
   const [tab, setTab] = useState(0)
-  const colorMode = useThemeStore(s => s.colorMode)
-  const toggleColorMode = useThemeStore(s => s.toggleColorMode)
-  const toggleLanguage = useThemeStore(s => s.toggleLanguage)
-  const language = useThemeStore(s => s.language)
-  const user = useAuthStore(s => s.user)
+  const colorMode = useThemeStore((s) => s.colorMode)
+  const toggleColorMode = useThemeStore((s) => s.toggleColorMode)
+  const toggleLanguage = useThemeStore((s) => s.toggleLanguage)
+  const language = useThemeStore((s) => s.language)
+  const user = useAuthStore((s) => s.user)
 
   return (
     <Box>
@@ -59,8 +59,8 @@ export default function SettingsPage() {
           <Box sx={{ display:'flex', flexDirection:'column', gap:1 }}>
             <Typography variant="body2"><strong>API URL:</strong> {import.meta.env['VITE_API_BASE_URL']}</Typography>
             <Typography variant="body2"><strong>Environment:</strong> {import.meta.env['VITE_APP_ENV'] ?? 'development'}</Typography>
-            <Typography variant="body2"><strong>Microsoft SSO:</strong> {featureFlags.forceMicrosoftSSO ? 'Enabled' : 'Disabled'}</Typography>
-            <Typography variant="body2"><strong>User Registration:</strong> {featureFlags.enableUserRegistration ? 'Enabled' : 'Disabled'}</Typography>
+            <Typography variant="body2"><strong>Microsoft SSO:</strong> {env.FORCE_MS_SSO ? 'Enabled' : 'Disabled'}</Typography>
+            <Typography variant="body2"><strong>User Registration:</strong> {env.ENABLE_REGISTER ? 'Enabled' : 'Disabled'}</Typography>
           </Box>
         </Paper>
       )}

@@ -5,7 +5,7 @@ import { useThemeStore, registerLanguageChangeCallback } from '@lib/store/themeS
 import type { Language } from '@/types/common.types'
 
 function I18nSync() {
-  const language = useThemeStore(s => s.language)
+  const language = useThemeStore((s) => s.language)
   useEffect(() => { i18n.changeLanguage(language) }, [language])
   return null
 }

@@ -1,22 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@':               path.resolve(__dirname, './src'),
-      '@/features':      path.resolve(__dirname, './src/features'),
-      '@/ui':            path.resolve(__dirname, './src/ui'),
-      '@/infrastructure':path.resolve(__dirname, './src/infrastructure'),
-      '@/config':        path.resolve(__dirname, './src/config'),
-      '@/types':         path.resolve(__dirname, './src/types'),
-      '@/providers':     path.resolve(__dirname, './src/providers'),
-      '@/mocks':         path.resolve(__dirname, './src/mocks'),
-      '@components':     path.resolve(__dirname, './src/components'),
-      '@lib':            path.resolve(__dirname, './src/lib'),
-      '@hooks':          path.resolve(__dirname, './src/hooks'),
-      '@config':         path.resolve(__dirname, './src/config'),
+      // Primary alias — use this for everything
+      '@': path.resolve(__dirname, './src'),
+      // Short aliases for the most-used folders
+      '@/components': path.resolve(__dirname, './src/components'),
+      '@/api':        path.resolve(__dirname, './src/api'),
+      '@/store':      path.resolve(__dirname, './src/store'),
+      '@/data':       path.resolve(__dirname, './src/data'),
+      '@/config':     path.resolve(__dirname, './src/config'),
+      '@/types':      path.resolve(__dirname, './src/types'),
+      '@/lib':        path.resolve(__dirname, './src/lib'),
+      '@/hooks':      path.resolve(__dirname, './src/hooks'),
+      '@/providers':  path.resolve(__dirname, './src/providers'),
+      // Legacy aliases — keep while old pages still import these
+      '@components':  path.resolve(__dirname, './src/components'),
+      '@lib':         path.resolve(__dirname, './src/lib'),
+      '@hooks':       path.resolve(__dirname, './src/hooks'),
+      '@config':      path.resolve(__dirname, './src/config'),
     },
   },
   server: { port: 3000 },
@@ -24,7 +30,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
+        manualChunks: (id: string) => {
           if (id.includes('node_modules/@mui/icons-material')) return 'vendor-mui-icons'
           if (id.includes('node_modules/@mui/'))               return 'vendor-mui'
           if (id.includes('node_modules/@emotion/'))           return 'vendor-emotion'

@@ -1,6 +1,9 @@
-export { Modal } from './Modal'
-export { Drawer } from './Drawer'
-export { Tabs } from './Tabs'
-export { EmptyState } from './EmptyState'
-export { Can } from './Can'
-export { StatusBadge } from './StatusBadge'
+export { StatusBadge }   from "./StatusBadge"
+export { Modal }         from "./Modal"
+export { FormDrawer }    from "./FormDrawer"
+export { Tabs }          from "./Tabs"
+export { Can }           from "./Can"
+export { ErrorBoundary } from "./ErrorBoundary"
+export { EmptyState }    from "./EmptyState"
+export { Widget }        from "./Widget"
+export { Page }          from "./Page"

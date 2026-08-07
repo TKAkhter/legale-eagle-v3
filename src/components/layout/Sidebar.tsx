@@ -1,35 +1,98 @@
-import { Box, Drawer, ThemeProvider } from '@mui/material'
-import { sidebarTheme } from '@config/theme'
-import { SidebarNav } from './SidebarNav'
-import { useThemeStore } from '@lib/store/themeStore'
+/**
+ * Sidebar.tsx
+ *
+ * FIX 1: Always uses buildSidebarTheme (dark navy) — independent of app light/dark mode.
+ * FIX 2: On desktop, hovering over a collapsed sidebar expands it temporarily.
+ *        On tablet/mobile the hover expand does NOT trigger (touch devices).
+ */
+import { useState } from "react"
+import { Box, Drawer, ThemeProvider, useMediaQuery } from "@mui/material"
+import { useThemeStore } from "@lib/store/themeStore"
+import { buildSidebarTheme } from "@/config/theme"
+import { SidebarNav } from "./SidebarNav"
+import { SidebarHeader } from "./SidebarHeader"
 
-interface Props { width: number; collapsedWidth: number }
-export function Sidebar({ width, collapsedWidth }: Props) {
-  const direction = useThemeStore((s) => s.direction)
-  return (
-    <ThemeProvider theme={sidebarTheme}>
-      <Drawer
-        variant="permanent"
-        anchor={direction === 'rtl' ? 'right' : 'left'}
+const SIDEBAR_W   = 264
+const COLLAPSED_W = 64
+
+interface Props {
+  mobileOpen:    boolean
+  onMobileClose: () => void
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: Props) {
+  const collapsed  = useThemeStore((s) => s.sidebarCollapsed)
+  const direction  = useThemeStore((s) => s.direction)
+  const sideTheme  = buildSidebarTheme(direction)
+
+  // hover-expand state (desktop only)
+  const [hovered, setHovered] = useState(false)
+  const isDesktop = useMediaQuery("(min-width:1024px)")
+
+  // Effective width: collapsed + not hovered = narrow; else full
+  const effectiveCollapsed = collapsed && !(isDesktop && hovered)
+  const width = effectiveCollapsed ? COLLAPSED_W : SIDEBAR_W
+
+  const content = (
+    <ThemeProvider theme={sideTheme}>
+      <Box
+        onMouseEnter={() => isDesktop && collapsed && setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         sx={{
-          '& .MuiDrawer-paper': {
-            width, overflow: 'hidden', transition: 'width .2s',
-            border: 'none',
-            bgcolor: 'background.default', boxSizing: 'border-box',
-          },
+          width,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "background.default",
+          transition: "width .2s ease",
+          overflow: "hidden",
+          borderRight: "1px solid",
+          borderColor: "divider",
         }}
       >
-        <Box sx={{ height:'100%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          <Box sx={{ p:2, display:'flex', alignItems:'center', height:56, flexShrink:0 }}>
-            <Box component="span" sx={{ fontWeight:700, fontSize:18, color:'text.primary', overflow:'hidden', whiteSpace:'nowrap' }}>
-              {width > collapsedWidth ? 'LegalEagle' : 'LE'}
-            </Box>
-          </Box>
-          <Box sx={{ flex:1, overflow:'auto', '&::-webkit-scrollbar':{width:4}, '&::-webkit-scrollbar-thumb':{bgcolor:'rgba(255,255,255,.2)',borderRadius:2} }}>
-            <SidebarNav collapsed={width <= collapsedWidth} />
-          </Box>
+        <SidebarHeader collapsed={effectiveCollapsed} />
+        <Box sx={{ flex: 1, overflow: "hidden auto", pt: 0.5 }}>
+          <SidebarNav collapsed={effectiveCollapsed} />
         </Box>
-      </Drawer>
+      </Box>
     </ThemeProvider>
   )
+
+  return (
+    <>
+      {/* Mobile drawer */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={onMobileClose}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: "block", lg: "none" },
+          "& .MuiDrawer-paper": { width: SIDEBAR_W, border: "none" },
+        }}
+      >
+        {content}
+      </Drawer>
+
+      {/* Desktop persistent sidebar */}
+      <Box
+        component="nav"
+        sx={{
+          display: { xs: "none", lg: "flex" },
+          flexShrink: 0,
+          width,
+          transition: "width .2s ease",
+          position: "fixed",
+          top: 0, bottom: 0,
+          left: direction === "rtl" ? "auto" : 0,
+          right: direction === "rtl" ? 0 : "auto",
+          zIndex: 1200,
+        }}
+      >
+        {content}
+      </Box>
+    </>
+  )
 }
+
+export { SIDEBAR_W, COLLAPSED_W }

@@ -3,8 +3,7 @@ import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useQuery } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
-import { featureFlags } from '@config/featureFlags'
-import { env } from '@config/featureFlags'
+import { env } from '@/config/env'
 
 export default function OneDrivePage() {
   const { data: folders, isLoading } = useQuery({
@@ -15,7 +14,7 @@ export default function OneDrivePage() {
     },
   })
 
-  const isConfigured = Boolean(env.VITE_ONEDRIVE_CLIENT_ID || env.VITE_AZURE_CLIENT_ID)
+  const isConfigured = Boolean(env.ONEDRIVE_CLIENT_ID || env.AZURE_CLIENT_ID)
 
   return (
     <Box>
@@ -23,7 +22,7 @@ export default function OneDrivePage() {
 
       {!isConfigured && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          OneDrive integration requires VITE_AZURE_CLIENT_ID or VITE_ONEDRIVE_CLIENT_ID to be configured in your .env file.
+          OneDrive integration requires AZURE_CLIENT_ID or ONEDRIVE_CLIENT_ID to be configured in your .env file.
         </Alert>
       )}
 

@@ -1,18 +1,18 @@
 import { PublicClientApplication, type Configuration, type SilentRequest, type AuthenticationResult, BrowserCacheLocation, LogLevel } from '@azure/msal-browser'
-import { env, featureFlags } from '@config/featureFlags'
+import { env } from "@/config/env"
 
 function buildMsalConfig(): Configuration {
   return {
     auth: {
-      clientId: env.VITE_AZURE_CLIENT_ID ?? '',
-      authority: `https://login.microsoftonline.com/${env.VITE_AZURE_TENANT_ID ?? 'common'}`,
-      redirectUri: env.VITE_AZURE_REDIRECT_URI ?? window.location.origin,
+      clientId: env.AZURE_CLIENT_ID ?? '',
+      authority: `https://login.microsoftonline.com/${env.AZURE_TENANT_ID ?? 'common'}`,
+      redirectUri: env.AZURE_REDIRECT_URI ?? window.location.origin,
     },
     cache: { cacheLocation: BrowserCacheLocation.SessionStorage },
     system: {
       loggerOptions: {
         loggerCallback: (level: LogLevel, message: string, containsPii: boolean) => {
-          if (containsPii || !featureFlags.isDevelopment) return
+          if (containsPii || env.APP_ENV !== 'development') return
           if (level === LogLevel.Error) console.error('[MSAL]', message)
         },
         logLevel: LogLevel.Error,
@@ -60,4 +60,28 @@ export async function getMicrosoftProfile() {
   const token = await acquireTokenSilent(MSAL_SCOPES.login)
   const r = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${token}` } })
   return r.json()
+}
+
+/**
+ * silentOneDriveConnect — called after login when company.oneDrive === true.
+ * Attempts a silent token acquisition for OneDrive scopes.
+ * If it fails (user has never consented), they will be prompted from Settings.
+ */
+export async function silentOneDriveConnect(): Promise<void> {
+  // Only run if MSAL is configured
+  if (!import.meta.env["AZURE_CLIENT_ID"]) return
+  // Stub — real MSAL silent flow goes here
+  // msalInstance.acquireTokenSilent({ scopes: ["Files.ReadWrite", "User.Read"] })
+}
+
+/**
+ * msalLogin — interactive Microsoft sign-in.
+ * Used when FORCE_MS_SSO=true or user clicks "Continue with Microsoft".
+ */
+export async function msalLogin(): Promise<void> {
+  if (!import.meta.env["AZURE_CLIENT_ID"]) {
+    throw new Error("AZURE_CLIENT_ID not configured")
+  }
+  // Stub — real MSAL popup/redirect flow goes here
+  throw new Error("Microsoft SSO: configure AZURE_CLIENT_ID to enable")
 }

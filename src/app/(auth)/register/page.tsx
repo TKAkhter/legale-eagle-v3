@@ -1,24 +1,24 @@
-import { Box, Typography, Alert } from '@mui/material'
-import { Link } from 'react-router-dom'
-import { featureFlags } from '@config/featureFlags'
+import { Box, Alert, Typography, Link } from "@mui/material"
+import { Link as RouterLink } from "react-router-dom"
+import { env } from "@/config/env"
 
 export default function RegisterPage() {
-  if (!featureFlags.enableUserRegistration) {
+  if (!env.ENABLE_REGISTER) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Alert severity="info">
-          Self-registration is not available. Please contact your administrator to create an account.
-        </Alert>
-        <Link to="/login" style={{ textAlign: 'center' }}>
-          <Typography variant="body2" color="primary">Back to sign in</Typography>
+      <Box>
+        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, color: "text.primary" }}>Create account</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>New accounts are created by administrators.</Typography>
+        <Alert severity="info" sx={{ mb: 2.5 }}>Please contact your firm administrator to get access.</Alert>
+        <Link component={RouterLink} to="/login" sx={{ fontSize: 14, color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>
+          ← Back to sign in
         </Link>
       </Box>
     )
   }
-  // Full registration form — enabled when VITE_ENABLE_USER_REGISTRATION=true
   return (
     <Box>
-      <Typography variant="body2" color="text.secondary">Registration form coming soon.</Typography>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 2, color: "text.primary" }}>Create account</Typography>
+      <Alert severity="info">Registration form coming soon.</Alert>
     </Box>
   )
 }

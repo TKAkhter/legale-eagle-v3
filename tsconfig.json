@@ -18,13 +18,38 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
       ],
-      "@app/*": [
-        "./src/app/*"
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/api/*": [
+        "./src/api/*"
+      ],
+      "@/store/*": [
+        "./src/store/*"
+      ],
+      "@/data/*": [
+        "./src/data/*"
+      ],
+      "@/config/*": [
+        "./src/config/*"
+      ],
+      "@/types/*": [
+        "./src/types/*"
+      ],
+      "@/lib/*": [
+        "./src/lib/*"
+      ],
+      "@/hooks/*": [
+        "./src/hooks/*"
+      ],
+      "@/providers/*": [
+        "./src/providers/*"
       ],
       "@components/*": [
         "./src/components/*"
@@ -34,9 +59,6 @@
       ],
       "@hooks/*": [
         "./src/hooks/*"
-      ],
-      "@providers/*": [
-        "./src/providers/*"
       ],
       "@config/*": [
         "./src/config/*"

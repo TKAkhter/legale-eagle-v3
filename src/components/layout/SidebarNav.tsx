@@ -120,18 +120,32 @@ interface Props { collapsed: boolean }
 
 export function SidebarNav({ collapsed }: Props) {
   const { t } = useTranslation('nav')
-  const permissions = useAuthStore(s => s.permissions)
+  const permissions = useAuthStore((s) => s.menuItems)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const menuItems: any[] = (useAuthStore as any)(((s: any) => s.menuItems))
   const location = useLocation()
   const navigate = useNavigate()
   const [open, setOpen] = useState<Record<string, boolean>>({})
 
   function filterItems(items: NavItem[]): NavItem[] {
+    // Use menu items from API to determine visibility.
+    // If the menu has loaded, only show items whose path appears in the API menu.
+    // If not loaded yet (empty), show all items (prevents blank sidebar on load).
+    const apiUrls = new Set(menuItems.map((m) => m.url ?? ""))
+    const menuLoaded = menuItems.length > 0
+
     return items
-      .filter(item => !item.permission || hasPermission(permissions, item.permission))
-      .map(item => item.children
-        ? { ...item, children: filterItems(item.children) }
-        : item
+      .filter(item => {
+        if (!item.path) return true  // group headers always show
+        if (!menuLoaded) return true // not loaded yet — show all
+        return apiUrls.has(item.path)
+      })
+      .map(item =>
+        item.children
+          ? { ...item, children: filterItems(item.children) }
+          : item
       )
+      .filter(item => !item.children || item.children.length > 0)
   }
 
   const items = filterItems([...navigationConfig])

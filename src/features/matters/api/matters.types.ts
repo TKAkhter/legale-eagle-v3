@@ -1,3 +1,0 @@
-export interface Matter { id: string; title: string; matterSequence?: string; billingType: string; status?: string; client?: { id: string; companyName?: string; firstName?: string }; responsibleAttorney?: { id: string; firstName: string; lastName: string }; department?: { id: string; name: string }; practiceArea?: { id: string; name: string }; caseNo?: string; openDate?: string; description?: string }
-export interface CreateMatterDto { title: string; clientId: string; billingType: string; responsibleAttorneyId?: string; practiceAreaId?: string; departmentId?: string; description?: string; caseNo?: string; courtLocation?: string; openDate?: string }
-export interface MatterShortInfo { id: string; title: string; matterSequence?: string }

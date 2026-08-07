@@ -1,33 +1,33 @@
-import { Box } from '@mui/material'
-import { Outlet } from 'react-router-dom'
-import { Sidebar } from './Sidebar'
-import { ErrorBoundary } from '@components/ui/ErrorBoundary'
-import { Toolbar } from './Toolbar'
-import { useThemeStore } from '@lib/store/themeStore'
+import { useState } from "react"
+import { Box, useMediaQuery } from "@mui/material"
+import { Outlet } from "react-router-dom"
+import { Sidebar, SIDEBAR_W, COLLAPSED_W } from "./Sidebar"
+import { Toolbar } from "./Toolbar"
+import { useThemeStore } from "@lib/store/themeStore"
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
 
-const SIDEBAR_WIDTH          = 264
-const SIDEBAR_COLLAPSED_WIDTH = 64
-const TOOLBAR_HEIGHT          = 56
+const TOOLBAR_H = 56
 
 export function MainLayout() {
-  const collapsed  = useThemeStore(s => s.sidebarCollapsed)
-  const direction  = useThemeStore(s => s.direction)
-  const sw         = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
-  const marginKey  = direction === 'rtl' ? 'mr' : 'ml'
+  const collapsed  = useThemeStore((s) => s.sidebarCollapsed)
+  const direction  = useThemeStore((s) => s.direction)
+  const isDesktop  = useMediaQuery("(min-width:1024px)")
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const sw = isDesktop ? (collapsed ? COLLAPSED_W : SIDEBAR_W) : 0
+  const ml = direction === "rtl" ? 0 : sw
+  const mr = direction === "rtl" ? sw : 0
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Sidebar width={sw} collapsedWidth={SIDEBAR_COLLAPSED_WIDTH} />
+    <Box sx={{ display:"flex", minHeight:"100vh", bgcolor:"background.default" }}>
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
 
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, [marginKey]: `${sw}px`, transition: `${marginKey} .2s` }}>
-        <Toolbar height={TOOLBAR_HEIGHT} sidebarWidth={sw} />
+      <Box sx={{ flex:1, display:"flex", flexDirection:"column", minWidth:0, ml:`${ml}px`, mr:`${mr}px`, transition:"margin .2s" }}>
+        <Toolbar sidebarWidth={sw} onMobileMenuClick={() => setMobileOpen(true)} />
+        <Box sx={{ height: TOOLBAR_H, flexShrink:0 }} />
 
-        {/* Fixed-height spacer so content never hides under the AppBar */}
-        <Box sx={{ height: `${TOOLBAR_HEIGHT}px`, flexShrink: 0 }} />
-
-        <Box component="main" sx={{ flex: 1, p: { xs: 2, sm: 3 }, minHeight: 0 }}>
-          {/* Max-width container — prevents content from stretching to 1920px on wide screens */}
-          <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+        <Box component="main" sx={{ flex:1, p:{ xs:2, sm:3 } }}>
+          <Box sx={{ maxWidth: 1400, mx:"auto" }}>
             <ErrorBoundary>
               <Outlet />
             </ErrorBoundary>

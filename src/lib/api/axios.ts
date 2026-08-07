@@ -3,7 +3,7 @@ import axios, {
   type AxiosRequestConfig,
   type AxiosError,
 } from 'axios'
-import { env } from '@config/featureFlags'
+import { env } from '@/config/env'
 
 /**
  * axios.ts — base HTTP client
@@ -49,7 +49,7 @@ export function bootstrapAxiosAuth(opts: {
 // ─── Create instances ─────────────────────────────────────────────────────────
 function createInstance(config: AxiosRequestConfig = {}): AxiosInstance {
   return axios.create({
-    baseURL: env.VITE_API_BASE_URL,
+    baseURL: env.API_BASE_URL,
     timeout: 30_000,
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     ...config,
@@ -93,7 +93,7 @@ async function attemptRefresh(): Promise<string> {
   if (!refreshToken || !userId) throw new Error('No refresh credentials')
 
   const response = await axios.post(
-    `${env.VITE_API_BASE_URL}/api/auth/refresh/token`,
+    `${env.API_BASE_URL}/api/auth/refresh/token`,
     { token: currentToken, refreshToken, userId, accessScope },
   )
 
@@ -105,6 +105,7 @@ async function attemptRefresh(): Promise<string> {
 }
 
 // ─── Response interceptor ─────────────────────────────────────────────────────
+// In static data mode, suppress 401 logout (token is a placeholder)
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {

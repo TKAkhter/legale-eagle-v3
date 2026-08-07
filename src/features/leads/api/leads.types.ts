@@ -1,3 +1,0 @@
-export interface Lead { id: string; firstName?: string; lastName?: string; companyName?: string; leadType: "PERSON"|"COMPANY"; currentStatus: string; email?: string; phone?: string; practiceArea?: { id: string; name: string }; leadSource?: { id: string; name: string }; lawyer?: { id: string; firstName: string; lastName: string }; description?: string; createdAt?: string }
-export interface CreateLeadDto { firstName: string; lastName?: string; companyName?: string; leadType: "PERSON"|"COMPANY"; email?: string; phone?: string; practiceAreaId?: string; leadSourceId?: string; lawyerId?: string; description?: string }
-export interface LeadFollowup { id: string; followUpContent: string; followUpTime: string; createdAt?: string }
