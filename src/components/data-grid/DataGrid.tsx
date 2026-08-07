@@ -9,6 +9,7 @@ import { SkeletonRows } from './SkeletonRows'
 import { ColumnHeader } from './ColumnHeader'
 import { RowMenu } from './RowMenu'
 import { ActiveFilterChips } from './ActiveFilterChips'
+import { ColumnVisibilityToggle } from './ColumnVisibilityToggle'
 import { DataGridToolbar } from './DataGridToolbar'
 import { useUrlState } from '@hooks/useUrlState'
 import { downloadBlob } from '@lib/utils/downloadBlob'
@@ -24,6 +25,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
   onRowClick, rowKey = 'id' as keyof TData,
 }: DataGridProps<TData>) {
   const navigate = useNavigate()
+  const [visibleFields, setVisibleFields] = useState<Set<string>|null>(null)
   const { state, setState } = useUrlState({ page: 0, pageSize: defaultPageSize, sortBy: defaultSortBy, sortDir: defaultSortDir as string })
   const [filters, setFilters] = useState<Record<string, unknown>>({})
   const [filterOpen, setFilterOpen] = useState(false)

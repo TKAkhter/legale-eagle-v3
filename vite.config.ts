@@ -1,9 +1,18 @@
+import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['icons/icon.svg'],
+      manifest: { name:'LegalEagle LMS', short_name:'LegalEagle', theme_color:'#0F2744', background_color:'#0F2744', display:'standalone', start_url:'/dashboard', icons:[{src:'/icons/icon.svg',sizes:'any',type:'image/svg+xml',purpose:'any maskable'}] },
+      workbox: { globPatterns:['**/*.{js,css,html,svg}'], runtimeCaching:[{urlPattern:/testapi\.alshamsilegallms\.com/,handler:'NetworkOnly'}] },
+    }),
+  ],
   resolve: {
     alias: {
       // Primary alias — use this for everything
