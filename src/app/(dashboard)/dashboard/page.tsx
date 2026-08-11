@@ -4,6 +4,7 @@ import { env } from "@/config/env"
 import { axiosClient as apiClient } from "@/lib/api/axios"
 import { useAuthStore } from "@lib/store/authStore"
 import { dashboard as staticDashboard } from "@/data/static"
+import { ActivityFeed } from '@/components/widgets/ActivityFeed'
 import { ApexChart } from "@/components/charts/ApexChart"
 
 function KpiCard({ title, value, sub, loading }: { title: string; value?: number; sub?: string; loading: boolean }) {
@@ -105,6 +106,10 @@ export default function DashboardPage() {
             />
           )}
         </Paper>
+      </Box>
+      {/* Activity feed */}
+      <Box sx={{ mt: 3 }}>
+        <ActivityFeed limit={8} />
       </Box>
     </Box>
   )

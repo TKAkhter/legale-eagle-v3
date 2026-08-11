@@ -238,3 +238,31 @@ export const fileTree = {
     { id:"f42", name:"Invoice_Template.xlsx",      type:"file", parentId:"f4", size:28672,  modified:"2026-01-15T08:00:00", mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
   ],
 }
+
+// ─── Activity Timeline (dashboard feed + per-entity history) ─────────────────
+export const activityFeed = [
+  { id:"a1",  type:"matter_created",   actor:"Sarah Johnson",     entity:"Matter",  entityId:"6a4f9f5e096c2631a41a8193", entityName:"260303 — Building Dispute",    description:"Created new matter",                          createdAt:"2026-08-07T09:15:00" },
+  { id:"a2",  type:"invoice_paid",     actor:"System",            entity:"Invoice", entityId:"inv1",                       entityName:"INV-2025-001",                 description:"Invoice marked as paid — AED 15,750",          createdAt:"2026-08-07T08:45:00" },
+  { id:"a3",  type:"lead_converted",   actor:"Dory Abi Khalil",   entity:"Lead",    entityId:"l1",                         entityName:"Mohammed Al Rashid",           description:"Lead converted to client",                     createdAt:"2026-08-06T16:30:00" },
+  { id:"a4",  type:"task_completed",   actor:"Mashood Rafi",      entity:"Task",    entityId:"t2",                         entityName:"File court documents",         description:"Task marked as completed",                     createdAt:"2026-08-06T14:00:00" },
+  { id:"a5",  type:"client_created",   actor:"Ahmad AlKhalil",    entity:"Client",  entityId:"c3",                         entityName:"KM Properties",                description:"New client added",                             createdAt:"2026-08-06T11:20:00" },
+  { id:"a6",  type:"timelog_approved", actor:"Sarah Johnson",     entity:"Timelog", entityId:"tl1",                        entityName:"260293 — Rental Dispute",      description:"Time logs approved — 4.5 hrs",                 createdAt:"2026-08-05T17:00:00" },
+  { id:"a7",  type:"matter_closed",    actor:"Admin",             entity:"Matter",  entityId:"matter-003",                 entityName:"260285 — Corporate Setup",     description:"Matter closed",                                createdAt:"2026-08-05T15:30:00" },
+  { id:"a8",  type:"invoice_created",  actor:"Dory Abi Khalil",   entity:"Invoice", entityId:"inv2",                       entityName:"INV-2025-002",                 description:"Invoice created — AED 8,925",                  createdAt:"2026-08-04T10:00:00" },
+  { id:"a9",  type:"lead_followup",    actor:"Ahmad AlKhalil",    entity:"Lead",    entityId:"l2",                         entityName:"Fatima Khalid",                description:"Follow-up added: Sent proposal document",      createdAt:"2026-08-03T14:15:00" },
+  { id:"a10", type:"user_login",       actor:"Talha Akhter",      entity:"User",    entityId:"u4",                         entityName:"Talha Akhter",                 description:"Logged in from 192.168.1.45",                  createdAt:"2026-08-07T08:00:00" },
+]
+
+// ─── Audit Log (admin — who changed what) ─────────────────────────────────────
+export const auditLog = [
+  { id:"au1",  actor:"Sarah Johnson",   action:"UPDATE",   module:"Matter",  record:"260303 — Building Dispute",  changes:{ status:{ from:"OPEN", to:"OPEN" }, practiceArea:{ from:"General", to:"Litigation" } },          ip:"192.168.1.20", createdAt:"2026-08-07T09:10:00" },
+  { id:"au2",  actor:"System",          action:"UPDATE",   module:"Invoice", record:"INV-2025-001",               changes:{ invoiceStatus:{ from:"Due", to:"Paid" }, paidAmount:{ from:"0", to:"15750" } },                    ip:"system",        createdAt:"2026-08-07T08:45:00" },
+  { id:"au3",  actor:"Dory Abi Khalil", action:"CREATE",   module:"Lead",    record:"Robert Chen",               changes:{},                                                                                                  ip:"192.168.1.22", createdAt:"2026-08-06T16:25:00" },
+  { id:"au4",  actor:"Dory Abi Khalil", action:"CONVERT",  module:"Lead",    record:"Mohammed Al Rashid → Client",changes:{},                                                                                                  ip:"192.168.1.22", createdAt:"2026-08-06T16:30:00" },
+  { id:"au5",  actor:"Mashood Rafi",    action:"UPDATE",   module:"Task",    record:"File court documents",       changes:{ taskStatus:{ from:"In_Progress", to:"Completed" } },                                               ip:"192.168.1.25", createdAt:"2026-08-06T14:00:00" },
+  { id:"au6",  actor:"Ahmad AlKhalil",  action:"CREATE",   module:"Client",  record:"KM Properties",             changes:{},                                                                                                  ip:"192.168.1.30", createdAt:"2026-08-06T11:20:00" },
+  { id:"au7",  actor:"Sarah Johnson",   action:"APPROVE",  module:"Timelog", record:"260293 — 4.5 hrs",          changes:{},                                                                                                  ip:"192.168.1.20", createdAt:"2026-08-05T17:00:00" },
+  { id:"au8",  actor:"Admin",           action:"UPDATE",   module:"Matter",  record:"260285 — Corporate Setup",  changes:{ status:{ from:"OPEN", to:"CLOSED" } },                                                             ip:"192.168.1.1",  createdAt:"2026-08-05T15:30:00" },
+  { id:"au9",  actor:"Dory Abi Khalil", action:"CREATE",   module:"Invoice", record:"INV-2025-002",              changes:{},                                                                                                  ip:"192.168.1.22", createdAt:"2026-08-04T10:00:00" },
+  { id:"au10", action:"LOGIN",          actor:"Talha Akhter", module:"Auth", record:"Login",                     changes:{},                                                                                                  ip:"192.168.1.45", createdAt:"2026-08-07T08:00:00" },
+]
