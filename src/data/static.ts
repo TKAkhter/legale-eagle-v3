@@ -185,3 +185,56 @@ export const lookups = {
     { id:"u4", firstName:"Talha",  lastName:"Akhter",      email:"talha@firm.com",  companyUserType:"ATTORNEY",    active:true },
   ],
 }
+
+// ─── Email (Outlook-style viewer) ────────────────────────────────────────────
+export const emailFolders = [
+  { id:"inbox",   label:"Inbox",   icon:"Inbox",        unread:3 },
+  { id:"sent",    label:"Sent",    icon:"Send",         unread:0 },
+  { id:"drafts",  label:"Drafts",  icon:"Drafts",       unread:1 },
+  { id:"starred", label:"Starred", icon:"Star",         unread:0 },
+  { id:"trash",   label:"Trash",   icon:"Delete",       unread:0 },
+]
+
+export const emails = [
+  { id:"e1", folderId:"inbox",  from:"Sarah Johnson <sarah@firm.com>",        subject:"Matter 260303 — Document Review Complete",    preview:"I have completed the review of all documents for the building dispute matter...", body:"Dear Team,\n\nI have completed the review of all documents for the building dispute matter (260303). The key findings are attached.\n\nPlease review at your earliest convenience.\n\nBest regards,\nSarah Johnson", date:"2026-08-07T09:15:00", read:false, starred:true,  hasAttachments:true,  to:"admin@legaleaglelms.com" },
+  { id:"e2", folderId:"inbox",  from:"Mohammed Al Rashid <m@holdings.ae>",   subject:"RE: Invoice INV-2025-003 — Payment Query",     preview:"Thank you for your email. We have processed the payment and...", body:"Thank you for your email.\n\nWe have processed the payment for Invoice INV-2025-003. Please find the bank transfer confirmation attached.\n\nRegards,\nMohammed Al Rashid\nAl Rashid Holdings", date:"2026-08-07T08:30:00", read:false, starred:false, hasAttachments:true,  to:"admin@legaleaglelms.com" },
+  { id:"e3", folderId:"inbox",  from:"Court Registry <registry@courts.ae>",  subject:"Hearing Confirmation — Case CR-2025-001",      preview:"This is to confirm the hearing scheduled for Monday 11 August...", body:"This is to confirm the hearing scheduled for:\n\nCase: CR-2025-001\nDate: Monday, 11 August 2026\nTime: 10:00 AM\nCourt: Dubai Civil Court, Room 4B\n\nPlease ensure all parties are present.", date:"2026-08-06T14:00:00", read:true,  starred:false, hasAttachments:false, to:"admin@legaleaglelms.com" },
+  { id:"e4", folderId:"inbox",  from:"Dory Abi Khalil <dory@firm.com>",      subject:"Rental Dispute — Client Meeting Notes",         preview:"Attached are the notes from yesterday's meeting with the client...", body:"Hi,\n\nAttached are the notes from yesterday's meeting with the client regarding the rental dispute (260293).\n\nKey points discussed:\n1. Timeline for filing\n2. Evidence compilation\n3. Settlement options\n\nLet me know your thoughts.\n\nDory", date:"2026-08-06T11:20:00", read:true,  starred:false, hasAttachments:true,  to:"admin@legaleaglelms.com" },
+  { id:"e5", folderId:"inbox",  from:"HR System <hr@legaleaglelms.com>",     subject:"Leave Request Approved — Ahmad AlKhalil",       preview:"This is to confirm that the leave request for Ahmad AlKhalil has been approved...", body:"This is to confirm that the leave request for Ahmad AlKhalil (3 days, 10–12 August 2026) has been approved.\n\nPlease update the matter calendar accordingly.", date:"2026-08-05T16:45:00", read:true,  starred:false, hasAttachments:false, to:"admin@legaleaglelms.com" },
+  { id:"e6", folderId:"sent",   from:"admin@legaleaglelms.com",              subject:"RE: Invoice INV-2025-002 — Payment Reminder",   preview:"Dear Emily, This is a reminder that Invoice INV-2025-002...", body:"Dear Emily,\n\nThis is a reminder that Invoice INV-2025-002 for AED 8,925 remains partially outstanding.\n\nBalance due: AED 4,925\nDue date: 30 April 2025\n\nPlease arrange payment at your earliest convenience.\n\nKind regards,\nLegal Eagle LMS", date:"2026-08-04T10:00:00", read:true,  starred:false, hasAttachments:false, to:"emily@gmail.com" },
+  { id:"e7", folderId:"drafts", from:"admin@legaleaglelms.com",              subject:"Matter 260285 — Corporate Restructuring Update", preview:"Dear Mr. Al Mazrouei, Following our meeting on...", body:"Dear Mr. Al Mazrouei,\n\nFollowing our meeting on 5 August, please find below the updated timeline for the corporate restructuring:\n\n[DRAFT — not yet complete]", date:"2026-08-06T17:00:00", read:true,  starred:false, hasAttachments:false, to:"ceo@km.ae" },
+]
+
+// ─── Files (OneDrive-style manager) ───────────────────────────────────────────
+export const fileTree = {
+  "/": [
+    { id:"f1",  name:"Matters",          type:"folder", parentId:null,  size:null,  modified:"2026-08-07T09:00:00", mimeType:null },
+    { id:"f2",  name:"Clients",          type:"folder", parentId:null,  size:null,  modified:"2026-08-06T14:00:00", mimeType:null },
+    { id:"f3",  name:"Invoices",         type:"folder", parentId:null,  size:null,  modified:"2026-08-05T10:00:00", mimeType:null },
+    { id:"f4",  name:"Templates",        type:"folder", parentId:null,  size:null,  modified:"2026-08-01T08:00:00", mimeType:null },
+  ],
+  "f1": [
+    { id:"f10", name:"260303 — Building Dispute", type:"folder", parentId:"f1", size:null, modified:"2026-08-07T09:00:00", mimeType:null },
+    { id:"f11", name:"260293 — Rental Dispute",   type:"folder", parentId:"f1", size:null, modified:"2026-08-06T11:00:00", mimeType:null },
+    { id:"f12", name:"260285 — Corporate Setup",  type:"folder", parentId:"f1", size:null, modified:"2026-08-05T15:00:00", mimeType:null },
+  ],
+  "f10": [
+    { id:"f20", name:"Brief.pdf",              type:"file", parentId:"f10", size:245760,  modified:"2026-08-07T09:00:00", mimeType:"application/pdf" },
+    { id:"f21", name:"Evidence_Bundle.pdf",    type:"file", parentId:"f10", size:1048576, modified:"2026-08-06T16:00:00", mimeType:"application/pdf" },
+    { id:"f22", name:"Client_Agreement.docx",  type:"file", parentId:"f10", size:98304,   modified:"2026-08-05T10:00:00", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  ],
+  "f11": [
+    { id:"f23", name:"Lease_Agreement.pdf",    type:"file", parentId:"f11", size:512000,  modified:"2026-08-06T11:00:00", mimeType:"application/pdf" },
+    { id:"f24", name:"Correspondence.docx",    type:"file", parentId:"f11", size:65536,   modified:"2026-08-04T09:00:00", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  ],
+  "f3": [
+    { id:"f30", name:"INV-2025-001.pdf", type:"file", parentId:"f3", size:184320, modified:"2026-03-01T10:00:00", mimeType:"application/pdf" },
+    { id:"f31", name:"INV-2025-002.pdf", type:"file", parentId:"f3", size:174080, modified:"2026-04-01T10:00:00", mimeType:"application/pdf" },
+    { id:"f32", name:"INV-2025-003.pdf", type:"file", parentId:"f3", size:163840, modified:"2026-02-01T10:00:00", mimeType:"application/pdf" },
+  ],
+  "f4": [
+    { id:"f40", name:"LFA_Template.docx",         type:"file", parentId:"f4", size:45056,  modified:"2026-01-15T08:00:00", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+    { id:"f41", name:"Matter_Opening_Form.docx",   type:"file", parentId:"f4", size:38912,  modified:"2026-01-15T08:00:00", mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+    { id:"f42", name:"Invoice_Template.xlsx",      type:"file", parentId:"f4", size:28672,  modified:"2026-01-15T08:00:00", mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  ],
+}

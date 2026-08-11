@@ -1,3 +1,4 @@
+import EmailIcon from '@mui/icons-material/Email'
 import { PERMISSIONS } from './permissions'
 
 /**
