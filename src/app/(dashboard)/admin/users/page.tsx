@@ -12,6 +12,8 @@ import { SearchInput } from '@components/filters/SearchInput'
 import { DepartmentFilter } from '@components/filters/DepartmentFilter'
 import { PERMISSIONS } from '@config/permissions'
 import { axiosClient } from '@lib/api/axios'
+import { env } from '@/config/env'
+import { adminApi } from '@/api/admin'
 import { buildQueryParams } from '@lib/utils/buildQueryParams'
 import { QK } from '@lib/query/keys'
 import { InviteUserDrawer } from './_components/InviteUserDrawer'
@@ -21,6 +23,7 @@ import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
 
 async function fetchUsers(params: GridParams) {
+  if (env.USE_STATIC_DATA) return adminApi.getUsers(params.filters ?? {})
   const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
   const f = params.filters ?? {}
   const r = await axiosClient.get('/api/user/get', {

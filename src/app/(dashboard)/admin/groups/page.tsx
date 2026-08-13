@@ -1,3 +1,5 @@
+import { env } from '@/config/env'
+import { adminApi } from '@/api/admin'
 import { Box, Typography, Button, Snackbar, Alert } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
@@ -19,6 +21,10 @@ const schema = z.object({ name: z.string().min(1,'Group name required') })
 type Form = z.infer<typeof schema>
 
 async function fetchGroups(_p: GridParams) {
+  if (env.USE_STATIC_DATA) {
+    const groups = await adminApi.getGroups()
+    return { content: groups, totalElements: groups.length, totalPages: 1, number: 0, size: groups.length, first: true, last: true, empty: groups.length === 0 }
+  }
   const r = await axiosClient.get('/api/group/get')
   const list = r.data?.data??r.data??[]
   const arr = Array.isArray(list)?list:[list].filter(Boolean)

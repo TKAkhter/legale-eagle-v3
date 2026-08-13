@@ -1,3 +1,5 @@
+import { env } from '@/config/env'
+import { adminApi } from '@/api/admin'
 import { Box, Typography, Avatar } from '@mui/material'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
@@ -10,6 +12,7 @@ import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
 
 async function fetchTeam(params: GridParams) {
+  if (env.USE_STATIC_DATA) return adminApi.getUsers(params.filters ?? {})
   const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
   const f = params.filters ?? {}
   const r = await axiosClient.get('/api/user/get', { params: { ...qp, searchText: f.searchText ?? '', departmentId: f.departmentId ?? '' } })
