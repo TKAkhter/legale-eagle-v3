@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Stepper, Step, StepLabel, Alert, CircularProgress, Divider } from '@mui/material'
 import { useForm } from 'react-hook-form'
@@ -25,7 +26,8 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
   async function onSubmit(data: Record<string, string>) {
     setLoading(true); setError('')
     try {
-      await axiosClient.post('/api/leads/convert', {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/leads/convert', {
         leadId,
         matter: { title: data.matterTitle, billingType: data.billingType },
         notes: data.notes,

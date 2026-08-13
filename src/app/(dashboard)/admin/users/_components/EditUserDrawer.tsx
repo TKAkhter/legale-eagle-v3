@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Alert, Box } from '@mui/material'
@@ -66,7 +67,8 @@ export function EditUserDrawer({ open, onClose, userId, onSuccess }: Props) {
   async function onSubmit(data: Record<string, unknown>) {
     setSubmitError(null)
     try {
-      await axiosClient.post('/api/user/edit', {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/user/edit', {
         userId,
         firstName:     data.firstName,
         lastName:      data.lastName,
@@ -78,7 +80,7 @@ export function EditUserDrawer({ open, onClose, userId, onSuccess }: Props) {
         reportingPerson: data.reportingPersonId ? { id: data.reportingPersonId } : undefined,
       })
       // Save extra permissions in a separate call
-      await axiosClient.put(`/api/user/extra/permission/${userId}`, {
+      if (!env.USE_STATIC_DATA) await axiosClient.put(`/api/user/extra/permission/${userId}`, {
         leadSourceEntry:               data.leadSourceEntry,
         practiceAreaEntry:             data.practiceAreaEntry,
         departmentInvoiceApproval:     data.departmentInvoiceApproval,

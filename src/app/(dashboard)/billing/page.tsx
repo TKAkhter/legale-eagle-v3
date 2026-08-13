@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
@@ -21,6 +22,7 @@ import type { GridParams, InvoiceStatus } from '@/types/common.types'
 const STATUSES: InvoiceStatus[] = ['Due','Paid','Overdue','Draft','Partially_Paid','Void','Canceled','Approval']
 
 async function fetchInvoices(params: GridParams) {
+  if (env.USE_STATIC_DATA) { return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true } }
   const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
   const f = params.filters ?? {}
   const res = await axiosClient.post('/api/invoice/filter/all/v2', {}, {

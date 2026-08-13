@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Box, Typography, Button, Snackbar, Alert } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -18,6 +19,7 @@ const schema = z.object({ name: z.string().min(1, 'Name required'), country: z.s
 type Form = z.infer<typeof schema>
 
 async function fetchLocations(_p: GridParams) {
+  if (env.USE_STATIC_DATA) return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true }
   const r = await axiosClient.get('/api/location/get')
   const list = r.data?.data ?? r.data ?? []
   const arr = Array.isArray(list) ? list : [list].filter(Boolean)

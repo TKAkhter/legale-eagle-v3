@@ -14,10 +14,13 @@ import { BillingTypeFilter } from '@components/filters/BillingTypeFilter'
 import { useState } from 'react'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
+import { lfaApi } from '@/api/lfa'
+import { env } from '@/config/env'
 import { LfaFormDrawer } from './_components/LfaFormDrawer'
 import { useQueryClient } from '@tanstack/react-query'
 
 async function fetchLfas(params: GridParams) {
+  if (env.USE_STATIC_DATA) return lfaApi.getAll(params)
   const qp = buildQueryParams(params, { paginationConvention:'pageNumber-pageSize' })
   const f = params.filters??{}
   const res = await axiosClient.get('/api/lfa/filter/page',{

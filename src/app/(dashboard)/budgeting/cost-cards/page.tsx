@@ -1,3 +1,5 @@
+import { env } from '@/config/env'
+import { costCards as static_costCards } from '@/data/static'
 import { Box, Typography, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { DataGrid } from '@components/data-grid/DataGrid'
@@ -10,6 +12,7 @@ import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
 
 async function fetchCostCards(params: GridParams) {
+  if (env.USE_STATIC_DATA) { const list = static_costCards; return { content:list, totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 } }
   const f = params.filters ?? {}
   const r = await axiosClient.get('/api/user/cost-cards/get', { params: { userId: f.userId ?? '' } })
   const list = r.data?.data ?? r.data ?? []

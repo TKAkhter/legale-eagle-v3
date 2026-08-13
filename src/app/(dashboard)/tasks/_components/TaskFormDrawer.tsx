@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -33,6 +34,7 @@ export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
   async function onSubmit(data: TaskForm) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     const payload = {
       taskName: data.taskName,
       eventType: data.eventType,
@@ -44,9 +46,9 @@ export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
       requiresApproval: data.requiresApproval,
     }
     if (isEdit) {
-      await axiosClient.post('/api/task/edit', { ...payload, taskId })
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/task/edit', { ...payload, taskId })
     } else {
-      await axiosClient.post('/api/task/add', payload)
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/task/add', payload)
     }
     qc.invalidateQueries({ queryKey: QK.tasks.all() })
     onSuccess?.()

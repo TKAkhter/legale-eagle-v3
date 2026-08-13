@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Box, Alert } from '@mui/material'
@@ -35,6 +36,7 @@ export function LfaFormDrawer({ open, onClose, lfaId, onSuccess }: Props) {
   async function onSubmit(data: Record<string, unknown>) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     const payload = {
       agreementNo:         data.agreementNo,
       lfaTitle:            data.lfaTitle,
@@ -50,9 +52,9 @@ export function LfaFormDrawer({ open, onClose, lfaId, onSuccess }: Props) {
       agreementDate:       data.agreementDate,
     }
     if (isEdit) {
-      await axiosClient.post('/api/lfa/edit', { ...payload, lfaId })
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/lfa/edit', { ...payload, lfaId })
     } else {
-      await axiosClient.post('/api/lfa/add', payload)
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/lfa/add', payload)
     }
     qc.invalidateQueries({ queryKey: QK.lfa.all() })
     onSuccess?.()

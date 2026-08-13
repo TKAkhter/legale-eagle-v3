@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Typography, Paper, Chip, Skeleton, Button, Divider } from '@mui/material'
 import { useParams } from 'react-router-dom'
@@ -32,6 +33,7 @@ export default function InvoiceDetailPage() {
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoices', 'detail', invoiceId],
     queryFn: async () => {
+      if (env.USE_STATIC_DATA) { return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true } }
       const r = await axiosClient.get('/api/invoice/get/by/id', { params: { invoiceId } })
       return r.data?.data ?? r.data
     },

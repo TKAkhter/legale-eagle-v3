@@ -11,10 +11,13 @@ import { formatDate } from '@lib/utils/formatDate'
 import { formatCurrency } from '@lib/utils/formatCurrency'
 import { makeReportFilterPanel } from '@components/filters/ReportFilterPanel'
 import type { GridParams } from '@/types/common.types'
+import { timelogsApi } from '@/api/timelogs'
+import { env } from '@/config/env'
 
 const FilterPanel = makeReportFilterPanel({ showUser:true, showDepartment:true, showDateRange:true })
 
 async function fetchForApproval(params: GridParams) {
+  if (env.USE_STATIC_DATA) return timelogsApi.getAll(params)
   const qp = buildQueryParams(params,{paginationConvention:'pageNumber-pageSize'})
   const f = params.filters??{}
   const r = await axiosClient.get('/api/activity/for-approval',{

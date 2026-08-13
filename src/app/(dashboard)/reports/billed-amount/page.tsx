@@ -1,3 +1,5 @@
+import { env } from '@/config/env'
+import { billedAmountReport as static_billedAmountReport } from '@/data/static'
 import { ReportPage } from '@components/data-grid/ReportPage'
 import { makeReportFilterPanel } from '@components/filters/ReportFilterPanel'
 import { axiosClient } from '@lib/api/axios'
@@ -8,6 +10,7 @@ import type { GridParams } from '@/types/common.types'
 const FilterPanel = makeReportFilterPanel({ showUser:true, showDepartment:true, showDateRange:true })
 
 async function fetchBilledAmount(params: GridParams) {
+  if (env.USE_STATIC_DATA) { const list = static_billedAmountReport; return { content:list as Record<string,unknown>[], totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 } }
   const qp = buildQueryParams(params,{paginationConvention:'pageNumber-pageSize'})
   const f = params.filters??{}
   const r = await axiosClient.get('/api/report/department/billing/v2',{

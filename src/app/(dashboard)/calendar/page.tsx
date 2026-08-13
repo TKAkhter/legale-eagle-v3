@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Box, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { AppCalendar } from '@components/calendar/AppCalendar'

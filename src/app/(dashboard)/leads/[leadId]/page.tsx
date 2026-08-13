@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Typography, Paper, Chip, Skeleton, Button, Divider } from '@mui/material'
 import { useParams } from 'react-router-dom'
@@ -41,6 +42,7 @@ export default function LeadDetailPage() {
   const { data: lead, isLoading } = useQuery({
     queryKey: ['leads', 'detail', leadId],
     queryFn: async () => {
+      if (env.USE_STATIC_DATA) { return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true } }
       const r = await axiosClient.get('/api/leads/get/single', { params: { leadId } })
       return r.data?.data ?? r.data
     },
@@ -50,6 +52,7 @@ export default function LeadDetailPage() {
   const { data: followups = [] } = useQuery({
     queryKey: ['leads', 'followups', leadId],
     queryFn: async () => {
+      if (env.USE_STATIC_DATA) { return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true } }
       const r = await axiosClient.get('/api/leads/get/followup', { params: { leadId } })
       return r.data?.data ?? r.data ?? []
     },

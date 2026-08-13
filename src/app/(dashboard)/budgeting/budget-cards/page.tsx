@@ -1,3 +1,5 @@
+import { env } from '@/config/env'
+import { costCards as static_costCards } from '@/data/static'
 import { Box, Typography } from '@mui/material'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { axiosClient } from '@lib/api/axios'
@@ -10,6 +12,7 @@ import type { GridParams } from '@/types/common.types'
 const FilterPanel = makeReportFilterPanel({ showDepartment: true, showDateRange: true })
 
 async function fetchBudgets(params: GridParams) {
+  if (env.USE_STATIC_DATA) { const list = static_costCards; return { content:list, totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 } }
   const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
   const f = params.filters ?? {}
   const r = await axiosClient.get('/api/budgets/get', { params: { ...qp, departmentId: f.departmentId ?? '', fromDate: f.fromDate ?? '', toDate: f.toDate ?? '' } })

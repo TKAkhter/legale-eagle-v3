@@ -17,10 +17,13 @@ import { DateRangeFilter } from '@components/filters/DateRangeFilter'
 import { InvoiceFormDrawer } from './_components/InvoiceFormDrawer'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams, InvoiceStatus } from '@/types/common.types'
+import { billingApi } from '@/api/billing'
+import { env } from '@/config/env'
 
 const STATUSES: InvoiceStatus[] = ['Due','Paid','Overdue','Draft','Partially_Paid','Void','Canceled','Approval']
 
 async function fetchInvoices(params: GridParams) {
+  if (env.USE_STATIC_DATA) return billingApi.getAll(params)
   const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
   const f = params.filters ?? {}
   const res = await axiosClient.post('/api/invoice/filter/all/v2', {}, {

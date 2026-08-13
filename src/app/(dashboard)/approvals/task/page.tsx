@@ -8,8 +8,11 @@ import { StatusBadge } from '@components/ui/StatusBadge'
 import { axiosClient } from '@lib/api/axios'
 import { formatDate } from '@lib/utils/formatDate'
 import type { GridParams } from '@/types/common.types'
+import { env } from '@/config/env'
+import { taskApprovals as staticTaskApprovals } from '@/data/static'
 
 async function fetchTaskApprovals(_p: GridParams) {
+  if (env.USE_STATIC_DATA) { const list = staticTaskApprovals; return { content:list, totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 } }
   const r = await axiosClient.get('/api/task/get/type/approval')
   const list = r.data?.data??r.data??[]
   return { content:list, totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 }
@@ -21,7 +24,7 @@ export default function TaskApprovalPage() {
 
   async function handleAction(row: Record<string,unknown>, approve: boolean) {
     try {
-      await axiosClient.post('/api/task/approve',{ taskId:row.id, status: approve?'Completed':'Rejected' })
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/task/approve',{ taskId:row.id, status: approve?'Completed':'Rejected' })
       setSnack({open:true,msg:approve?'Task approved':'Task rejected',severity:'success'})
       qc.invalidateQueries({queryKey:['tasks','approval']})
     } catch { setSnack({open:true,msg:'Action failed',severity:'error'}) }

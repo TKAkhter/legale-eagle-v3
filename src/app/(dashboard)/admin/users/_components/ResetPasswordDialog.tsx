@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, Box, CircularProgress } from '@mui/material'
 import { useForm } from 'react-hook-form'
@@ -22,7 +23,8 @@ export function ResetPasswordDialog({ open, onClose, userId, userName }: Props) 
   async function onSubmit({ password }: Form) {
     setError('')
     try {
-      await axiosClient.post('/api/user/change/password/admin', { userId, password })
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/user/change/password/admin', { userId, password })
       setSuccess(true)
     } catch (e: unknown) {
       setError((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to reset password')

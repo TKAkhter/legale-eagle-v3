@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Typography, Paper, Button, Alert, Chip, CircularProgress, IconButton } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -30,6 +31,7 @@ export default function ConflictCheckPage() {
   async function runCheck() {
     setLoading(true); setError(''); setResults(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
       const payload = { conflictCheckDTOList: entries.filter(e => e.name || e.phone || e.email).map(e => ({ ...e })) }
       const res = await axiosClient.post('/api/conflict/check/multiple/mini/v2', payload)
       setResults(res.data?.data ?? res.data ?? [])

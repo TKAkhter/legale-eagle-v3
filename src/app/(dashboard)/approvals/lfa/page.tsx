@@ -8,8 +8,11 @@ import { StatusBadge } from '@components/ui/StatusBadge'
 import { axiosClient } from '@lib/api/axios'
 import { formatDate } from '@lib/utils/formatDate'
 import type { GridParams } from '@/types/common.types'
+import { env } from '@/config/env'
+import { lfaApprovals as staticLfaApprovals } from '@/data/static'
 
 async function fetchLfaApprovals(_p: GridParams) {
+  if (env.USE_STATIC_DATA) { const list = staticLfaApprovals; return { content:list, totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 } }
   const r = await axiosClient.get('/api/lfa/approval/list')
   const list = r.data?.data??r.data??[]
   return { content:list, totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 }

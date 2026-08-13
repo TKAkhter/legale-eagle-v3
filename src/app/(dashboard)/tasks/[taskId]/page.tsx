@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Box, Typography, Paper, Chip, Skeleton } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'

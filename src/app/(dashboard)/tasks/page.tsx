@@ -8,11 +8,14 @@ import { axiosClient } from '@lib/api/axios'
 import { buildQueryParams } from '@lib/utils/buildQueryParams'
 import { formatDate } from '@lib/utils/formatDate'
 import type { GridParams } from '@/types/common.types'
+import { tasksApi } from '@/api/tasks'
+import { env } from '@/config/env'
 import { TaskFormDrawer } from './_components/TaskFormDrawer'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 async function fetchTasks(params: GridParams) {
+  if (env.USE_STATIC_DATA) return tasksApi.getAll(params)
   const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
   const res = await axiosClient.get('/api/task/get/individual/task/v2', {
     params: { ...qp, eventType: 'ALL', taskStatus: 'Pending', sortBy: qp.sortBy, sortDir: qp.sortDirection },

@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Alert, CircularProgress, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
@@ -28,7 +29,8 @@ export function RecordPaymentDialog({ open, onClose, invoiceId, invoiceNo, balan
   async function onSubmit(data: Record<string, unknown>) {
     setError('')
     try {
-      await axiosClient.post('/api/invoice/pay', { ...data, invoiceId })
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/invoice/pay', { ...data, invoiceId })
       qc.invalidateQueries({ queryKey: ['invoices'] })
       reset(); onClose()
     } catch (e: unknown) {

@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
@@ -44,6 +45,7 @@ export function InviteUserDrawer({ open, onClose, onSuccess }: Props) {
   async function onSubmit(data: Form) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     await axiosClient.post('/api/user/sendRequest', {
       firstName:       data.firstName,
       lastName:        data.lastName,

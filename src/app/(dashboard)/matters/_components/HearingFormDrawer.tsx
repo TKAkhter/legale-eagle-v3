@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -33,11 +34,12 @@ export function HearingFormDrawer({ open, onClose, matterId, hearingId }: Props)
   async function onSubmit(data: Form) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     const payload = { ...data, matter: { id: matterId } }
     if (hearingId) {
-      await axiosClient.post('/api/hearing/edit', { ...payload, hearingId })
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/hearing/edit', { ...payload, hearingId })
     } else {
-      await axiosClient.post('/api/hearing/add', payload)
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/hearing/add', payload)
     }
     qc.invalidateQueries({ queryKey: ['matters','hearings', matterId] })
     onClose()

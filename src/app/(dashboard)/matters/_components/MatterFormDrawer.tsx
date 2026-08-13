@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -78,6 +79,7 @@ export function MatterFormDrawer({ open, onClose, matterId, onSuccess }: Props) 
   async function onSubmit(data: MatterForm) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     const payload = {
       title: data.title,
       client: { id: data.clientId },
@@ -91,7 +93,7 @@ export function MatterFormDrawer({ open, onClose, matterId, onSuccess }: Props) 
       openDate: data.openDate,
     }
     if (isEdit) {
-      await axiosClient.post('/api/matter/edit', { ...payload, matterId })
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/matter/edit', { ...payload, matterId })
     } else {
       const res = await axiosClient.post('/api/matter/add', payload)
       const newId = res.data?.data?.id ?? res.data?.id

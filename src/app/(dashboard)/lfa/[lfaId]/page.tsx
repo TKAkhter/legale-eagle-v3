@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Box, Typography, Paper, Chip, Skeleton } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -20,7 +21,8 @@ export default function LfaDetailPage() {
   const { lfaId } = useParams()
   const { data: lfa, isLoading } = useQuery({
     queryKey: ['lfa','detail',lfaId],
-    queryFn: async () => { const r = await axiosClient.get('/api/lfa/get/full',{params:{lfaId}}); return r.data?.data??r.data },
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) { return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true } } const r = await axiosClient.get('/api/lfa/get/full',{params:{lfaId}}); return r.data?.data??r.data },
     enabled: !!lfaId,
   })
   if (isLoading) return <Skeleton variant="rounded" height={140} />

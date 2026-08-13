@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -35,6 +36,7 @@ export function ActivityFormDrawer({ open, onClose, prefillMatterId, onSuccess }
   async function onSubmit(data: ActivityForm) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     await axiosClient.post('/api/activity/add/v2', {
       activity: data.activity,
       matter: { id: data.matterId },

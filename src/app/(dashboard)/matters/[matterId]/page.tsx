@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Box, Typography, Paper, Chip, Skeleton, Button } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -33,6 +34,7 @@ export default function MatterDetailPage() {
   })
 
   async function fetchActivities(_p: GridParams) {
+  if (env.USE_STATIC_DATA) { return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true } }
     const res = await axiosClient.get('/api/activity/get/by/Matter', { params: { matterId } })
     const list = res.data?.data ?? res.data ?? []
     return { content: list, totalElements: list.length, totalPages: 1, number: 0, size: list.length, first: true, last: true, empty: list.length === 0 }

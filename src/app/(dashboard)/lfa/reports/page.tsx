@@ -1,3 +1,5 @@
+import { env } from '@/config/env'
+import { lfaApi } from '@/api/lfa'
 import { Box, Typography, Button } from '@mui/material'
 import { useState } from 'react'
 import { DataGrid } from '@components/data-grid/DataGrid'
@@ -11,6 +13,7 @@ import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
 
 async function fetchLfaBilling(params: GridParams) {
+  if (env.USE_STATIC_DATA) return lfaApi.getAll(params)
   const qp = buildQueryParams(params,{paginationConvention:'pageNumber-pageSize'})
   const f = params.filters??{}
   const r = await axiosClient.get('/api/report/lfa/billing/v2',{params:{...qp,clientId:f.clientId??'',fromDate:f.fromDate??'',toDate:f.toDate??''}})

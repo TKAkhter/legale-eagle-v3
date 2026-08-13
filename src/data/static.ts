@@ -266,3 +266,64 @@ export const auditLog = [
   { id:"au9",  actor:"Dory Abi Khalil", action:"CREATE",   module:"Invoice", record:"INV-2025-002",              changes:{},                                                                                                  ip:"192.168.1.22", createdAt:"2026-08-04T10:00:00" },
   { id:"au10", action:"LOGIN",          actor:"Talha Akhter", module:"Auth", record:"Login",                     changes:{},                                                                                                  ip:"192.168.1.45", createdAt:"2026-08-07T08:00:00" },
 ]
+
+// ─── Timelogs ─────────────────────────────────────────────────────────────────
+export const timelogs = [
+  { id:"tl1", activity:"Document Review", matter:{id:"6a4f9f5e096c2631a41a8193",title:"260303"}, responsiblePerson:{id:"u1",firstName:"Sarah",lastName:"Johnson"}, totalHours:3.5, billing:3500, revenueStatus:"DRAFT",        entryDate:"2026-08-07", billingType:"Hourly" },
+  { id:"tl2", activity:"Client Meeting",  matter:{id:"6a4b80d327dd9e0041129bb5",title:"260293"}, responsiblePerson:{id:"u2",firstName:"Dory",  lastName:"Abi Khalil"}, totalHours:2.0, billing:2000, revenueStatus:"PRE_APPROVAL", entryDate:"2026-08-06", billingType:"Hourly" },
+  { id:"tl3", activity:"Court Attendance",matter:{id:"6a4f9f5e096c2631a41a8193",title:"260303"}, responsiblePerson:{id:"u3",firstName:"Mashood",lastName:"Rafi"},      totalHours:6.0, billing:7200, revenueStatus:"APPROVED",      entryDate:"2026-08-05", billingType:"Hourly" },
+]
+
+// ─── LFA ──────────────────────────────────────────────────────────────────────
+export const lfaItems = [
+  { id:"lfa1", lfaTitle:"Corporate Setup LFA", agreementNo:"LFA-001", billingType:"Fixed",  fixedBillingAmount:15000, current:true, agreementDate:"2026-07-01", lfaStatus:"Approved" },
+  { id:"lfa2", lfaTitle:"Rental Dispute LFA",  agreementNo:"LFA-002", billingType:"Hourly", fixedBillingAmount:null,  current:true, agreementDate:"2026-07-15", lfaStatus:"Active"   },
+]
+
+// ─── Approvals ────────────────────────────────────────────────────────────────
+export const taskApprovals = [
+  { id:"ta1", taskName:"Review corporate agreement", taskType:"Matter",  assignedTo:{id:"u1",firstName:"Sarah", lastName:"Johnson"},  taskDeadLine:"2026-08-20", taskStatus:"Pending" },
+  { id:"ta2", taskName:"File court documents",        taskType:"Hearing", assignedTo:{id:"u2",firstName:"James", lastName:"Williams"}, taskDeadLine:"2026-08-25", taskStatus:"Pending" },
+]
+
+export const invoiceApprovals = [
+  { id:"inv2", invoiceNo:"INV-2025-002", client:{id:"c2",firstName:"Emily",companyName:""}, matter:{id:"m2",title:"Harper Employment"}, amount:8500, vatAmount:425, taxableAmount:8925, invoiceStatus:"Approval", issueDate:"2026-04-01", dueDate:"2026-04-30" },
+]
+
+export const lfaApprovals = [
+  { id:"lfa1", lfaTitle:"Corporate Setup LFA", agreementNo:"LFA-001", billingType:"Fixed", fixedBillingAmount:15000, current:true, lfaStatus:"Pending_Approval" },
+]
+
+// ─── Budgeting ────────────────────────────────────────────────────────────────
+export const costCards = [
+  { id:"cc1", name:"Standard Rate Card 2026", description:"Default hourly rates", currency:"AED", active:true, createdAt:"2026-01-01" },
+  { id:"cc2", name:"Partner Rate Card 2026",  description:"Partner-level rates",   currency:"AED", active:true, createdAt:"2026-01-01" },
+]
+
+export const rateCards = [
+  { id:"rc1", designation:"Partner",   hourlyRate:1200, currency:"AED", costCardId:"cc1" },
+  { id:"rc2", designation:"Associate", hourlyRate:800,  currency:"AED", costCardId:"cc1" },
+  { id:"rc3", designation:"Paralegal", hourlyRate:400,  currency:"AED", costCardId:"cc1" },
+]
+
+export const budgetCards = costCards
+
+// ─── Reports (remaining) ──────────────────────────────────────────────────────
+export const billedAmountReport = [
+  { id:"r1", departmentName:"Litigation",      totalBilled:85000, totalPaid:75000, outstanding:10000 },
+  { id:"r2", departmentName:"Corporate",       totalBilled:62000, totalPaid:62000, outstanding:0     },
+  { id:"r3", departmentName:"Family Law",      totalBilled:28000, totalPaid:20000, outstanding:8000  },
+  { id:"r4", departmentName:"Business Support",totalBilled:15000, totalPaid:12000, outstanding:3000  },
+]
+
+export const collectionsReport = [
+  { id:"c1", clientName:"Al Rashid Holdings", totalInvoiced:20250, totalPaid:15750, collectionRate:77.8, outstanding:4500, lastPaymentDate:"2026-08-07" },
+  { id:"c2", clientName:"Emily Harper",        totalInvoiced:8925,  totalPaid:4000,  collectionRate:44.8, outstanding:4925, lastPaymentDate:"2026-06-15" },
+  { id:"c3", clientName:"KM Properties",       totalInvoiced:5250,  totalPaid:0,     collectionRate:0,    outstanding:5250, lastPaymentDate:""           },
+]
+
+export const marginErosionReport = [
+  { id:"m1", matterTitle:"260303 — Building Dispute", billedAmount:15000, cost:8000, margin:7000, marginRate:46.7, billingType:"Hourly" },
+  { id:"m2", matterTitle:"260293 — Rental Dispute",   billedAmount:8500,  cost:5000, margin:3500, marginRate:41.2, billingType:"Hourly" },
+  { id:"m3", matterTitle:"260285 — Corporate Setup",  billedAmount:5000,  cost:1500, margin:3500, marginRate:70.0, billingType:"Fixed"  },
+]

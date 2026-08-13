@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Box, Alert, Typography, Checkbox, Paper, Chip } from '@mui/material'
@@ -76,6 +77,7 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess }: Props) {
   async function onSubmit(data: Record<string, unknown>) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     await axiosClient.post('/api/invoice/add', {
       matter:      { id: data.matterId },
       lfa:         data.lfaId ? { id: data.lfaId } : undefined,

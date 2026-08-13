@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Alert, CircularProgress, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
@@ -27,7 +28,8 @@ export function MatterCloseDialog({ open, onClose, matterId, matterTitle }: Prop
   async function onSubmit(data: Record<string, string>) {
     setError('')
     try {
-      await axiosClient.post('/api/matter/close', { matterId, ...data })
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/matter/close', { matterId, ...data })
       qc.invalidateQueries({ queryKey: ['matters'] })
       reset()
       onClose()

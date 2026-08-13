@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -41,6 +42,7 @@ export function FollowupFormDrawer({ open, onClose, leadId, onSuccess }: Props) 
   async function onSubmit(data: Form) {
     setSubmitError(null)
     try {
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
     await axiosClient.post('/api/leads/add/followup', {
       leadId,
       followUpContent:  data.followUpContent,

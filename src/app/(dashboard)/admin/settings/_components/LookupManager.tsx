@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Paper, Typography, Button, TextField, IconButton, Snackbar, Alert, Skeleton } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -31,7 +32,8 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
     if (!name.trim()) return
     setSaving(true)
     try {
-      await axiosClient.post(addUrl, { [nameField]: name.trim(), ...extras })
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)) }
+      if (!env.USE_STATIC_DATA) await axiosClient.post(addUrl, { [nameField]: name.trim(), ...extras })
       qc.invalidateQueries({ queryKey: [queryKey] })
       setName(''); setExtras({})
       setSnack({ open: true, msg: `${title.slice(0,-1)} added`, severity: 'success' })
@@ -41,7 +43,8 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
 
   async function handleDelete(id: unknown) {
     try {
-      await axiosClient.delete(`${deleteUrl}/${id}`)
+      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)) }
+      if (!env.USE_STATIC_DATA) await axiosClient.delete(`${deleteUrl}/${id}`)
       qc.invalidateQueries({ queryKey: [queryKey] })
       setSnack({ open: true, msg: 'Deleted', severity: 'success' })
     } catch { setSnack({ open: true, msg: 'Failed to delete', severity: 'error' }) }
