@@ -1,3 +1,4 @@
+import { transformLead } from '@/transformers/lead.transformer'
 import { env }         from "@/config/env"
 import { axiosClient } from "@lib/api/axios"
 import { leads as staticLeads } from "@/data/static"
@@ -15,13 +16,13 @@ export const leadsApi = {
       )
       const start = p.page * p.pageSize
       const slice = filtered.slice(start, start + p.pageSize)
-      return { content: slice as unknown as Record<string,unknown>[], totalElements: filtered.length, totalPages: Math.ceil(filtered.length / p.pageSize), number: p.page, size: p.pageSize, first: p.page === 0, last: (start + p.pageSize) >= filtered.length, empty: slice.length === 0 }
+      return { content: (slice as Record<string,unknown>[]), totalElements: filtered.length, totalPages: Math.ceil(filtered.length / p.pageSize), number: p.page, size: p.pageSize, first: p.page === 0, last: (start + p.pageSize) >= filtered.length, empty: slice.length === 0 }
     }
     const res = await axiosClient.get("/api/leads/list/filter", {
       params: { pageNumber: p.page, pageSize: p.pageSize, firstName: p.filters?.searchText ?? "", currentStatus: p.filters?.currentStatus ?? "" }
     })
     const d = res.data?.data ?? res.data
-    return { content: d.content ?? [], totalElements: d.totalElements ?? 0, totalPages: d.totalPages ?? 0, number: d.number ?? 0, size: d.size ?? p.pageSize, first: d.first ?? true, last: d.last ?? true, empty: d.empty ?? true }
+    return { content: (d.content ?? []).map((raw: unknown) => transformLead(raw as import('@/transformers/lead.transformer').RawLead)), totalElements: d.totalElements ?? 0, totalPages: d.totalPages ?? 0, number: d.number ?? 0, size: d.size ?? p.pageSize, first: d.first ?? true, last: d.last ?? true, empty: d.empty ?? true }
   },
 
   async getById(leadId: string) {

@@ -1,3 +1,4 @@
+import { transformMatter } from '@/transformers/matter.transformer'
 import { env }         from "@/config/env"
 import { axiosClient } from "@lib/api/axios"
 import { matters as staticMatters } from "@/data/static"
@@ -24,7 +25,7 @@ export const mattersApi = {
       { attorney: [], procuredByIds: [], status: p.filters?.status ? [String(p.filters.status)] : ["OPEN","RE_OPEN"] }
     )
     const d = res.data?.data ?? res.data
-    return { content: d.content ?? [], totalElements: d.totalElements ?? 0, totalPages: d.totalPages ?? 0, number: d.number ?? 0, size: d.size ?? p.pageSize, first: d.first ?? true, last: d.last ?? true, empty: d.empty ?? true }
+    return { content: (d.content ?? []).map((raw: unknown) => transformMatter(raw as import('@/transformers/matter.transformer').RawMatter)), totalElements: d.totalElements ?? 0, totalPages: d.totalPages ?? 0, number: d.number ?? 0, size: d.size ?? p.pageSize, first: d.first ?? true, last: d.last ?? true, empty: d.empty ?? true }
   },
 
   async create(data: Record<string,unknown>) {
