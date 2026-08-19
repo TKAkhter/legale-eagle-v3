@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Box, Chip, Tooltip, IconButton } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import PauseIcon from '@mui/icons-material/Pause'
@@ -10,8 +11,9 @@ import { axiosClient } from '@lib/api/axios'
 export function StopwatchWidget() {
   const { status, elapsed, matterId, matterTitle, tick, pause, resume, end, start, setElapsed } = useStopwatchStore()
 
-  // Sync with backend stopwatch state on mount
+  // Sync with backend stopwatch state on mount (skip in static mode)
   useEffect(() => {
+    if (env.USE_STATIC_DATA) return
     axiosClient.get('/api/activity/stopwatch/info')
       .then(r => {
         const info = r.data?.data ?? r.data
@@ -33,15 +35,15 @@ export function StopwatchWidget() {
   if (status === 'idle') return null
 
   const handlePause = async () => {
-    await axiosClient.post('/api/activity/stopwatch', null, { params: { activityTimerStatus: 'Pause', matterId } })
+    if (!env.USE_STATIC_DATA) await axiosClient.post('/api/activity/stopwatch', null, { params: { activityTimerStatus: 'Pause', matterId } })
     pause()
   }
   const handleResume = async () => {
-    await axiosClient.post('/api/activity/stopwatch', null, { params: { activityTimerStatus: 'Resume', matterId } })
+    if (!env.USE_STATIC_DATA) await axiosClient.post('/api/activity/stopwatch', null, { params: { activityTimerStatus: 'Resume', matterId } })
     resume()
   }
   const handleEnd = async () => {
-    await axiosClient.post('/api/activity/stopwatch', null, { params: { activityTimerStatus: 'End', matterId } })
+    if (!env.USE_STATIC_DATA) await axiosClient.post('/api/activity/stopwatch', null, { params: { activityTimerStatus: 'End', matterId } })
     end()
   }
 

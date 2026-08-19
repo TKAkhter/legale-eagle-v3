@@ -1,3 +1,4 @@
+import { StopwatchWidget } from './StopwatchWidget'
 /**
  * Toolbar.tsx
  *
@@ -83,6 +84,7 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
           <GlobalSearch />
           <Box sx={{ flex: 1 }} />
 
+          <StopwatchWidget />
           <NotificationsPanel />
 
           <Tooltip title={colorMode === "dark" ? "Light mode" : "Dark mode"}>

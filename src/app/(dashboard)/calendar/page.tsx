@@ -6,30 +6,38 @@ import { axiosClient } from '@lib/api/axios'
 import { StatusBadge } from '@components/ui/StatusBadge'
 import type { CalendarEvent } from '@components/calendar/types'
 import type { ColumnDef } from '@components/data-grid/types'
+import { matterHearings } from '@/data/static'
 
 interface EntryRow extends Record<string, unknown> {
-  id: string
-  title: string
-  matterTitle?: string
-  status?: string
-  hearingTime?: string
+  id: string; title: string; matterTitle?: string; status?: string; hearingTime?: string
 }
 
 async function fetchCalendarEvents(range: { start: string; end: string }): Promise<CalendarEvent[]> {
+  if (env.USE_STATIC_DATA) {
+    // Convert static hearings to calendar events
+    return matterHearings.map(h => ({
+      id: h.id, title: h.hearingTitle,
+      start: h.hearingDate, end: h.hearingDate,
+      color: '#0F3C6E',
+      extendedProps: { ...h, matterId: '6a4f9f5e096c2631a41a8193' },
+    }))
+  }
   const res = await axiosClient.get('/api/calender/get')
   const list = res.data?.data ?? res.data ?? []
   return (Array.isArray(list) ? list : []).map((e: Record<string, unknown>) => ({
-    id: String(e.id ?? Math.random()),
-    title: String(e.title ?? 'Event'),
+    id: String(e.id ?? Math.random()), title: String(e.title ?? 'Event'),
     start: String(e.startDateTime ?? e.start ?? range.start),
     end: e.endDateTime ? String(e.endDateTime) : undefined,
-    color: '#0F3C6E',
-    extendedProps: e,
+    color: '#0F3C6E', extendedProps: e,
   }))
 }
 
 async function fetchEntriesForDate(date: string): Promise<EntryRow[]> {
-  // Hearings + calendar events for that date — combine from monthly hearing endpoint
+  if (env.USE_STATIC_DATA) {
+    return matterHearings
+      .filter(h => h.hearingDate === date)
+      .map(h => ({ ...h, id: h.id, title: h.hearingTitle, hearingTime: h.hearingTime, status: h.status, matterTitle: '260303 — Building Dispute' }))
+  }
   const d = new Date(date)
   const res = await axiosClient.get('/api/hearing/monthly-all', {
     params: { hDate: date, month: d.getMonth() + 1, year: d.getFullYear() },
@@ -41,10 +49,10 @@ async function fetchEntriesForDate(date: string): Promise<EntryRow[]> {
 }
 
 const entryColumns: ColumnDef<EntryRow>[] = [
-  { field: 'caseNo', header: 'Case No' },
+  { field: 'title',       header: 'Hearing' },
   { field: 'matterTitle', header: 'Matter' },
   { field: 'hearingTime', header: 'Time' },
-  { field: 'status', header: 'Status', renderCell: (v) => <StatusBadge status={String(v ?? '')} /> },
+  { field: 'status',      header: 'Status', renderCell: (v) => <StatusBadge status={String(v ?? '')} /> },
 ]
 
 export default function CalendarPage() {

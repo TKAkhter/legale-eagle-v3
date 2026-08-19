@@ -1,4 +1,5 @@
-import { Box, Typography, Button, Snackbar, Alert } from '@mui/material'
+import { toast } from '@/lib/toast'
+import { Box, Typography, Button } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
@@ -53,9 +54,6 @@ export default function InvoiceApprovalPage() {
           { label: 'Reject', icon: <CloseIcon fontSize="small" />, color: 'error', onClick: () => handleApprove(row, false) },
         ]}
       />
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }

@@ -1,4 +1,5 @@
-import { Box, Typography, Snackbar, Alert } from '@mui/material'
+import { toast } from '@/lib/toast'
+import { Box, Typography } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
@@ -20,14 +21,14 @@ async function fetchLfaApprovals(_p: GridParams) {
 
 export default function LfaApprovalPage() {
   const qc = useQueryClient()
-  const [snack,setSnack] = useState<{open:boolean;msg:string;severity:'success'|'error'}>({open:false,msg:'',severity:'success'})
+  
 
   async function handleAction(row: Record<string,unknown>, status: string) {
     try {
       await axiosClient.patch(`/api/lfa/approve/${row.id}/${status}`)
-      setSnack({open:true,msg:`LFA ${status==='Approved'?'approved':'rejected'}`,severity:'success'})
+      
       qc.invalidateQueries({queryKey:['lfa','approval']})
-    } catch { setSnack({open:true,msg:'Action failed',severity:'error'}) }
+    } catch { toast.error('Action failed') }
   }
 
   return (
@@ -47,9 +48,6 @@ export default function LfaApprovalPage() {
           { label:'Reject',  icon:<CloseIcon  fontSize="small"/>, permission:'lfa:approve', color:'error', onClick:()=>handleAction(row,'Canceled') },
         ]}
       />
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={()=>setSnack(s=>({...s,open:false}))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }

@@ -1,4 +1,5 @@
-import { Box, Typography, Snackbar, Alert } from '@mui/material'
+import { toast } from '@/lib/toast'
+import { Box, Typography } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
@@ -20,14 +21,14 @@ async function fetchTaskApprovals(_p: GridParams) {
 
 export default function TaskApprovalPage() {
   const qc = useQueryClient()
-  const [snack,setSnack] = useState<{open:boolean;msg:string;severity:'success'|'error'}>({open:false,msg:'',severity:'success'})
+  
 
   async function handleAction(row: Record<string,unknown>, approve: boolean) {
     try {
       if (!env.USE_STATIC_DATA) await axiosClient.post('/api/task/approve',{ taskId:row.id, status: approve?'Completed':'Rejected' })
-      setSnack({open:true,msg:approve?'Task approved':'Task rejected',severity:'success'})
+      toast.success(approve ? 'Task approved' : 'Task rejected')
       qc.invalidateQueries({queryKey:['tasks','approval']})
-    } catch { setSnack({open:true,msg:'Action failed',severity:'error'}) }
+    } catch { toast.error('Action failed') }
   }
 
   return (
@@ -47,9 +48,6 @@ export default function TaskApprovalPage() {
           { label:'Reject', icon:<CloseIcon fontSize="small"/>, color:'error', onClick:()=>handleAction(row,false) },
         ]}
       />
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={()=>setSnack(s=>({...s,open:false}))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }
