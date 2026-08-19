@@ -33,4 +33,12 @@ export const mattersApi = {
     const res = await axiosClient.post("/api/matter/add", data)
     return res.data?.data ?? res.data
   },
+  async getById(matterId: string) {
+    if (env.USE_STATIC_DATA) {
+      const { matterDetail } = await import('@/data/static')
+      return matterDetail
+    }
+    const res = await axiosClient.post('/api/matter/get/by/id', null, { params: { matterId } })
+    return res.data?.data ?? res.data
+  },
 }
