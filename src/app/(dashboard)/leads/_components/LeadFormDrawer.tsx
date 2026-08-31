@@ -1,7 +1,7 @@
+import { z } from "zod"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { Box, Alert } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
 import { FormDrawer } from "@components/ui/FormDrawer"
@@ -21,7 +21,7 @@ const schema = z.object({
   lawyerId:       z.string().optional(),
   description:    z.string().optional(),
 })
-type Form = z.infer<typeof schema>
+type LeadForm = z.infer<typeof schema>
 
 interface Props { open: boolean; onClose: () => void; leadId?: string; onSaved: () => void }
 
@@ -29,7 +29,7 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
   const isEdit = !!leadId
   const [error, setError] = useState("")
 
-  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({
+  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<LeadForm>({
     resolver: zodResolver(schema),
     defaultValues: { leadType: "PERSON" },
   })
@@ -66,7 +66,7 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
 
   const toOpts = (arr: unknown[]) => (arr as Record<string,string>[]).map(x => ({ value: x.id, label: x.firstName ? `${x.firstName} ${x.lastName}` : x.name }))
 
-  async function onSubmit(vals: Form) {
+  async function onSubmit(vals: LeadForm) {
     setError("")
     try {
       const payload = {
