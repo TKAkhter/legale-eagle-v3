@@ -1,3 +1,4 @@
+import { reportsApi } from '@/api/reports'
 import { env } from '@/config/env'
 import { collectionsReport as static_collectionsReport } from '@/data/static'
 import { ReportPage } from '@components/data-grid/ReportPage'
@@ -12,7 +13,7 @@ import type { GridParams } from '@/types/common.types'
 const FilterPanel = makeReportFilterPanel({ showClient:true, showDepartment:true, showDateRange:true })
 
 async function fetchCollections(params: GridParams) {
-  if (env.USE_STATIC_DATA) { const list = static_collectionsReport; return { content:list as Record<string,unknown>[], totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 } }
+  return reportsApi.getCollections(params)
   const qp = buildQueryParams(params,{paginationConvention:'pageNumber-pageSize'})
   const f = params.filters??{}
   const r = await axiosClient.post('/api/report/fee-earners/revenues',{},{

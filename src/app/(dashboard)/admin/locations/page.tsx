@@ -1,3 +1,4 @@
+import { adminApi } from '@/api/admin'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { Box, Typography, Button } from '@mui/material'
@@ -34,7 +35,7 @@ export default function LocationsPage() {
 
   async function onSubmit(data: Form) {
     try {
-      await axiosClient.post('/api/location/add', data)
+      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/location/add', data)
       toast.success('Location added')
       qc.invalidateQueries({ queryKey: ['locations'] })
       setModalOpen(false); reset()
@@ -55,7 +56,7 @@ export default function LocationsPage() {
         queryKey={['locations']} queryFn={fetchLocations} isPaginated={false}
         rowMenuItems={(row) => [
           { label: 'Delete', icon: <DeleteIcon fontSize="small" />, permission: PERMISSIONS.LOCATIONS_MANAGE, color: 'error', onClick: async () => {
-            await axiosClient.delete(`/api/location/delete/${row.id}`)
+            if (!env.USE_STATIC_DATA) await axiosClient.delete(`/api/location/delete/${row.id}`)
             qc.invalidateQueries({ queryKey: ['locations'] })
           }}
         ]}

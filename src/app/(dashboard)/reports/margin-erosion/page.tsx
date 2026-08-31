@@ -1,3 +1,4 @@
+import { reportsApi } from '@/api/reports'
 import { env } from '@/config/env'
 import { marginErosionReport as static_marginErosionReport } from '@/data/static'
 import { Box, Typography, Button, Alert } from '@mui/material'
@@ -14,7 +15,7 @@ import type { GridParams } from '@/types/common.types'
 const FilterPanel = makeReportFilterPanel({ showClient:true, showDepartment:true, showDateRange:true })
 
 async function fetchMarginErosion(params: GridParams) {
-  if (env.USE_STATIC_DATA) { const list = static_marginErosionReport; return { content:list as Record<string,unknown>[], totalElements:list.length, totalPages:1, number:0, size:list.length, first:true, last:true, empty:list.length===0 } }
+  return reportsApi.getMarginErosion(params)
   const qp = buildQueryParams(params,{paginationConvention:'page-size'})
   const f = params.filters??{}
   const r = await axiosClient.get('/api/report/get/me-report-cache',{

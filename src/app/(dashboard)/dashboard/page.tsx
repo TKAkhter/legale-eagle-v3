@@ -57,6 +57,7 @@ export default function DashboardPage() {
   const visibleWidgets = getVisible()
   const qc      = useQueryClient()
   const [custOpen, setCustOpen] = useState(false)
+  const [chartRange, setChartRange] = useState<'30'|'90'|'180'>('30')
 
   // ── KPI data ────────────────────────────────────────────────────────────────
   const { data:counts, isLoading:l1 } = useQuery({
@@ -80,7 +81,7 @@ export default function DashboardPage() {
 
   // ── Chart data ───────────────────────────────────────────────────────────────
   const { data:history, isLoading:l2 } = useQuery({
-    queryKey: ["dashboard","history"],
+    queryKey: ["dashboard","history", chartRange],
     queryFn: async () => {
       if (env.USE_STATIC_DATA) return staticDashboard.matterHistory
       const r = await apiClient.get("/api/analytics/graph/matters-history-monthly")
@@ -90,7 +91,7 @@ export default function DashboardPage() {
   })
 
   const { data:revenue, isLoading:l3 } = useQuery({
-    queryKey: ["dashboard","revenue"],
+    queryKey: ["dashboard","revenue", chartRange],
     queryFn: async () => {
       if (env.USE_STATIC_DATA) return staticDashboard.revenue
       const r = await apiClient.get("/api/analytics/graph/fixedfees-timelogs-revenue")
@@ -162,6 +163,22 @@ export default function DashboardPage() {
           <KpiCard title="Total Matters" value={counts?.totalMatters} loading={l1} />
           <KpiCard title="Pending Tasks" value={counts?.pendingTasks}
             sub={counts?.overdueTasks ? `${counts.overdueTasks} overdue` : undefined} loading={l1} />
+        </Box>
+      )}
+
+      {/* Chart date range selector */}
+      {(isVisible("matters") || isVisible("revenue")) && (
+        <Box sx={{ display:"flex", justifyContent:"flex-end", mb:1 }}>
+          <Box sx={{ display:"flex", gap:0.5 }}>
+            {(["30","90","180"] as const).map(r => (
+              <Button key={r} size="small"
+                variant={chartRange === r ? "contained" : "outlined"}
+                onClick={() => setChartRange(r)}
+                sx={{ py:0.5, px:1.5, fontSize:12, minWidth:40 }}>
+                {r}d
+              </Button>
+            ))}
+          </Box>
         </Box>
       )}
 

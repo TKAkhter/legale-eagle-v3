@@ -1,6 +1,6 @@
 import { env } from "@/config/env"
 import { axiosClient } from "@lib/api/axios"
-import { dashboard as staticDash, matters as staticMatters } from "@/data/static"
+import { dashboard as staticDash, matters as staticMatters, billedAmountReport, collectionsReport, marginErosionReport } from "@/data/static"
 import type { GridParams, PageResponse } from "@/types/common.types"
 const STATIC_WIP=[{id:"w1",userName:"Sarah Johnson",matterTitle:"260303 — Building Dispute",activity:"Document Review",totalHours:3.5,totalAmount:3500,billingType:"Hourly",entryDate:"2026-07-01",revenueStatus:"DRAFT"},{id:"w2",userName:"Sarah Johnson",matterTitle:"260293 — Rental Dispute",activity:"Client Meeting",totalHours:2.0,totalAmount:2000,billingType:"Hourly",entryDate:"2026-07-02",revenueStatus:"DRAFT"},{id:"w3",userName:"Dory Abi Khalil",matterTitle:"260285 — Corporate Setup",activity:"Contract Drafting",totalHours:4.0,totalAmount:4800,billingType:"Hourly",entryDate:"2026-07-03",revenueStatus:"PRE_APPROVAL"},{id:"w4",userName:"Mashood Rafi",matterTitle:"260303 — Building Dispute",activity:"Court Attendance",totalHours:6.0,totalAmount:7200,billingType:"Hourly",entryDate:"2026-07-04",revenueStatus:"DRAFT"},{id:"w5",userName:"Ahmad AlKhalil",matterTitle:"260285 — Corporate Setup",activity:"Due Diligence",totalHours:5.0,totalAmount:6000,billingType:"Hourly",entryDate:"2026-07-05",revenueStatus:"APPROVED"}]
 const STATIC_MB=(staticMatters as unknown as {id:string;title:string;clientMini:{companyName:string;firstName:string};billingType:string;status:string}[]).map((m,i)=>({id:m.id,matterTitle:m.title,clientName:m.clientMini?.companyName||m.clientMini?.firstName||"—",billingType:m.billingType,totalBilled:[15000,8500,5000][i]??0,collected:[15000,4000,0][i]??0,wip:[0,4500,5000][i]??0,status:m.status}))
@@ -13,4 +13,22 @@ export const reportsApi = {
   wipSummary:()=>env.USE_STATIC_DATA?Promise.resolve({totalWip:STATIC_WIP.reduce((s,r)=>s+r.totalAmount,0),totalHours:STATIC_WIP.reduce((s,r)=>s+r.totalHours,0),byUser:Object.entries(STATIC_WIP.reduce((acc,r)=>({...acc,[r.userName]:(acc[r.userName]??0)+r.totalAmount}),{} as Record<string,number>)).map(([name,amount])=>({name,amount})),byStatus:Object.entries(STATIC_WIP.reduce((acc,r)=>({...acc,[r.revenueStatus]:(acc[r.revenueStatus]??0)+1}),{} as Record<string,number>)).map(([name,count])=>({name,count}))}):axiosClient.get("/api/report/wip-reports/summary").then(r=>r.data?.data??r.data),
   matterHistory:()=>env.USE_STATIC_DATA?Promise.resolve(staticDash.matterHistory):axiosClient.get("/api/analytics/graph/matters-history-monthly").then(r=>r.data?.data??[]),
   revenue:()=>env.USE_STATIC_DATA?Promise.resolve(staticDash.revenue):axiosClient.get("/api/analytics/graph/fixedfees-timelogs-revenue").then(r=>r.data?.data??[]),
+  async getDepartmentBilling(p: GridParams): Promise<PageResponse<Record<string,unknown>>> {
+    if (env.USE_STATIC_DATA) { await new Promise(r=>setTimeout(r,200)); const list=billedAmountReport as Record<string,unknown>[]; const start=p.page*p.pageSize; const slice=list.slice(start,start+p.pageSize); return {content:slice,totalElements:list.length,totalPages:Math.ceil(list.length/p.pageSize),number:p.page,size:p.pageSize,first:p.page===0,last:(start+p.pageSize)>=list.length,empty:slice.length===0} }
+    const f=p.filters??{}; const r=await axiosClient.get("/api/report/department/billing/v2",{params:{pageNumber:p.page,pageSize:p.pageSize,fromDate:f.fromDate??"",toDate:f.toDate??""}})
+    const d=r.data?.data??r.data; return {content:d.content??[],totalElements:d.totalElements??0,totalPages:d.totalPages??0,number:d.number??0,size:d.size??p.pageSize,first:d.first??true,last:d.last??true,empty:d.empty??true}
+  },
+
+  async getCollections(p: GridParams): Promise<PageResponse<Record<string,unknown>>> {
+    if (env.USE_STATIC_DATA) { await new Promise(r=>setTimeout(r,200)); const list=collectionsReport as Record<string,unknown>[]; const start=p.page*p.pageSize; const slice=list.slice(start,start+p.pageSize); return {content:slice,totalElements:list.length,totalPages:Math.ceil(list.length/p.pageSize),number:p.page,size:p.pageSize,first:p.page===0,last:(start+p.pageSize)>=list.length,empty:slice.length===0} }
+    const f=p.filters??{}; const r=await axiosClient.get("/api/report/get/me-report-cache",{params:{pageNumber:p.page,pageSize:p.pageSize,fromDate:f.fromDate??"",toDate:f.toDate??""}})
+    const d=r.data?.data??r.data; return {content:d.content??[],totalElements:d.totalElements??0,totalPages:d.totalPages??0,number:d.number??0,size:d.size??p.pageSize,first:d.first??true,last:d.last??true,empty:d.empty??true}
+  },
+
+  async getMarginErosion(p: GridParams): Promise<PageResponse<Record<string,unknown>>> {
+    if (env.USE_STATIC_DATA) { await new Promise(r=>setTimeout(r,200)); const list=marginErosionReport as Record<string,unknown>[]; const start=p.page*p.pageSize; const slice=list.slice(start,start+p.pageSize); return {content:slice,totalElements:list.length,totalPages:Math.ceil(list.length/p.pageSize),number:p.page,size:p.pageSize,first:p.page===0,last:(start+p.pageSize)>=list.length,empty:slice.length===0} }
+    const f=p.filters??{}; const r=await axiosClient.get("/api/report/lfa/billing/v2",{params:{pageNumber:p.page,pageSize:p.pageSize,fromDate:f.fromDate??"",toDate:f.toDate??""}})
+    const d=r.data?.data??r.data; return {content:d.content??[],totalElements:d.totalElements??0,totalPages:d.totalPages??0,number:d.number??0,size:d.size??p.pageSize,first:d.first??true,last:d.last??true,empty:d.empty??true}
+  },
+
 }

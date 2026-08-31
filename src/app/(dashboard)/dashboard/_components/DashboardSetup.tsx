@@ -1,3 +1,4 @@
+import { adminApi } from '@/api/admin'
 import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Typography, Paper, Button, Switch, FormControlLabel, Snackbar, Alert, IconButton, Tooltip } from '@mui/material'
@@ -19,6 +20,7 @@ export function DashboardSetup() {
   useQuery({
     queryKey: QK.dashboard.setup(),
     queryFn: async () => {
+      if (env.USE_STATIC_DATA) return adminApi.getSetupInfo()
       const r = await axiosClient.get('/api/dashboard/get/setup')
       const list: Widget[] = r.data?.data ?? r.data ?? []
       setWidgets(list.map((w, i) => ({ ...w, seq: w.seq ?? i })).sort((a, b) => a.seq - b.seq))

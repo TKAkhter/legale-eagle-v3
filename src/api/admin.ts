@@ -91,4 +91,27 @@ export const adminApi = {
     const res = await axiosClient.get("/api/util/get/notification")
     return res.data?.data ?? []
   },
+  async getLocations() {
+    if (env.USE_STATIC_DATA) return []
+    const r = await axiosClient.get("/api/location/get")
+    return r.data?.data ?? r.data ?? []
+  },
+
+  async createLocation(data: Record<string,unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r,400)); return { id: `loc-${Date.now()}`, ...data } }
+    const r = await axiosClient.post("/api/location/add", data)
+    return r.data?.data ?? r.data
+  },
+
+  async deleteLocation(id: string) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r,300)); return }
+    await axiosClient.delete(`/api/location/delete/${id}`)
+  },
+
+  async getSetupInfo() {
+    if (env.USE_STATIC_DATA) return { totalLeads:3, totalMatters:3, totalClients:2, totalInvoices:3, totalUsers:4, totalGroups:2 }
+    const r = await axiosClient.get("/api/dashboard/get/setup")
+    return r.data?.data ?? r.data ?? {}
+  },
+
 }
