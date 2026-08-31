@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { useParams } from "react-router-dom"
 import { Box, Typography, Paper, Chip, Button, Divider } from "@mui/material"
-import PlayArrowIcon from "@mui/icons-material/PlayArrow"; import AddIcon from "@mui/icons-material/Add"; import CloseIcon from "@mui/icons-material/Close"; import GavelIcon from "@mui/icons-material/Gavel"
+import PlayArrowIcon from "@mui/icons-material/PlayArrow"; import AddIcon from "@mui/icons-material/Add"; import CloseIcon from "@mui/icons-material/Close"
+import PrintIcon from "@mui/icons-material/Print"; import GavelIcon from "@mui/icons-material/Gavel"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { env } from "@/config/env"; import { mattersApi } from "@/api/matters"
 import { PageShell } from "@/components/ui/PageShell"; import { StatusBadge } from "@/components/ui/StatusBadge"
@@ -55,6 +56,7 @@ export default function MatterDetailPage() {
         <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={()=>setHearingOpen(true)}>Hearing</Button>
         <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={()=>setLogTimeOpen(true)}>Time Entry</Button>
         <Button size="small" variant="outlined" color="error" startIcon={<CloseIcon />} onClick={()=>setCloseOpen(true)}>Close</Button>
+        <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={()=>window.open(`/matters/print?matterId=${matterId}`,'_blank')}>Print</Button>
       </Box>}>
       <Paper variant="outlined" sx={{p:3,mb:3,borderRadius:2}}>
         <Box sx={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:2}}>

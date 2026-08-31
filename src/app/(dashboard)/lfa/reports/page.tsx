@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { lfaApi } from '@/api/lfa'
 import { Box, Typography, Button } from '@mui/material'
@@ -43,8 +44,7 @@ function ReportFilter({ onSearch, onReset, filters }: FilterPanelProps) {
 
 export default function LfaReportsPage() {
   return (
-    <Box>
-      <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>LFA Reports</Typography>
+    <PageShell title="LFA Reports" description="Fee agreement analytics">
       <Tabs tabs={[
         { label:'Billing Report', content:(
           <DataGrid
@@ -72,6 +72,6 @@ export default function LfaReportsPage() {
           />
         )},
       ]} />
-    </Box>
+    </PageShell>
   )
 }

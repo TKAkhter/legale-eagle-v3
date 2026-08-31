@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { lfaApi } from '@/api/lfa'
 import { Box, Typography } from '@mui/material'
@@ -16,8 +17,7 @@ async function fetchDefaultLfas(_p: GridParams) {
 
 export default function DefaultLfasPage() {
   return (
-    <Box>
-      <Typography variant="h5" sx={{ fontWeight:600, mb:1 }}>Default LFAs</Typography>
+    <PageShell title="Default LFAs" description="Default fee agreement templates">
       <Typography variant="body2" color="text.secondary" sx={{ mb:2 }}>Default LFAs apply automatically to new matters without a client-specific agreement.</Typography>
       <DataGrid
         columns={[
@@ -27,6 +27,6 @@ export default function DefaultLfasPage() {
         ]}
         queryKey={['lfa','defaults']} queryFn={fetchDefaultLfas} isPaginated={false}
       />
-    </Box>
+    </PageShell>
   )
 }

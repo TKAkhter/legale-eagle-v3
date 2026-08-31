@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography, Button } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send'
@@ -38,8 +39,7 @@ export default function TimelogsPreApprovalPage() {
   }
 
   return (
-    <Box>
-      <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>Timelogs Pre-Approval</Typography>
+    <PageShell title="Timelogs Pre-Approval" description="Time entries submitted for pre-approval review">
       <DataGrid
         columns={[
           { field:'activity', header:'Activity' },
@@ -55,6 +55,6 @@ export default function TimelogsPreApprovalPage() {
           { label:'Submit for Approval', icon:<SendIcon fontSize="small"/>, permission:'timelogs:approve', onClick:()=>submitForApproval(row) }
         ]}
       />
-    </Box>
+    </PageShell>
   )
 }

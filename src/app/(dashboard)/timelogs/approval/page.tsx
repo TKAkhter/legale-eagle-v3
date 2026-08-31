@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography, Button } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
@@ -39,8 +40,7 @@ export default function TimelogsApprovalPage() {
   }
 
   return (
-    <Box>
-      <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>Timelogs Approval (HOD)</Typography>
+    <PageShell title="Timelogs Approval (HOD)" description="Final approval of time entries before invoicing">
       <DataGrid
         columns={[
           { field:'activity', header:'Activity' },
@@ -69,6 +69,6 @@ export default function TimelogsApprovalPage() {
           { label:'Reject',  icon:<CloseIcon fontSize="small"/>,  permission:'timelogs:approve', color:'error', onClick:()=>handleAction(row,false) },
         ]}
       />
-    </Box>
+    </PageShell>
   )
 }

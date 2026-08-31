@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { Box, Typography } from '@mui/material'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
@@ -24,8 +25,7 @@ async function fetchForReview(params: GridParams) {
 
 export default function TimelogsReviewPage() {
   return (
-    <Box>
-      <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>Timelogs Review</Typography>
+    <PageShell title="Timelogs Review" description="Draft time entries pending review before pre-approval">
       <DataGrid
         columns={[
           { field:'activity', header:'Activity' },
@@ -39,6 +39,6 @@ export default function TimelogsReviewPage() {
         queryKey={['timelogs','review']} queryFn={fetchForReview}
         FilterPanel={FilterPanel} hasFilters syncWithUrl hasRowSelection
       />
-    </Box>
+    </PageShell>
   )
 }

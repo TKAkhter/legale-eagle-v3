@@ -51,7 +51,22 @@
     "settings": "Settings",
     "notifications": "Notifications",
     "profile": "Profile",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "email": "Email",
+    "files": "Files",
+    "onedrive": "Files",
+    "audit-log": "Audit Log",
+    "my-leads": "My Leads",
+    "activity-history": "Activity History",
+    "timelogs-review": "Review",
+    "timelogs-pre-approval": "Pre-Approval",
+    "timelogs-approval": "Approval",
+    "cost-cards": "Cost Cards",
+    "rate-cards": "Rate Cards",
+    "budget-cards": "Budget Cards",
+    "lfa-client": "By Client",
+    "lfa-default": "Default",
+    "lfa-reports": "Reports"
   },
   "auth": {
     "signIn": "Sign In",
@@ -74,7 +89,7 @@
     "sendResetLink": "Send reset link",
     "checkEmail": "Check your email",
     "resetEmailSent": "A password reset link has been sent. Check your inbox and spam folder.",
-    "backToSignIn": "← Back to sign in",
+    "backToSignIn": "\u2190 Back to sign in",
     "errors": {
       "invalidCredentials": "Invalid email or password. Please try again.",
       "accountLocked": "Account locked. Please contact your administrator.",
@@ -314,6 +329,30 @@
     "lightMode": "Light Mode",
     "darkMode": "Dark Mode",
     "english": "English",
-    "arabic": "العربية"
+    "arabic": "\u0627\u0644\u0639\u0631\u0628\u064a\u0629"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "create": "Create",
+    "update": "Update",
+    "confirm": "Confirm",
+    "search": "Search",
+    "filter": "Filter",
+    "reset": "Reset",
+    "export": "Export",
+    "print": "Print",
+    "close": "Close",
+    "loading": "Loading\u2026",
+    "noData": "No records found",
+    "actions": "Actions",
+    "status": "Status",
+    "date": "Date",
+    "amount": "Amount",
+    "total": "Total",
+    "paid": "Paid",
+    "balance": "Balance"
   }
 }

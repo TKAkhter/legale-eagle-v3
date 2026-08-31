@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { rateCards as static_rateCards } from '@/data/static'
 import { Box, Typography, Button } from '@mui/material'
