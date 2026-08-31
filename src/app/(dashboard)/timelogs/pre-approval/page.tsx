@@ -1,4 +1,5 @@
-import { Box, Typography, Button, Snackbar, Alert } from '@mui/material'
+import { toast } from '@/lib/toast'
+import { Box, Typography, Button } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -27,14 +28,13 @@ async function fetchPreApproval(params: GridParams) {
 
 export default function TimelogsPreApprovalPage() {
   const qc = useQueryClient()
-  const [snack,setSnack] = useState<{open:boolean;msg:string;severity:'success'|'error'}>({open:false,msg:'',severity:'success'})
 
   async function submitForApproval(row: Record<string,unknown>) {
     try {
       await axiosClient.post('/api/activity/send/for/approval/to-attorney/v2',{activityIds:[row.id]})
-      setSnack({open:true,msg:'Submitted for approval',severity:'success'})
+      toast.success('Submitted for approval')
       qc.invalidateQueries({queryKey:['timelogs','preApproval']})
-    } catch { setSnack({open:true,msg:'Failed to submit',severity:'error'}) }
+    } catch { toast.error('Failed to submit') }
   }
 
   return (
@@ -55,9 +55,6 @@ export default function TimelogsPreApprovalPage() {
           { label:'Submit for Approval', icon:<SendIcon fontSize="small"/>, permission:'timelogs:approve', onClick:()=>submitForApproval(row) }
         ]}
       />
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={()=>setSnack(s=>({...s,open:false}))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }

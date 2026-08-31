@@ -1,6 +1,7 @@
+import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { useState } from 'react'
-import { Box, Paper, Typography, Button, TextField, IconButton, Snackbar, Alert, Skeleton } from '@mui/material'
+import { Box, Paper, Typography, Button, TextField, IconButton, Skeleton } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -21,8 +22,7 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
   const [name, setName] = useState('')
   const [extras, setExtras] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: 'success'|'error' }>({ open: false, msg: '', severity: 'success' })
-
+  
   const { data = [], isLoading } = useQuery<Record<string, unknown>[]>({
     queryKey: [queryKey, 'list'],
     queryFn: async () => { const r = await axiosClient.get(getUrl); return r.data?.data ?? r.data ?? [] },
@@ -36,8 +36,8 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
       if (!env.USE_STATIC_DATA) await axiosClient.post(addUrl, { [nameField]: name.trim(), ...extras })
       qc.invalidateQueries({ queryKey: [queryKey] })
       setName(''); setExtras({})
-      setSnack({ open: true, msg: `${title.slice(0,-1)} added`, severity: 'success' })
-    } catch { setSnack({ open: true, msg: 'Failed to add', severity: 'error' }) }
+      toast.success(`${title.slice(0,-1)} added`)
+    } catch { toast.error('Failed to add') }
     finally { setSaving(false) }
   }
 
@@ -46,8 +46,8 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
       if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)) }
       if (!env.USE_STATIC_DATA) await axiosClient.delete(`${deleteUrl}/${id}`)
       qc.invalidateQueries({ queryKey: [queryKey] })
-      setSnack({ open: true, msg: 'Deleted', severity: 'success' })
-    } catch { setSnack({ open: true, msg: 'Failed to delete', severity: 'error' }) }
+      toast.success('Deleted')
+    } catch { toast.error('Failed to delete') }
   }
 
   return (
@@ -81,9 +81,6 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
             </Box>
           ))
       }
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Paper>
   )
 }

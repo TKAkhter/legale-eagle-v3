@@ -1,3 +1,4 @@
+import { PageTransition } from '@/components/ui/PageTransition'
 /**
  * MainLayout.tsx — root layout for all authenticated dashboard pages.
  *
@@ -108,7 +109,7 @@ export function MainLayout() {
         >
           <Box sx={{ maxWidth: 1400, mx: "auto" }}>
             <ErrorBoundary>
-              <Outlet />
+              <PageTransition><Outlet /></PageTransition>
             </ErrorBoundary>
           </Box>
         </Box>

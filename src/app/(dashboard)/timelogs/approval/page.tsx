@@ -1,4 +1,5 @@
-import { Box, Typography, Button, Snackbar, Alert } from '@mui/material'
+import { toast } from '@/lib/toast'
+import { Box, Typography, Button } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
@@ -28,14 +29,13 @@ async function fetchForApproval(params: GridParams) {
 
 export default function TimelogsApprovalPage() {
   const qc = useQueryClient()
-  const [snack,setSnack] = useState<{open:boolean;msg:string;severity:'success'|'error'}>({open:false,msg:'',severity:'success'})
 
   async function handleAction(row: Record<string,unknown>, approve: boolean) {
     try {
       await axiosClient.post('/api/activity/approve',{ activityId:row.id, status: approve?'APPROVED':'REJECTED' })
-      setSnack({open:true,msg:approve?'Approved':'Rejected',severity:'success'})
+      toast.error('Action failed')
       qc.invalidateQueries({queryKey:['timelogs','approval']})
-    } catch { setSnack({open:true,msg:'Action failed',severity:'error'}) }
+    } catch { toast.error('Action failed') }
   }
 
   return (
@@ -60,8 +60,8 @@ export default function TimelogsApprovalPage() {
             try {
               await axiosClient.post('/api/activity/approve', { activityIds: rows.map(r => r.id), status: 'APPROVED' })
               qc.invalidateQueries({ queryKey: ['timelogs','approval'] })
-              setSnack({ open:true, msg:`${rows.length} entries approved`, severity:'success' })
-            } catch { setSnack({ open:true, msg:'Bulk approval failed', severity:'error' }) }
+              toast.success(`${rows.length} entries approved`)
+            } catch { toast.error('Bulk approval failed') }
           }
         }]}
         rowMenuItems={(row)=>[
@@ -69,9 +69,6 @@ export default function TimelogsApprovalPage() {
           { label:'Reject',  icon:<CloseIcon fontSize="small"/>,  permission:'timelogs:approve', color:'error', onClick:()=>handleAction(row,false) },
         ]}
       />
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={()=>setSnack(s=>({...s,open:false}))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }

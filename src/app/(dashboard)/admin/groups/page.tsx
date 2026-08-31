@@ -1,6 +1,7 @@
+import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { adminApi } from '@/api/admin'
-import { Box, Typography, Button, Snackbar, Alert } from '@mui/material'
+import { Box, Typography, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import { useState } from 'react'
@@ -35,16 +36,15 @@ export default function GroupsPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [modalOpen,setModalOpen] = useState(false)
-  const [snack,setSnack] = useState<{open:boolean;msg:string;severity:'success'|'error'}>({open:false,msg:'',severity:'success'})
-  const { control, handleSubmit, reset, formState:{isSubmitting} } = useForm<Form>({ resolver:zodResolver(schema) })
+    const { control, handleSubmit, reset, formState:{isSubmitting} } = useForm<Form>({ resolver:zodResolver(schema) })
 
   async function onSubmit({ name }: Form) {
     try {
       await axiosClient.post('/api/group/add',{ name })
-      setSnack({open:true,msg:'Group created',severity:'success'})
+      toast.success('Group created')
       qc.invalidateQueries({queryKey:['groups','list']})
       setModalOpen(false); reset()
-    } catch { setSnack({open:true,msg:'Failed to create group',severity:'error'}) }
+    } catch { toast.error('Failed to create group') }
   }
 
   return (
@@ -67,9 +67,6 @@ export default function GroupsPage() {
         actions={<><Button onClick={()=>setModalOpen(false)}>Cancel</Button><Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>{isSubmitting?'Creating…':'Create'}</Button></>}>
         <ControlledInput name="name" control={control} label="Group Name" required />
       </Modal>
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={()=>setSnack(s=>({...s,open:false}))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }

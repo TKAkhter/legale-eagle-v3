@@ -1,5 +1,6 @@
+import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, Skeleton, Button, Snackbar, Alert, Chip } from '@mui/material'
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, Skeleton, Button, Chip } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -18,7 +19,6 @@ export default function PermissionsPage() {
   const [selectedGroup,setSelectedGroup] = useState<string|null>(null)
   const [localPerms,setLocalPerms] = useState<Record<string,Record<Action,boolean>>>({})
   const [saving,setSaving] = useState(false)
-  const [snack,setSnack] = useState<{open:boolean;msg:string;severity:'success'|'error'}>({open:false,msg:'',severity:'success'})
 
   const { data:groups=[], isLoading:groupsLoading } = useQuery<Group[]>({
     queryKey:['groups','list'],
@@ -61,10 +61,10 @@ export default function PermissionsPage() {
         }]
       }))
       await axiosClient.post(`/api/group/add/individual/permission`,{ groupId:selectedGroup, permission })
-      setSnack({open:true,msg:'Permissions saved',severity:'success'})
+      toast.success('Permissions saved')
       qc.invalidateQueries({queryKey:['groups','list']})
       setLocalPerms({})
-    } catch { setSnack({open:true,msg:'Failed to save',severity:'error'}) }
+    } catch { toast.error('Failed to save') }
     finally { setSaving(false) }
   }
 
@@ -119,10 +119,6 @@ export default function PermissionsPage() {
           </Table>
         </TableContainer>
       )}
-
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={()=>setSnack(s=>({...s,open:false}))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }

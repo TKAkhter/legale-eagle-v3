@@ -1,5 +1,6 @@
+import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
-import { Box, Typography, Button, Snackbar, Alert } from '@mui/material'
+import { Box, Typography, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useState } from 'react'
@@ -29,16 +30,15 @@ async function fetchLocations(_p: GridParams) {
 export default function LocationsPage() {
   const qc = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
-  const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: 'success' | 'error' }>({ open: false, msg: '', severity: 'success' })
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
 
   async function onSubmit(data: Form) {
     try {
       await axiosClient.post('/api/location/add', data)
-      setSnack({ open: true, msg: 'Location added', severity: 'success' })
+      toast.success('Location added')
       qc.invalidateQueries({ queryKey: ['locations'] })
       setModalOpen(false); reset()
-    } catch { setSnack({ open: true, msg: 'Failed to add', severity: 'error' }) }
+    } catch { toast.error('Action failed') }
   }
 
   return (
@@ -67,9 +67,6 @@ export default function LocationsPage() {
           <ControlledInput name="country" control={control} label="Country" />
         </Box>
       </Modal>
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }

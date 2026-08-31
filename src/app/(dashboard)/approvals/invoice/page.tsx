@@ -21,17 +21,16 @@ async function fetchPendingApprovals(_params: GridParams) {
 
 export default function InvoiceApprovalPage() {
   const qc = useQueryClient()
-  const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: 'success' | 'error' }>({ open: false, msg: '', severity: 'success' })
 
   async function handleApprove(row: Record<string, unknown>, approve: boolean) {
     try {
       await axiosClient.post('/api/invoice/ap/approve/single', { status: approve ? 'Completed' : 'Rejected' }, {
         params: { invoiceApprovalsId: row.id },
       })
-      setSnack({ open: true, msg: approve ? 'Invoice approved' : 'Invoice rejected', severity: 'success' })
+      toast.error('Action failed')
       qc.invalidateQueries({ queryKey: ['invoices', 'approval'] })
     } catch {
-      setSnack({ open: true, msg: 'Action failed', severity: 'error' })
+      toast.error('Action failed')
     }
   }
 

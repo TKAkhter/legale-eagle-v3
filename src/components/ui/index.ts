@@ -16,3 +16,4 @@ export { TableSkeleton } from "./Skeletons"
 export { DetailSkeleton } from "./Skeletons"
 export { KpiSkeleton } from "./Skeletons"
 export { WidgetSkeleton } from "./Skeletons"
+export { PageTransition } from './PageTransition'

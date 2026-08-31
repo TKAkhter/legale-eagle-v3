@@ -1,4 +1,5 @@
-import { Box, Typography, Button, Avatar, Chip, Snackbar, Alert } from '@mui/material'
+import { toast } from '@/lib/toast'
+import { Box, Typography, Button, Avatar, Chip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import BlockIcon from '@mui/icons-material/Block'
@@ -51,14 +52,13 @@ export default function UsersPage() {
   const [inviteOpen,    setInviteOpen]    = useState(false)
   const [editUserId,    setEditUserId]    = useState<string | null>(null)
   const [resetUser,     setResetUser]     = useState<{ id: string; name: string } | null>(null)
-  const [snack, setSnack] = useState<{ open: boolean; msg: string; severity: 'success'|'error' }>({ open: false, msg: '', severity: 'success' })
 
   async function blockUser(row: Record<string, unknown>) {
     try {
       await axiosClient.put(`/api/user/block/${row.id}`)
-      setSnack({ open: true, msg: `User ${row.active ? 'blocked' : 'unblocked'}`, severity: 'success' })
+      toast.success(`User ${row.active ? 'blocked' : 'unblocked'}`)
       qc.invalidateQueries({ queryKey: QK.users.list() })
-    } catch { setSnack({ open: true, msg: 'Action failed', severity: 'error' }) }
+    } catch { toast.error('Action failed') }
   }
 
   return (
@@ -100,10 +100,6 @@ export default function UsersPage() {
       <InviteUserDrawer open={inviteOpen} onClose={() => setInviteOpen(false)} />
       {editUserId && <EditUserDrawer open={!!editUserId} onClose={() => setEditUserId(null)} userId={editUserId} onSuccess={() => setEditUserId(null)} />}
       {resetUser  && <ResetPasswordDialog open={!!resetUser} onClose={() => setResetUser(null)} userId={resetUser.id} userName={resetUser.name} />}
-
-      <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
-        <Alert severity={snack.severity}>{snack.msg}</Alert>
-      </Snackbar>
     </Box>
   )
 }
