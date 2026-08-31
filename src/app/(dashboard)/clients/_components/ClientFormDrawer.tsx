@@ -1,7 +1,7 @@
-import { z } from "zod"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Alert } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
 import { FormDrawer } from "@components/ui/FormDrawer"
@@ -9,15 +9,15 @@ import { ControlledInput, ControlledSelect, FormSection } from "@components/form
 import { clientsApi } from "@/api/clients"
 
 const schema = z.object({
-  firstName:    z.string().min(1, "Required"),
-  lastName:     z.string().optional(),
-  companyName:  z.string().optional(),
-  clientType:   z.enum(["COMPANY","PERSON"]),
-  email:        z.string().email("Invalid email").optional().or(z.literal("")),
-  phone:        z.string().optional(),
-  trnNo:        z.string().optional(),
+  firstName:   z.string().min(1, "Required"),
+  lastName:    z.string().optional(),
+  companyName: z.string().optional(),
+  clientType:  z.enum(["COMPANY","PERSON"]),
+  email:       z.string().email("Invalid email").optional().or(z.literal("")),
+  phone:       z.string().optional(),
+  trnNo:       z.string().optional(),
 })
-type ClientForm = z.infer<typeof schema>
+type Form = z.infer<typeof schema>
 
 interface Props { open: boolean; onClose: () => void; clientId?: string; onSaved: () => void }
 
@@ -25,7 +25,7 @@ export function ClientFormDrawer({ open, onClose, clientId, onSaved }: Props) {
   const isEdit = !!clientId
   const [error, setError] = useState("")
 
-  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<ClientForm>({
+  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: { clientType: "PERSON" },
   })
@@ -51,7 +51,7 @@ export function ClientFormDrawer({ open, onClose, clientId, onSaved }: Props) {
     }
   }, [existing, isEdit, reset])
 
-  async function onSubmit(vals: ClientForm) {
+  async function onSubmit(vals: Form) {
     setError("")
     try {
       const payload = {

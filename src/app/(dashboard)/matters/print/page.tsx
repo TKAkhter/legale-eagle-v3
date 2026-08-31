@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Box, Typography, Button, Divider, CircularProgress } from "@mui/material"
+import { Box, Typography, Divider, CircularProgress } from "@mui/material"
 import { env } from "@/config/env"
 import { mattersApi } from "@/api/matters"
 import { matterDetail as SD, matterTimelogs as STL, matterHearings as SH } from "@/data/static"
@@ -32,19 +32,6 @@ export default function MatterPrintPage() {
   const pa   = (m?.practiceArea as {name?:string})?.name ?? ""
 
   return (
-    <>
-      {/* Back / print controls — hidden when printing */}
-      <Box sx={{
-        position:"fixed", top:16, right:16, display:"flex", gap:1, zIndex:999,
-        "@media print": { display:"none" }
-      }}>
-        <Button size="small" variant="outlined" onClick={() => window.history.back()}>
-          ← Back
-        </Button>
-        <Button size="small" variant="contained" onClick={() => window.print()}>
-          Print again
-        </Button>
-      </Box>
     <Box sx={{ maxWidth:800,mx:"auto",p:6,fontFamily:"'IBM Plex Sans',sans-serif","@media print":{p:4} }}>
       <Box sx={{ display:"flex",justifyContent:"space-between",mb:4 }}>
         <Box>
@@ -125,8 +112,5 @@ export default function MatterPrintPage() {
         Confidential — LegalEagle LMS — Printed {new Date().toLocaleString()}
       </Typography>
     </Box>
-  )
-
-    </>
   )
 }
