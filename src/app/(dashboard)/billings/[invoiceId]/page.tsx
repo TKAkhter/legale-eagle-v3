@@ -1,9 +1,13 @@
+import { PageShell } from '@/components/ui/PageShell'
+import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Typography, Paper, Chip, Skeleton, Button, Divider } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { axiosClient, axiosBlob } from '@lib/api/axios'
+import { billingApi } from '@/api/billing'
+import { clientInvoices as staticInvoices } from '@/data/static'
 import { StatusBadge } from '@components/ui/StatusBadge'
 import { formatDate } from '@lib/utils/formatDate'
 import { formatCurrency } from '@lib/utils/formatCurrency'
@@ -33,22 +37,22 @@ export default function InvoiceDetailPage() {
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoices', 'detail', invoiceId],
     queryFn: async () => {
-      if (env.USE_STATIC_DATA) { return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true } }
-      const r = await axiosClient.get('/api/invoice/get/by/id', { params: { invoiceId } })
-      return r.data?.data ?? r.data
+      if (env.USE_STATIC_DATA) return staticInvoices.find(i => i.id === invoiceId) ?? staticInvoices[0]
+      return billingApi.getById(invoiceId!)
     },
     enabled: !!invoiceId,
   })
 
   async function emailInvoice() {
     setEmailing(true)
-    try { await axiosClient.post('/api/invoice/send/email', null, { params: { invoiceId } }) }
+    try { if (!env.USE_STATIC_DATA) await axiosClient.post('/api/invoice/send/email', null, { params: { invoiceId } }); else await new Promise(r=>setTimeout(r,500)) }
     finally { setEmailing(false) }
   }
 
   async function downloadWord() {
     setDlWord(true)
     try {
+      if (env.USE_STATIC_DATA) { toast.success('Download simulated in static mode'); return }
       const r = await axiosBlob.get('/api/invoice/convert/word', { params: { invoiceId } })
       downloadBlob(r.data as Blob, `invoice-${invoice?.invoiceNo ?? invoiceId}.docx`)
     } finally { setDlWord(false) }
@@ -57,6 +61,7 @@ export default function InvoiceDetailPage() {
   async function downloadPdf() {
     setDownloading(true)
     try {
+      if (env.USE_STATIC_DATA) { toast.success('Download simulated in static mode'); return }
       const r = await axiosBlob.get('/api/invoice/convert/pdf', { params: { invoiceId } })
       downloadBlob(r.data as Blob, `invoice-${invoice?.invoiceNo ?? invoiceId}.pdf`)
     } finally { setDownloading(false) }
@@ -68,8 +73,10 @@ export default function InvoiceDetailPage() {
   const matter = invoice?.matter as Record<string,string> | undefined
   const balance = Number(invoice?.balanceAmount ?? 0)
 
+  const invNo = (invoice as Record<string,unknown>)?.invoiceNo ?? invoiceId
   return (
-    <Box>
+    <PageShell title={`Invoice #${String(invNo)}`} breadcrumbs={[{label:'Billing',path:'/billings'},{label:`#${String(invNo)}`}]}>
+      <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>Invoice #{invoice?.invoiceNo}</Typography>
@@ -126,5 +133,7 @@ export default function InvoiceDetailPage() {
         balance={balance}
       />
     </Box>
+  )
+    </PageShell>
   )
 }
