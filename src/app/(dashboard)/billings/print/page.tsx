@@ -13,7 +13,7 @@
 import { useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Box, Typography, Divider, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress } from "@mui/material"
+import { Box, Typography, Divider, Button, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress } from "@mui/material"
 import { billingApi } from "@/api/billing"
 import { formatDate, formatDateTime } from "@lib/utils/formatDate"
 import { formatCurrency } from "@lib/utils/formatCurrency"
@@ -59,6 +59,11 @@ export default function InvoicePrintPage() {
         "& .no-print": { display: "none" },
       },
     }}>
+      {/* Back/print buttons — hidden when printing */}
+      <Box className="no-print" sx={{ display:"flex", justifyContent:"flex-end", gap:1, mb:2 }}>
+        <Button size="small" variant="outlined" onClick={() => window.history.back()}>← Back</Button>
+        <Button size="small" variant="contained" onClick={() => window.print()}>Print again</Button>
+      </Box>
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
         <Box>
