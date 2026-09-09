@@ -1,45 +1,54 @@
-import { reportsApi } from '@/api/reports'
-import { env } from '@/config/env'
-import { collectionsReport as static_collectionsReport } from '@/data/static'
-import { ReportPage } from '@components/data-grid/ReportPage'
-import { makeReportFilterPanel } from '@components/filters/ReportFilterPanel'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import { formatDate } from '@lib/utils/formatDate'
-import type { GridParams } from '@/types/common.types'
+import { useQuery } from "@tanstack/react-query"
+import { Box, Paper, Typography } from "@mui/material"
+import { PageShell }      from "@/components/ui/PageShell"
+import { DataGrid }       from "@/components/data-grid/DataGrid"
+import { ApexChart }      from "@components/charts/ApexChart"
+import { reportsApi }     from "@/api/reports"
+import { formatCurrency } from "@lib/utils/formatCurrency"
+import type { GridParams } from "@/types/common.types"
 
-const FilterPanel = makeReportFilterPanel({ showClient:true, showDepartment:true, showDateRange:true })
-
-async function fetchCollections(params: GridParams) {
-  return reportsApi.getCollections(params)
-  const qp = buildQueryParams(params,{paginationConvention:'pageNumber-pageSize'})
-  const f = params.filters??{}
-  const r = await axiosClient.post('/api/report/fee-earners/revenues',{},{
-    params:{...qp, clientId:f.clientId??'', departmentId:f.departmentId??'', fromDate:f.fromDate??'', toDate:f.toDate??''}
+export default function CollectionsReportPage() {
+  const { data: summary } = useQuery({
+    queryKey: ["reports","collections","summary"],
+    queryFn: () => reportsApi.getCollections({ page:0, pageSize:100, sortBy:"collectionRate", sortDir:"desc", filters:{} }),
   })
-  return r.data?.data??r.data
-}
+  const rows = (summary?.content ?? []) as Record<string,unknown>[]
 
-export default function CollectionsPage() {
   return (
-    <ReportPage
-      title="Collections Report"
-      queryKey={['reports','collections']}
-      queryFn={fetchCollections}
-      FilterPanel={FilterPanel}
-      exportUrl="/api/reports/export-excel/fee-earners/download-collections-report"
-      exportFilename="collections.xlsx"
-      columns={[
-        { field:'invoiceNo', header:'Invoice #' },
-        { field:'client', header:'Client', renderCell:(v)=>{ const c=v as Record<string,string>; return c?.companyName??c?.firstName??'—' } },
-        { field:'invoiceAmount', header:'Invoice', align:'right', renderCell:(v)=>formatCurrency(Number(v??0)) },
-        { field:'paidAmount', header:'Paid', align:'right', renderCell:(v)=>formatCurrency(Number(v??0)) },
-        { field:'balance', header:'Balance', align:'right', renderCell:(v)=>formatCurrency(Number(v??0)) },
-        { field:'invoiceStatus', header:'Status', renderCell:(v)=><StatusBadge status={String(v??'')} /> },
-        { field:'paymentDate', header:'Paid On', renderCell:(v)=>formatDate(String(v??'')) },
-      ]}
-    />
+    <PageShell title="Collections Report" description="Invoice collection rates by client">
+      {rows.length > 0 && (
+        <Box sx={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2, mb:3 }}>
+          <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight:600, mb:2 }}>Collection Rate by Client</Typography>
+            <ApexChart type="bar" height={200}
+              series={[{ name:"Rate %", data: rows.map(r=>Number(r.collectionRate??0)) }]}
+              options={{ chart:{toolbar:{show:false}}, xaxis:{ categories: rows.map(r=>String(r.clientName??"")), labels:{style:{fontSize:"11px"}} }, colors:["#00B4A6"], dataLabels:{enabled:false}, plotOptions:{bar:{borderRadius:4,columnWidth:"55%"}}, grid:{strokeDashArray:4}, yaxis:{ max:100, labels:{ formatter:(v:number)=>`${v.toFixed(0)}%` } } }}
+            />
+          </Paper>
+          <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight:600, mb:2 }}>Invoiced vs Collected</Typography>
+            <ApexChart type="bar" height={200}
+              series={[
+                { name:"Invoiced",  data: rows.map(r=>Number(r.totalInvoiced??0)) },
+                { name:"Collected", data: rows.map(r=>Number(r.totalPaid??0))     },
+              ]}
+              options={{ chart:{toolbar:{show:false},type:"bar"}, xaxis:{ categories: rows.map(r=>String(r.clientName??"")), labels:{style:{fontSize:"11px"}} }, colors:["#0F3C6E","#22C55E"], dataLabels:{enabled:false}, plotOptions:{bar:{borderRadius:4,columnWidth:"60%"}}, grid:{strokeDashArray:4}, yaxis:{ labels:{ formatter:(v:number)=>`${(v/1000).toFixed(0)}K` } } }}
+            />
+          </Paper>
+        </Box>
+      )}
+      <DataGrid
+        columns={[
+          { field:"clientName",     header:"Client",          sortKey:"clientName" },
+          { field:"totalInvoiced",  header:"Total Invoiced",  align:"right", renderCell:(v)=>formatCurrency(Number(v??0)) },
+          { field:"totalPaid",      header:"Collected",       align:"right", renderCell:(v)=>formatCurrency(Number(v??0)) },
+          { field:"collectionRate", header:"Rate",            align:"right", renderCell:(v)=><Typography variant="body2" sx={{ color:Number(v)<50?"error.main":Number(v)<80?"warning.main":"success.main", fontWeight:600 }}>{Number(v??0).toFixed(1)}%</Typography> },
+          { field:"outstanding",    header:"Outstanding",     align:"right", renderCell:(v)=>formatCurrency(Number(v??0)) },
+        ]}
+        queryKey={["reports","collections"]}
+        queryFn={(p:GridParams) => reportsApi.getCollections(p) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>}
+        defaultSortBy="collectionRate" defaultSortDir="desc"
+      />
+    </PageShell>
   )
 }

@@ -1,64 +1,52 @@
-import { reportsApi } from '@/api/reports'
-import { env } from '@/config/env'
-import { marginErosionReport as static_marginErosionReport } from '@/data/static'
-import { Box, Typography, Button, Alert } from '@mui/material'
-import RefreshIcon from '@mui/icons-material/Refresh'
-import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { ReportPage } from '@components/data-grid/ReportPage'
-import { makeReportFilterPanel } from '@components/filters/ReportFilterPanel'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import type { GridParams } from '@/types/common.types'
-
-const FilterPanel = makeReportFilterPanel({ showClient:true, showDepartment:true, showDateRange:true })
-
-async function fetchMarginErosion(params: GridParams) {
-  return reportsApi.getMarginErosion(params)
-  const qp = buildQueryParams(params,{paginationConvention:'page-size'})
-  const f = params.filters??{}
-  const r = await axiosClient.get('/api/report/get/me-report-cache',{
-    params:{...qp, clientId:f.clientId??'', departmentId:f.departmentId??'', fromDate:f.fromDate??'', toDate:f.toDate??''}
-  })
-  return r.data?.data??r.data
-}
+import { useQuery } from "@tanstack/react-query"
+import { Box, Paper, Typography, Chip } from "@mui/material"
+import { PageShell }      from "@/components/ui/PageShell"
+import { DataGrid }       from "@/components/data-grid/DataGrid"
+import { ApexChart }      from "@components/charts/ApexChart"
+import { reportsApi }     from "@/api/reports"
+import { formatCurrency } from "@lib/utils/formatCurrency"
+import type { GridParams } from "@/types/common.types"
 
 export default function MarginErosionPage() {
-  const qc = useQueryClient()
-  const [rebuilding,setRebuilding] = useState(false)
-
-  async function rebuildCache() {
-    setRebuilding(true)
-    try {
-      await axiosClient.post('/api/revenue/matter-erosion-activities-group-by-matter/generate-cache')
-      qc.invalidateQueries({ queryKey:['reports','marginErosion'] })
-    } finally { setRebuilding(false) }
-  }
+  const { data: summary } = useQuery({
+    queryKey: ["reports","margin-erosion","summary"],
+    queryFn: () => reportsApi.getMarginErosion({ page:0, pageSize:100, sortBy:"marginRate", sortDir:"asc", filters:{} }),
+  })
+  const rows = (summary?.content ?? []) as Record<string,unknown>[]
+  const avgMargin = rows.length ? rows.reduce((s,r)=>s+Number(r.marginRate??0),0)/rows.length : 0
 
   return (
-    <Box>
-      <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:1 }}>
-        <Typography variant="h5" sx={{ fontWeight:600 }}>Margin Erosion Report</Typography>
-        <Button size="small" startIcon={<RefreshIcon/>} onClick={rebuildCache} disabled={rebuilding} variant="outlined">
-          {rebuilding ? 'Rebuilding cache…' : 'Rebuild Cache'}
-        </Button>
-      </Box>
-      <Alert severity="info" sx={{ mb:2 }}>This report is generated from a server-side cache. Click "Rebuild Cache" to refresh data.</Alert>
-      <ReportPage
-        title="" queryKey={['reports','marginErosion']} queryFn={fetchMarginErosion}
-        FilterPanel={FilterPanel}
-        exportUrl="/api/reports/export-excel/fee-earners/download-margin-erosion-report"
-        exportFilename="margin-erosion.xlsx"
+    <PageShell title="Margin Erosion Report" description="Profitability and margin by matter">
+      {rows.length > 0 && (
+        <Box sx={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:2, mb:3 }}>
+          <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight:600, mb:2 }}>Margin Rate by Matter (%)</Typography>
+            <ApexChart type="bar" height={200}
+              series={[{ name:"Margin %", data: rows.map(r=>Number(r.marginRate??0)) }]}
+              options={{ chart:{toolbar:{show:false}}, xaxis:{ categories: rows.map(r=>String(r.matterTitle??"")), labels:{style:{fontSize:"10px"}} }, colors:[ ...rows.map(r=>Number(r.marginRate??0)<40?"#DC2626":Number(r.marginRate??0)<60?"#F59E0B":"#22C55E") ], dataLabels:{enabled:false}, plotOptions:{bar:{borderRadius:4,columnWidth:"55%",distributed:true}}, legend:{show:false}, grid:{strokeDashArray:4}, yaxis:{ max:100, labels:{ formatter:(v:number)=>`${v.toFixed(0)}%` } }, annotations:{ yaxis:[{ y:avgMargin, borderColor:"#0F3C6E", label:{ text:`Avg ${avgMargin.toFixed(1)}%`, style:{color:"#fff",background:"#0F3C6E"} } }] } }}
+            />
+          </Paper>
+          <Paper variant="outlined" sx={{ p:2.5, borderRadius:2, display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"center", gap:2 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight:700, textTransform:"uppercase", fontSize:10, letterSpacing:"0.08em" }}>Average Margin</Typography>
+            <Typography variant="h2" sx={{ fontWeight:800, color: avgMargin<40?"error.main":avgMargin<60?"warning.main":"success.main" }}>{avgMargin.toFixed(1)}%</Typography>
+            <Chip size="small" label={avgMargin<40?"Below Target":avgMargin<60?"Acceptable":"Healthy"} color={avgMargin<40?"error":avgMargin<60?"warning":"success"} />
+          </Paper>
+        </Box>
+      )}
+      <DataGrid
         columns={[
-          { field:'matterTitle', header:'Matter' },
-          { field:'client', header:'Client', renderCell:(v)=>{ const c=v as Record<string,string>; return c?.companyName??c?.firstName??'—' } },
-          { field:'budgetedAmount', header:'Budgeted', align:'right', renderCell:(v)=>formatCurrency(Number(v??0)) },
-          { field:'actualAmount', header:'Actual', align:'right', renderCell:(v)=>formatCurrency(Number(v??0)) },
-          { field:'erosion', header:'Erosion', align:'right', renderCell:(v)=>formatCurrency(Number(v??0)) },
-          { field:'erosionPercentage', header:'Erosion %', align:'right', renderCell:(v)=>v!=null?`${Number(v).toFixed(1)}%`:'—' },
+          { field:"matterTitle",  header:"Matter" },
+          { field:"billedAmount", header:"Billed",       align:"right", renderCell:(v)=>formatCurrency(Number(v??0)) },
+          { field:"cost",         header:"Cost",         align:"right", renderCell:(v)=>formatCurrency(Number(v??0)) },
+          { field:"margin",       header:"Margin",       align:"right", renderCell:(v)=>formatCurrency(Number(v??0)) },
+          { field:"marginRate",   header:"Margin %",     align:"right", renderCell:(v)=><Typography variant="body2" sx={{ color:Number(v)<40?"error.main":Number(v)<60?"warning.main":"success.main", fontWeight:600 }}>{Number(v??0).toFixed(1)}%</Typography> },
+          { field:"billingType",  header:"Type",         renderCell:(v)=><Chip size="small" label={String(v??"")} variant="outlined" /> },
         ]}
+        queryKey={["reports","margin-erosion"]}
+        queryFn={(p:GridParams) => reportsApi.getMarginErosion(p) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>}
+        defaultSortBy="marginRate" defaultSortDir="asc"
+        zebraStriping
       />
-    </Box>
+    </PageShell>
   )
 }

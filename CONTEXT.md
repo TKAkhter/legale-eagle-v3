@@ -247,3 +247,19 @@ Transformers live in `src/transformers/`. They're called inside `src/api/` files
 | 22 | Stopwatch in Toolbar, Calendar with static hearings, Approvals toast migration |
 | 23 | Snackbar → toast migration (all files), StatusBadge 40+ statuses, Page transitions, Matter print view |
 | 24 | Billing/Task/LFA detail pages wired, CONTEXT.md |
+| 25 | PageShell on all pages, My Leads, i18n keys, print buttons |
+| 26 | QK typed query key factory, hooks README, billing/ duplicate fixed |
+| 27 | Stopwatch end dialog, dashboard chart date range, print back button, language flag |
+| 28 | DataGrid: context menu, keyboard nav, copy cell, React key fix |
+| 29 | Form submit guards, reportsApi, missing API methods, DashboardSetup wired |
+| 30 | EmptyState illustrations, KeyboardShortcutsModal, avatar upload, 404/403 pages |
+| 31 | DataGrid: column drag-reorder, inline cell editing, column pinning |
+| 32 | Draft auto-save, session timeout warning, CSV+PDF export |
+| 33 | Browser push notifications, 30s polling, notification sound toggle |
+| 34 | GlobalSearch: tasks+invoices, NProgress route bar, error boundary, React Query devtools |
+| 35 | Matter timeline view (chronological events across all tabs) |
+| 36 | TipTap rich text notes, matter notes auto-save, task Kanban board |
+| 37 | Kanban wired to real data, billing aging report, bulk timelog approve, FAB |
+| 38 | Single hamburger, sidebar z-index fix, animated icon, profile save, minor gaps |
+| 39 | React key warnings fixed, Aging Report in nav, FAB ?new=1 wired |
+| 40 | Report charts (billed-amount, collections, margin-erosion), matter notes API wiring |
