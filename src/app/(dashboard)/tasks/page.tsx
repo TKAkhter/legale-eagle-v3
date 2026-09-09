@@ -1,5 +1,6 @@
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import ViewListIcon   from '@mui/icons-material/ViewList'
+import { tasks as staticTasks } from '@/data/static'
 import { TaskKanban } from './_components/TaskKanban'
 import { Box, Typography, Button, Chip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -15,7 +16,7 @@ import { tasksApi } from '@/api/tasks'
 import { env } from '@/config/env'
 import { TaskFormDrawer } from './_components/TaskFormDrawer'
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 async function fetchTasks(params: GridParams) {
   if (env.USE_STATIC_DATA) return tasksApi.getAll(params)
@@ -28,6 +29,17 @@ async function fetchTasks(params: GridParams) {
 
 export default function TasksPage() {
   const [view, setView] = useState<'list'|'board'>('list')
+  // Kanban uses the same static data — in live mode fetch from API
+  const { data: kanbanData } = useQuery({
+    queryKey: ['tasks','kanban'],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) return staticTasks
+      const r = await axiosClient.get('/api/task/get/individual/task/v2', { params: { pageNumber:0, pageSize:100, eventType:'ALL', taskStatus:'Pending' } })
+      return r.data?.data?.content ?? r.data?.content ?? []
+    },
+    enabled: view === 'board',
+  })
+  const kanbanTasks = (kanbanData ?? []) as import('./_components/TaskKanban').KanbanTask[]
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editId, setEditId] = useState<string | undefined>()
@@ -39,7 +51,7 @@ export default function TasksPage() {
         <Can do={PERMISSIONS.TASKS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Task</Button></Can>
       </Box>
       {view === 'board' ? (
-        <TaskKanban tasks={[]} onAddTask={()=>{setEditId(undefined);setDrawerOpen(true)}} />
+        <TaskKanban tasks={kanbanTasks} onAddTask={()=>{setEditId(undefined);setDrawerOpen(true)}} />
       ) : (
       <DataGrid
         columns={[

@@ -20,6 +20,7 @@ import { Box, useMediaQuery } from "@mui/material"
 import { Outlet }        from "react-router-dom"
 import { Sidebar, SIDEBAR_W, COLLAPSED_W } from "./Sidebar"
 import { Toolbar }       from "./Toolbar"
+import { QuickCreateFAB } from '@/components/ui/QuickCreateFAB'
 import { SessionTimeoutWarning } from './SessionTimeoutWarning'
 import { KeyboardShortcutsModal } from '@/components/ui/KeyboardShortcutsModal'
 import { CommandPalette } from './CommandPalette'
@@ -118,6 +119,7 @@ export function MainLayout() {
       </Box>
 
       {/* Global command palette — Ctrl+K opens from anywhere */}
+      <QuickCreateFAB />
       <SessionTimeoutWarning />
       <KeyboardShortcutsModal />
       <CommandPalette />

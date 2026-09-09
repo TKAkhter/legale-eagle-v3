@@ -17,7 +17,7 @@ import { formatDate } from "@lib/utils/formatDate"
 
 type TaskStatus = "Pending" | "In_Progress" | "Completed"
 
-interface KanbanTask {
+export interface KanbanTask {
   id:            string
   taskName:      string
   priority:      string
