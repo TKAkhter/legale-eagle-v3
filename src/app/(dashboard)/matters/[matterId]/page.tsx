@@ -9,6 +9,7 @@ import { PageShell } from "@/components/ui/PageShell"; import { StatusBadge } fr
 import { DetailSkeleton } from "@/components/ui/Skeletons"; import { Tabs } from "@/components/ui/Tabs"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { HearingFormDrawer } from "../_components/HearingFormDrawer"
+import { MatterTimeline }      from "../_components/MatterTimeline"
 import { MatterCloseDialog } from "../_components/MatterCloseDialog"
 import { ActivityFormDrawer } from "../../time-log-entries/_components/ActivityFormDrawer"
 import { useStopwatchStore } from "@lib/store/stopwatchStore"
@@ -87,6 +88,18 @@ export default function MatterDetailPage() {
         ))}
       </Box>
       <Tabs tabs={[
+        {
+          label: "Timeline",
+          content: (
+            <MatterTimeline
+              matter={m}
+              hearings={SH as Record<string,unknown>[]}
+              tasks={ST as Record<string,unknown>[]}
+              timelogs={STL as Record<string,unknown>[]}
+              invoices={SI as Record<string,unknown>[]}
+            />
+          ),
+        },
         { label:"Time Logs", content:(
           <DataGrid columns={[{field:"responsiblePerson",header:"Attorney",renderCell:(v)=>{ const u=v as {firstName:string;lastName:string}; return u?`${u.firstName} ${u.lastName}`:"—" }},{field:"activity",header:"Activity"},{field:"entryDate",header:"Date",renderCell:(v)=>v?new Date(String(v)).toLocaleDateString("en-GB"):"—"},{field:"totalHours",header:"Hours",align:"right",renderCell:(v)=>`${Number(v??0).toFixed(1)} hrs`},{field:"billing",header:"Amount",align:"right",renderCell:(v)=>formatCurrency(Number(v??0))},{field:"revenueStatus",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>}]}
             queryKey={["matters","timelogs",matterId]} queryFn={(p)=>mkList(STL,"/api/activity/get/by/Matter",{matterId}) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>} />
