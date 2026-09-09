@@ -71,7 +71,8 @@ const router = createBrowserRouter([
     ],
   },
   { path: '/403', element: <Box sx={{ p: 4 }}><h2>403 — Access Denied</h2></Box> },
-  { path: '*',    element: <Box sx={{ p: 4 }}><h2>404 — Page Not Found</h2></Box> },
+  { path: 'forbidden', lazy: () => import('./app/forbidden/page').then(m => ({ Component: m.default })) },
+  { path: '*', lazy: () => import('./app/not-found/page').then(m => ({ Component: m.default })) },
 ])
 
 export function AppRouter() { return <RouterProvider router={router} /> }
