@@ -63,8 +63,8 @@ export default function DashboardPage() {
   const { data:counts, isLoading:l1 } = useQuery({
     queryKey: ["dashboard","counts"],
     queryFn: async () => {
-      if (env.USE_STATIC_DATA) return staticDashboard.counts
       logger.debug("DashboardPage", "Fetching KPI counts")
+      if (env.USE_STATIC_DATA) return staticDashboard.counts
       const [a,b,c] = await Promise.allSettled([
         apiClient.get("/api/dashboard/lead/count"),
         apiClient.get("/api/dashboard/matter/count"),

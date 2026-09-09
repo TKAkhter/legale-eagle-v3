@@ -4,3 +4,12 @@
 @tailwind utilities;
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
+
+/* NProgress top bar — match primary theme color */
+#nprogress .bar {
+  background: #0F3C6E !important;
+  height: 3px !important;
+}
+#nprogress .peg {
+  box-shadow: 0 0 10px #0F3C6E, 0 0 5px #0F3C6E !important;
+}

@@ -128,10 +128,10 @@ export const tasks = [
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export const dashboard = {
   counts: {
-    totalLeads:   42,
+    totalLeads:   3,
     openLeads:    18,
-    totalMatters: 31,
-    openMatters:  19,
+    totalMatters: 3,
+    openMatters:  2,
     pendingTasks: 7,
     overdueTasks: 2,
   },

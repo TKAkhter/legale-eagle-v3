@@ -22,18 +22,23 @@ import TrendingUpIcon   from "@mui/icons-material/TrendingUp"
 import PeopleIcon       from "@mui/icons-material/People"
 import GavelIcon        from "@mui/icons-material/Gavel"
 import HistoryIcon      from "@mui/icons-material/History"
-import ChevronRightIcon from "@mui/icons-material/ChevronRight"
+import ChevronRightIcon  from "@mui/icons-material/ChevronRight"
+import AssignmentIcon     from "@mui/icons-material/Assignment"
+import ReceiptIcon        from "@mui/icons-material/Receipt"
 import { useDebounce }  from "@hooks/useDebounce"
 import { axiosClient }  from "@lib/api/axios"
 import { env }          from "@/config/env"
 import { logger }       from "@/lib/logger"
-import { leads as staticLeads, clients as staticClients, matters as staticMatters } from "@/data/static"
+import { leads as staticLeads, clients as staticClients, matters as staticMatters, tasks as staticTasks, invoices as staticInvoices } from "@/data/static"
 
 // Entity type config — colour and icon per result type
 const ENTITY = {
   Lead:   { color: "#00B4A6", bg: "#00B4A620", icon: <TrendingUpIcon sx={{ fontSize: 14 }} /> },
   Client: { color: "#0F3C6E", bg: "#0F3C6E20", icon: <PeopleIcon     sx={{ fontSize: 14 }} /> },
   Matter: { color: "#365E92", bg: "#365E9220", icon: <GavelIcon      sx={{ fontSize: 14 }} /> },
+  Task:   { color: "#7C3AED", bg: "#7C3AED20", icon: <AssignmentIcon  sx={{ fontSize: 14 }} /> },
+  Invoice:{ color: "#B45309", bg: "#B4530920", icon: <ReceiptIcon     sx={{ fontSize: 14 }} /> },
+  Recent: { color: "#64748B", bg: "#64748B20", icon: <HistoryIcon     sx={{ fontSize: 14 }} /> },
 }
 
 interface Result {
@@ -88,7 +93,17 @@ async function search(query: string): Promise<Result[]> {
         label: m.title || "Matter", subLabel: (m.clientMini as unknown as Record<string,string>)?.companyName,
       }))
 
-    return [...sLeads, ...sClients, ...sMatters]
+    const sTasks = (staticTasks as unknown as Record<string,string>[])
+      .filter(t => String(t.taskName ?? '').toLowerCase().includes(q))
+      .slice(0, 3)
+      .map(t => ({ id: t.id, type: "Task" as const, path: `/tasks/${t.id}`, label: t.taskName || "Task", subLabel: t.taskStatus }))
+
+    const sInvoices = (staticInvoices as unknown as Record<string,string>[])
+      .filter(inv => String(inv.invoiceNo ?? '').toLowerCase().includes(q))
+      .slice(0, 3)
+      .map(inv => ({ id: inv.id, type: "Invoice" as const, path: `/billings/${inv.id}`, label: inv.invoiceNo || "Invoice", subLabel: inv.invoiceStatus }))
+
+    return [...sLeads, ...sClients, ...sMatters, ...sTasks, ...sInvoices]
   }
 
   // Real API — parallel search
