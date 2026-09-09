@@ -7,7 +7,7 @@
  * Comfortable: more padding, easier to read on large screens
  */
 import { useState } from "react"
-import { IconButton, Popover, MenuItem, ListItemIcon, ListItemText, Tooltip, Divider, Typography, Box } from "@mui/material"
+import { IconButton, Popover, MenuItem, MenuList, ListItemIcon, ListItemText, Tooltip, Divider, Typography, Box } from "@mui/material"
 import DensitySmallIcon  from "@mui/icons-material/DensitySmall"
 import DensityMediumIcon from "@mui/icons-material/DensityMedium"
 import DensityLargeIcon  from "@mui/icons-material/DensityLarge"
@@ -40,7 +40,13 @@ export function DensityToggle({ value, onChange }: Props) {
   return (
     <>
       <Tooltip title="Row density">
-        <IconButton size="small" onClick={e => setAnchor(e.currentTarget)}>
+        <IconButton
+          size="small"
+          onClick={e => setAnchor(e.currentTarget)}
+          aria-label="Row density"
+          aria-haspopup="menu"
+          aria-expanded={Boolean(anchor)}
+        >
           {currentIcon}
         </IconButton>
       </Tooltip>
@@ -58,25 +64,39 @@ export function DensityToggle({ value, onChange }: Props) {
             Row Density
           </Typography>
         </Box>
+
         <Divider />
-        {OPTIONS.map(opt => (
-          <MenuItem
-            key={opt.value}
-            selected={value === opt.value}
-            onClick={() => select(opt.value)}
-            dense
-          >
-            <ListItemIcon>{opt.icon}</ListItemIcon>
-            <ListItemText>{opt.label}</ListItemText>
-          </MenuItem>
-        ))}
+
+        <MenuList dense>
+          {OPTIONS.map(opt => (
+            <MenuItem
+              key={opt.value}
+              selected={value === opt.value}
+              onClick={() => select(opt.value)}
+            >
+              <ListItemIcon>{opt.icon}</ListItemIcon>
+              <ListItemText>{opt.label}</ListItemText>
+            </MenuItem>
+          ))}
+        </MenuList>
       </Popover>
     </>
   )
 }
 
 /** Load saved density from localStorage */
-export function loadDensity(defaultDensity: TableDensity = "normal"): TableDensity {
+export function loadDensity(
+  defaultDensity: TableDensity = "normal",
+): TableDensity {
   const saved = localStorage.getItem(STORAGE_KEY)
-  return (saved as TableDensity) ?? defaultDensity
+
+  if (
+    saved === "compact" ||
+    saved === "normal" ||
+    saved === "comfortable"
+  ) {
+    return saved
+  }
+
+  return defaultDensity
 }

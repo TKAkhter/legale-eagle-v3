@@ -145,7 +145,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
           top: 0, bottom: 0,
           left: direction === "rtl" ? "auto" : 0,
           right: direction === "rtl" ? 0 : "auto",
-          zIndex: 1100,
+          zIndex: 1300,
           width,
           transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
         }}
