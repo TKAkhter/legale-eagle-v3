@@ -1,3 +1,6 @@
+import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
+import ViewListIcon   from '@mui/icons-material/ViewList'
+import { TaskKanban } from './_components/TaskKanban'
 import { Box, Typography, Button, Chip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { DataGrid } from '@components/data-grid/DataGrid'
@@ -24,6 +27,7 @@ async function fetchTasks(params: GridParams) {
 }
 
 export default function TasksPage() {
+  const [view, setView] = useState<'list'|'board'>('list')
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editId, setEditId] = useState<string | undefined>()
@@ -34,6 +38,9 @@ export default function TasksPage() {
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Tasks</Typography>
         <Can do={PERMISSIONS.TASKS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Task</Button></Can>
       </Box>
+      {view === 'board' ? (
+        <TaskKanban tasks={[]} onAddTask={()=>{setEditId(undefined);setDrawerOpen(true)}} />
+      ) : (
       <DataGrid
         columns={[
           { field: 'taskName', header: 'Task' },
@@ -52,6 +59,7 @@ export default function TasksPage() {
           { label: 'Edit', icon: <></>, permission: 'tasks:edit', onClick: () => { setEditId(String(row.id)); setDrawerOpen(true) } },
         ]}
       />
+      )}
       <TaskFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} taskId={editId}
         onSuccess={() => { qc.invalidateQueries({ queryKey: ['tasks','list'] }); setDrawerOpen(false) }} />
     </Box>
