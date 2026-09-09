@@ -4,6 +4,8 @@ import { tasks as staticTasks } from '@/data/static'
 import { TaskKanban } from './_components/TaskKanban'
 import { Box, Typography, Button, Chip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import { useSearchParams } from "react-router-dom"
+import { useEffect } from "react"
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
 import { Can } from '@components/ui/Can'
@@ -42,6 +44,14 @@ export default function TasksPage() {
   const kanbanTasks = (kanbanData ?? []) as import('./_components/TaskKanban').KanbanTask[]
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setDrawerOpen(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
   const [editId, setEditId] = useState<string | undefined>()
 
   return (

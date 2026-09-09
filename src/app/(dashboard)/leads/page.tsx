@@ -1,11 +1,12 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Button, Box, Chip, FormControl, InputLabel, Select, MenuItem } from "@mui/material"
 import AddIcon        from "@mui/icons-material/Add"
 import EditIcon       from "@mui/icons-material/Edit"
 import DeleteIcon     from "@mui/icons-material/Delete"
 import SwapHorizIcon  from "@mui/icons-material/SwapHoriz"
 import { PageShell }   from "@/components/ui/PageShell"
+import { useEffect } from "react"
 import { DataGrid }    from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
@@ -47,6 +48,14 @@ export default function LeadsPage() {
   const canEdit   = hasPermission(PERMISSIONS.LEADS_VIEW)
 
   const [drawerOpen,  setDrawerOpen]  = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setDrawerOpen(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
   const [editLeadId,  setEditLeadId]  = useState<string>()
   const [deleteId,    setDeleteId]    = useState<string>()
   const [gridKey,     setGridKey]     = useState(0)

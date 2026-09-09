@@ -7,7 +7,7 @@ export function Tabs({ tabs, defaultTab=0, onChange }: Props) {
   return (
     <Box>
       <MuiTabs value={active} onChange={(_,v)=>{ setActive(v); onChange?.(v) }} sx={{borderBottom:1,borderColor:'divider',mb:2}}>
-        {tabs.map((t,i)=><Tab key={i} label={t.label} icon={t.icon as any} iconPosition="start" disabled={t.disabled}/>)}
+        {tabs.map((t,i)=><Tab key={t.label} label={t.label} icon={t.icon as any} iconPosition="start" disabled={t.disabled}/>)}
       </MuiTabs>
       {tabs[active]?.content}
     </Box>

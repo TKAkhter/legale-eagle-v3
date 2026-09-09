@@ -263,7 +263,7 @@ export function SidebarNav({ collapsed, onNavClick }: Props) {
     return (
       <List disablePadding sx={{ pt: 1, px: 1 }}>
         {[1, 2, 3, 4, 5].map(i => (
-          <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1, py: 0.75, mb: 0.25 }}>
+          <Box key={`nav-sk-${i}`} sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1, py: 0.75, mb: 0.25 }}>
             <Skeleton variant="circular" width={20} height={20} sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />
             {!collapsed && <Skeleton width={100} height={16} sx={{ bgcolor: "rgba(255,255,255,0.1)" }} />}
           </Box>

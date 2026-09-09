@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
+import { useState, useEffect } from "react"
 import { Button, Box, Chip, FormControl, InputLabel, Select, MenuItem } from "@mui/material"
 import AddIcon   from "@mui/icons-material/Add"
 import GavelIcon from "@mui/icons-material/Gavel"
 import { DataGrid }    from "@/components/data-grid/DataGrid"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { SearchInput } from "@/components/filters/SearchInput"
+import { MatterFormDrawer } from "./_components/MatterFormDrawer"
 import { mattersApi }  from "@/api/matters"
 import { useAuthStore } from "@lib/store/authStore"
 import type { GridParams } from "@/types"
@@ -40,6 +42,14 @@ function MatterFilters({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function MattersPage() {
+  const [createOpen, setCreateOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setCreateOpen(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
   const canAdd = useAuthStore((s) => s.hasPermission)("/matters")
 
   return (
@@ -85,5 +95,16 @@ export default function MattersPage() {
         defaultSortBy="createdAt" defaultSortDir="desc"
       />
     </Box>
+  )
+  return (
+    <>
+      {createOpen && (
+        <MatterFormDrawer
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onSuccess={() => setCreateOpen(false)}
+        />
+      )}
+    </>
   )
 }
