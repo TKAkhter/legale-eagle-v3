@@ -30,6 +30,10 @@ export interface ColumnDef<TData = unknown> {
   sticky?:      "left" | "right"
   /** Hidden by default (user can show via column visibility toggle) */
   hidden?:      boolean
+  /** Allow inline editing of this cell — renders an input on double-click */
+  editable?:    boolean
+  /** Called when cell value is committed (Enter / blur) */
+  onEdit?:      (row: unknown, field: string, newValue: string) => Promise<void> | void
 }
 
 // ─── Row actions ──────────────────────────────────────────────────────────────
@@ -156,6 +160,8 @@ export interface DataGridProps<TData = unknown> {
   // ── Identity ──────────────────────────────────────────────────────────────
   /** Which field uniquely identifies rows — default: "id" */
   rowKey?:           keyof TData
+  /** Allow columns to be dragged to reorder — default: false */
+  reorderableColumns?: boolean
 }
 
 // ─── Filter panel props ───────────────────────────────────────────────────────

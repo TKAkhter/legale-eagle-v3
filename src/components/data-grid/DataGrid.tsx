@@ -1,44 +1,27 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react'
 /**
- * DataGrid.tsx — the core list component used throughout the app.
+ * DataGrid.tsx — enterprise list component.
  *
- * Features:
- *   Filtering:        FilterPanel (collapsible), active filter chips, filter presets
- *   Sorting:          server-side or client-side, click column header
- *   Pagination:       rows-per-page selector (10/25/50/100), total count display
- *   Row actions:      3-dot row menu, bulk action toolbar, row click to detail
- *   Right-click menu: same actions as row menu, positioned at cursor  ← NEW Phase 28
- *   Keyboard nav:     ↑↓ to move, Enter to open detail, Esc to blur  ← NEW Phase 28
- *   Copy cell:        Ctrl+C on focused row copies first cell value   ← NEW Phase 28
- *   Export:           download Blob via exportFn, loading state
- *   Email:            send table data by email via EmailDialog
- *   Columns:          visibility toggle, density toggle (compact/normal/comfortable)
- *   Row expansion:    expandable content below each row
- *   Loading:          skeleton rows matching column layout
- *   Error:            error alert with retry button
- *   Mobile:           card-based layout on narrow screens (<640px)
- *   Zebra:            alternating row background colour
+ * Phase 31 additions:
+ *   Column drag-to-reorder  — reorderableColumns prop
+ *   Inline cell editing     — column.editable + column.onEdit
+ *   Column pinning          — column.sticky = "left"|"right"
  *
- * Usage:
- *   <DataGrid
- *     columns={columns}
- *     queryKey={["leads","list"]}
- *     queryFn={(p) => leadsApi.getAll(p)}
- *     FilterPanel={LeadFilters}
- *     hasFilters zebraStriping
- *     detailPath={(row) => `/leads/${row.id}`}
- *     defaultSortBy="createdAt"
- *   />
+ * Full feature list:
+ *   Filtering, sorting, pagination, row selection, bulk actions,
+ *   export, email, column visibility, density, row expansion,
+ *   filter presets, mobile cards, right-click menu, keyboard nav,
+ *   Ctrl+C copy, context menu, zebra striping, skeleton loading,
+ *   error state with retry.
  */
-
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useMediaQuery } from '@mui/material'
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Checkbox, Typography, Alert, Collapse, Button, Box, Tooltip,
+  Paper, Checkbox, Typography, Alert, Collapse, Button, Box,
 } from '@mui/material'
-import type { DataGridProps, TableDensity } from './types'
+import type { DataGridProps, TableDensity, ColumnDef } from './types'
 import type { GridParams } from '@/types/common.types'
 import { Pagination }             from './Pagination'
 import { SkeletonRows }           from './SkeletonRows'
@@ -52,62 +35,59 @@ import { FilterPresetsBar }       from './FilterPresetsBar'
 import { MobileCardList }         from './MobileCardList'
 import { DataGridToolbar }        from './DataGridToolbar'
 import { ContextMenu }            from './ContextMenu'
+import { InlineCellEditor }       from './InlineCellEditor'
 import { useUrlState }            from '@hooks/useUrlState'
 import { downloadBlob }           from '@lib/utils/downloadBlob'
 import { logger }                 from '@/lib/logger'
 import { toast }                  from '@/lib/toast'
 
 const DENSITY_PY: Record<TableDensity, number> = {
-  compact:     0.25,
-  normal:      0.75,
-  comfortable: 1.5,
+  compact: 0.25, normal: 0.75, comfortable: 1.5,
 }
 
-interface ContextMenuState<T> {
-  row: T
-  x:   number
-  y:   number
-}
+interface ContextMenuState<T> { row: T; x: number; y: number }
+interface EditingCell { rowId: string; field: string; value: string }
 
 export function DataGrid<TData extends Record<string, unknown>>({
   columns, queryKey, queryFn,
   FilterPanel, rowMenuItems, bulkActions, detailPath, exportFn,
   exportFilename = 'export.xlsx', emptyState, rowExpansion,
   emailConfig, filterPresets = [],
-  isPaginated      = true,
-  isSortingBackend = true,
-  hasRowSelection  = false,
-  hasExport        = false,
-  hasFilters       = false,
-  hasEmail         = false,
-  syncWithUrl: _su = true,
-  zebraStriping    = false,
-  defaultDensity   = 'normal',
-  defaultPageSize  = 25,
-  defaultSortBy    = 'createdAt',
-  defaultSortDir   = 'desc',
+  isPaginated       = true,
+  isSortingBackend  = true,
+  hasRowSelection   = false,
+  hasExport         = false,
+  hasFilters        = false,
+  hasEmail          = false,
+  syncWithUrl: _su  = true,
+  zebraStriping     = false,
+  reorderableColumns = false,
+  defaultDensity    = 'normal',
+  defaultPageSize   = 25,
+  defaultSortBy     = 'createdAt',
+  defaultSortDir    = 'desc',
   onRowClick, rowKey = 'id' as keyof TData,
 }: DataGridProps<TData>) {
   const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width:639px)')
 
-  // ── State ──────────────────────────────────────────────────────────────────
+  // ── State ───────────────────────────────────────────────────────────────────
+  const [colOrder,      setColOrder]      = useState<number[]>([])
+  const [dragFrom,      setDragFrom]      = useState<number|null>(null)
+  const [dragOver,      setDragOver]      = useState<number|null>(null)
+  const [editingCell,   setEditingCell]   = useState<EditingCell|null>(null)
   const [visibleFields, setVisibleFields] = useState<Set<string>|null>(null)
   const [density,       setDensity]       = useState<TableDensity>(() => loadDensity(defaultDensity))
   const [emailOpen,     setEmailOpen]     = useState(false)
   const [expandedRows,  setExpandedRows]  = useState<Set<string>>(new Set())
   const [activePreset,  setActivePreset]  = useState<string|undefined>()
   const [contextMenu,   setContextMenu]   = useState<ContextMenuState<TData>|null>(null)
-
-  // ── Keyboard navigation state ──────────────────────────────────────────────
-  const [focusedIdx, setFocusedIdx] = useState<number>(-1)
+  const [focusedIdx,    setFocusedIdx]    = useState(-1)
   const tableRef = useRef<HTMLTableElement>(null)
 
   const { state, setState } = useUrlState({
-    page:     0,
-    pageSize: defaultPageSize,
-    sortBy:   defaultSortBy,
-    sortDir:  defaultSortDir as string,
+    page: 0, pageSize: defaultPageSize,
+    sortBy: defaultSortBy, sortDir: defaultSortDir as string,
   })
 
   const [filters,    setFilters]    = useState<Record<string,unknown>>({})
@@ -116,37 +96,51 @@ export function DataGrid<TData extends Record<string, unknown>>({
   const [exporting,  setExporting]  = useState(false)
 
   const gridParams: GridParams = {
-    page:     state.page     as number,
-    pageSize: state.pageSize as number,
-    sortBy:   state.sortBy   as string,
-    sortDir:  state.sortDir  as 'asc'|'desc',
+    page: state.page as number, pageSize: state.pageSize as number,
+    sortBy: state.sortBy as string, sortDir: state.sortDir as 'asc'|'desc',
     filters,
   }
 
-  // ── Data fetching ──────────────────────────────────────────────────────────
+  // ── Data ────────────────────────────────────────────────────────────────────
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [...queryKey, gridParams],
     queryFn:  () => queryFn(gridParams),
     placeholderData: keepPreviousData,
   })
 
-  const rows  = (data as {content?:TData[]}|undefined)?.content       ?? []
+  const rows  = (data as {content?:TData[]}|undefined)?.content ?? []
   const total = (data as {totalElements?:number}|undefined)?.totalElements ?? 0
 
-  // Reset focused index when rows change
   useEffect(() => { setFocusedIdx(-1) }, [rows])
 
-  // ── Visible columns ────────────────────────────────────────────────────────
-  const visibleCols = visibleFields
+  // ── Column ordering ──────────────────────────────────────────────────────────
+  // colOrder holds indices into the base columns array
+  const baseVisible = visibleFields
     ? columns.filter(c => visibleFields.has(String(c.field)))
     : columns
 
-  const colCount = visibleCols.length
-    + (hasRowSelection ? 1 : 0)
-    + (rowMenuItems    ? 1 : 0)
-    + (rowExpansion    ? 1 : 0)
+  useEffect(() => {
+    if (colOrder.length !== baseVisible.length) {
+      setColOrder(baseVisible.map((_, i) => i))
+    }
+  }, [baseVisible.length]) // eslint-disable-line
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  const orderedCols: ColumnDef<TData>[] = colOrder.length === baseVisible.length
+    ? colOrder.map(i => baseVisible[i]).filter(Boolean) as ColumnDef<TData>[]
+    : baseVisible as ColumnDef<TData>[]
+
+  function handleDragStart(i: number) { setDragFrom(i) }
+  function handleDragOver(i: number)  { setDragOver(i) }
+  function handleDrop(i: number) {
+    if (dragFrom === null || dragFrom === i) { setDragFrom(null); setDragOver(null); return }
+    const next = [...colOrder]
+    const [moved] = next.splice(dragFrom, 1)
+    next.splice(i, 0, moved)
+    setColOrder(next)
+    setDragFrom(null); setDragOver(null)
+  }
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
   const handleSort = useCallback((field: string) => {
     if (!isSortingBackend) return
     setState({
@@ -169,49 +163,31 @@ export function DataGrid<TData extends Record<string, unknown>>({
     if (!exportFn) return
     setExporting(true)
     try { downloadBlob(await exportFn(gridParams), exportFilename) }
-    catch { logger.error('DataGrid', 'Export failed') }
+    catch { logger.error('DataGrid','Export failed') }
     finally { setExporting(false) }
   }, [exportFn, gridParams, exportFilename])
 
-  /** Right-click on a row — show context menu */
   const handleContextMenu = useCallback((e: React.MouseEvent, row: TData) => {
     if (!rowMenuItems) return
     e.preventDefault()
     setContextMenu({ row, x: e.clientX, y: e.clientY })
   }, [rowMenuItems])
 
-  /**
-   * Keyboard navigation inside the table.
-   * ↑↓   — move focused row
-   * Enter — open detail (same as click)
-   * Esc   — blur / close context menu
-   * Ctrl+C — copy first column value of focused row
-   */
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (editingCell) return  // let editor handle keys
     if (!rows.length) return
-
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedIdx(i => Math.min(i+1, rows.length-1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedIdx(i => Math.max(i-1, 0)) }
+    else if (e.key === 'Enter' && focusedIdx >= 0) { e.preventDefault(); handleRowClick(rows[focusedIdx]) }
+    else if (e.key === 'Escape') { setFocusedIdx(-1); setContextMenu(null) }
+    else if ((e.ctrlKey||e.metaKey) && e.key === 'c' && focusedIdx >= 0) {
       e.preventDefault()
-      setFocusedIdx(i => Math.min(i + 1, rows.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setFocusedIdx(i => Math.max(i - 1, 0))
-    } else if (e.key === 'Enter' && focusedIdx >= 0) {
-      e.preventDefault()
-      handleRowClick(rows[focusedIdx])
-    } else if (e.key === 'Escape') {
-      setFocusedIdx(-1)
-      setContextMenu(null)
-    } else if ((e.ctrlKey || e.metaKey) && e.key === 'c' && focusedIdx >= 0) {
-      e.preventDefault()
-      const row   = rows[focusedIdx]
-      const field = visibleCols[0]?.field
+      const row = rows[focusedIdx]
+      const field = orderedCols[0]?.field
       const value = field ? String(row[field as keyof TData] ?? '') : ''
-      navigator.clipboard.writeText(value).then(() => {
-        toast.info(`Copied: ${value.length > 30 ? value.slice(0, 30) + '…' : value}`)
-      })
+      navigator.clipboard.writeText(value).then(() => toast.info(`Copied: ${value.slice(0,40)}`))
     }
-  }, [rows, focusedIdx, handleRowClick, visibleCols])
+  }, [rows, focusedIdx, handleRowClick, orderedCols, editingCell])
 
   function toggleExpansion(key: string) {
     setExpandedRows(prev => {
@@ -221,18 +197,11 @@ export function DataGrid<TData extends Record<string, unknown>>({
     })
   }
 
-  function applyPreset(preset: {id:string;filters:Record<string,unknown>}) {
-    setActivePreset(preset.id); setFilters(preset.filters); setState({ page: 0 })
-  }
-
-  function clearPreset() {
-    setActivePreset(undefined); setFilters({}); setState({ page: 0 })
-  }
-
   const activeFilterCount = Object.values(filters).filter(v => v != null && v !== '').length
   const rowPy = DENSITY_PY[density]
+  const colCount = orderedCols.length + (hasRowSelection?1:0) + (rowMenuItems?1:0) + (rowExpansion?1:0)
 
-  // ── Mobile card view ───────────────────────────────────────────────────────
+  // ── Mobile ──────────────────────────────────────────────────────────────────
   if (isMobile && rows.length > 0 && !isLoading) {
     return (
       <Box>
@@ -246,34 +215,31 @@ export function DataGrid<TData extends Record<string, unknown>>({
         />
         {hasFilters && FilterPanel && (
           <Collapse in={filterOpen}>
-            <Paper variant="outlined" sx={{ p: 2, mb: 1, borderRadius: 2 }}>
-              <FilterPanel onSearch={handleSearch}
-                onReset={() => { setFilters({}); setState({ page: 0 }) }}
-                filters={filters} />
+            <Paper variant="outlined" sx={{ p:2, mb:1, borderRadius:2 }}>
+              <FilterPanel onSearch={handleSearch} onReset={() => { setFilters({}); setState({ page:0 }) }} filters={filters} />
             </Paper>
           </Collapse>
         )}
         <MobileCardList
           rows={rows}
-          columns={visibleCols as import('./types').ColumnDef<unknown>[]}
-          onRowClick={(detailPath || onRowClick) ? handleRowClick : undefined}
+          columns={orderedCols as ColumnDef<unknown>[]}
+          onRowClick={(detailPath||onRowClick) ? handleRowClick : undefined}
           getRowKey={row => String(row[rowKey] ?? '')}
         />
         {isPaginated && (
           <Pagination
             page={state.page as number} pageSize={state.pageSize as number} total={total}
-            onPageChange={p => setState({ page: p })}
-            onPageSizeChange={s => setState({ pageSize: s, page: 0 })}
+            onPageChange={p => setState({ page:p })}
+            onPageSizeChange={s => setState({ pageSize:s, page:0 })}
           />
         )}
       </Box>
     )
   }
 
-  // ── Desktop / tablet table view ────────────────────────────────────────────
+  // ── Desktop ─────────────────────────────────────────────────────────────────
   return (
     <Box>
-      {/* Toolbar */}
       <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', mb:1, gap:1 }}>
         <DataGridToolbar
           hasExport={hasExport && !!exportFn} hasFilters={hasFilters}
@@ -291,31 +257,29 @@ export function DataGrid<TData extends Record<string, unknown>>({
           )}
           <DensityToggle value={density} onChange={setDensity} />
           <ColumnVisibilityToggle
-            columns={columns as import('./types').ColumnDef<unknown>[]}
+            columns={columns as ColumnDef<unknown>[]}
             queryKey={Array.isArray(queryKey) ? queryKey.join('-') : String(queryKey)}
-            onChange={setVisibleFields}
+            onChange={fields => { setVisibleFields(fields); setColOrder([]) }}
           />
         </Box>
       </Box>
 
-      {/* Filter presets */}
       {filterPresets.length > 0 && (
-        <FilterPresetsBar presets={filterPresets} activePresetId={activePreset}
-          onSelect={applyPreset} onClear={clearPreset} />
+        <FilterPresetsBar
+          presets={filterPresets} activePresetId={activePreset}
+          onSelect={p => { setActivePreset(p.id); setFilters(p.filters); setState({ page:0 }) }}
+          onClear={() => { setActivePreset(undefined); setFilters({}); setState({ page:0 }) }}
+        />
       )}
 
-      {/* Filter panel */}
       {hasFilters && FilterPanel && (
         <Collapse in={filterOpen}>
           <Paper variant="outlined" sx={{ p:2, mb:1, borderRadius:2 }}>
-            <FilterPanel onSearch={handleSearch}
-              onReset={() => { setFilters({}); setState({ page: 0 }) }}
-              filters={filters} />
+            <FilterPanel onSearch={handleSearch} onReset={() => { setFilters({}); setState({ page:0 }) }} filters={filters} />
           </Paper>
         </Collapse>
       )}
 
-      {/* Active filter chips */}
       {!filterOpen && activeFilterCount > 0 && (
         <ActiveFilterChips
           filters={filters}
@@ -324,16 +288,15 @@ export function DataGrid<TData extends Record<string, unknown>>({
         />
       )}
 
-      {/* Keyboard nav hint */}
-      {(detailPath || onRowClick) && rows.length > 0 && !isLoading && (
+      {(detailPath||onRowClick) && rows.length > 0 && !isLoading && (
         <Box sx={{ display:'flex', justifyContent:'flex-end', mb:0.5 }}>
           <Typography variant="caption" color="text.disabled" sx={{ fontSize:10 }}>
             ↑↓ navigate · Enter open · Ctrl+C copy · right-click for actions
+            {reorderableColumns && ' · drag column headers to reorder'}
           </Typography>
         </Box>
       )}
 
-      {/* Error state */}
       {isError && (
         <Alert severity="error" sx={{ mb:1 }}
           action={<Button onClick={() => refetch()} size="small">Retry</Button>}>
@@ -341,7 +304,6 @@ export function DataGrid<TData extends Record<string, unknown>>({
         </Alert>
       )}
 
-      {/* Record count */}
       {!isLoading && total > 0 && (
         <Box sx={{ display:'flex', justifyContent:'flex-end', mb:0.5 }}>
           <Typography variant="caption" color="text.disabled">
@@ -350,7 +312,6 @@ export function DataGrid<TData extends Record<string, unknown>>({
         </Box>
       )}
 
-      {/* Table — tabIndex makes it keyboard-focusable */}
       <TableContainer component={Paper} variant="outlined" sx={{ borderRadius:2 }}>
         <Table
           ref={tableRef}
@@ -359,7 +320,6 @@ export function DataGrid<TData extends Record<string, unknown>>({
           tabIndex={0}
           onKeyDown={handleKeyDown}
           sx={{ outline:'none' }}
-          aria-label="Data table — use arrow keys to navigate rows"
         >
           <TableHead>
             <TableRow>
@@ -373,10 +333,20 @@ export function DataGrid<TData extends Record<string, unknown>>({
                   />
                 </TableCell>
               )}
-              {visibleCols.map(col => (
-                <ColumnHeader key={String(col.field)} column={col}
-                  sortBy={state.sortBy as string} sortDir={state.sortDir as 'asc'|'desc'}
-                  onSort={handleSort} />
+              {orderedCols.map((col, i) => (
+                <ColumnHeader
+                  key={String(col.field)}
+                  column={col}
+                  sortBy={state.sortBy as string}
+                  sortDir={state.sortDir as 'asc'|'desc'}
+                  onSort={handleSort}
+                  index={i}
+                  reorderable={reorderableColumns}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  isDragOver={dragOver === i}
+                />
               ))}
               {rowMenuItems && <TableCell width={48} />}
             </TableRow>
@@ -385,7 +355,6 @@ export function DataGrid<TData extends Record<string, unknown>>({
           <TableBody>
             {isLoading ? (
               <SkeletonRows colCount={colCount} rowCount={10} />
-
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colCount} align="center" sx={{ py:6 }}>
@@ -396,105 +365,128 @@ export function DataGrid<TData extends Record<string, unknown>>({
                   )}
                 </TableCell>
               </TableRow>
-
             ) : rows.map((row, idx) => {
               const rowId      = String(row[rowKey] ?? idx)
               const isSelected = selected.some(r => r[rowKey] === row[rowKey])
-              const isExpanded = expandedRows.has(rowId)
               const isFocused  = focusedIdx === idx
               const zebraBg    = zebraStriping && idx % 2 === 1 ? 'action.hover' : 'transparent'
 
               return (
                 <TableRow
-                    hover
-                    selected={isSelected}
-                    onClick={() => { setFocusedIdx(idx); if (detailPath || onRowClick) handleRowClick(row) }}
-                    onContextMenu={e => handleContextMenu(e, row)}
-                    sx={{
-                      cursor:  (detailPath || onRowClick) ? 'pointer' : 'default',
-                      bgcolor: zebraBg,
-                      // Keyboard focus highlight
-                      outline: isFocused ? '2px solid' : 'none',
-                      outlineColor: 'primary.main',
-                      outlineOffset: '-2px',
-                    }}
-                    aria-selected={isSelected}
-                  >
-                    {/* Expansion toggle */}
-                    {rowExpansion && (
-                      <TableCell padding="checkbox"
-                        onClick={e => { e.stopPropagation(); toggleExpansion(rowId) }}
-                        sx={{ py:rowPy }}>
-                        <Typography variant="caption"
-                          sx={{ cursor:'pointer', userSelect:'none', color:'text.secondary' }}>
-                          {isExpanded ? '▾' : '▸'}
-                        </Typography>
+                  key={rowId}
+                  hover
+                  selected={isSelected}
+                  onClick={() => {
+                    setFocusedIdx(idx)
+                    if (editingCell) return
+                    if (detailPath || onRowClick) handleRowClick(row)
+                  }}
+                  onContextMenu={e => handleContextMenu(e, row)}
+                  sx={{
+                    cursor: (detailPath||onRowClick) ? 'pointer' : 'default',
+                    bgcolor: zebraBg,
+                    outline: isFocused ? '2px solid' : 'none',
+                    outlineColor: 'primary.main',
+                    outlineOffset: '-2px',
+                  }}
+                >
+                  {rowExpansion && (
+                    <TableCell padding="checkbox"
+                      onClick={e => { e.stopPropagation(); toggleExpansion(rowId) }}
+                      sx={{ py:rowPy }}>
+                      <Typography variant="caption" sx={{ cursor:'pointer', userSelect:'none', color:'text.secondary' }}>
+                        {expandedRows.has(rowId) ? '▾' : '▸'}
+                      </Typography>
+                    </TableCell>
+                  )}
+                  {hasRowSelection && (
+                    <TableCell padding="checkbox" onClick={e => e.stopPropagation()} sx={{ py:rowPy }}>
+                      <Checkbox
+                        checked={isSelected}
+                        onChange={e => setSelected(prev =>
+                          e.target.checked ? [...prev, row] : prev.filter(r => r[rowKey] !== row[rowKey])
+                        )}
+                      />
+                    </TableCell>
+                  )}
+                  {orderedCols.map(col => {
+                    const field = col.field as keyof TData
+                    const value = row[field]
+                    const cellKey = `${rowId}-${String(col.field)}`
+                    const isEditing = editingCell?.rowId === rowId && editingCell?.field === String(col.field)
+
+                    const sticky = col.sticky
+                      ? { position:'sticky' as const, [col.sticky]:0, bgcolor:'background.paper', zIndex:1 }
+                      : {}
+
+                    return (
+                      <TableCell
+                        key={String(col.field)}
+                        align={col.align ?? 'left'}
+                        onDoubleClick={() => {
+                          if (!col.editable) return
+                          setEditingCell({ rowId, field: String(col.field), value: String(value ?? '') })
+                        }}
+                        sx={{ width:col.width, minWidth:col.minWidth, py:rowPy, ...sticky }}
+                      >
+                        {isEditing ? (
+                          <InlineCellEditor
+                            value={editingCell!.value}
+                            onCommit={async newVal => {
+                              await col.onEdit?.(row, String(col.field), newVal)
+                              setEditingCell(null)
+                            }}
+                            onCancel={() => setEditingCell(null)}
+                          />
+                        ) : col.renderCell ? (
+                          col.renderCell(value, row)
+                        ) : (
+                          String(value ?? '—')
+                        )}
                       </TableCell>
-                    )}
-
-                    {/* Row selection */}
-                    {hasRowSelection && (
-                      <TableCell padding="checkbox"
-                        onClick={e => e.stopPropagation()} sx={{ py:rowPy }}>
-                        <Checkbox
-                          checked={isSelected}
-                          onChange={e => setSelected(prev =>
-                            e.target.checked ? [...prev, row] : prev.filter(r => r[rowKey] !== row[rowKey])
-                          )}
-                        />
-                      </TableCell>
-                    )}
-
-                    {/* Data cells */}
-                    {visibleCols.map(col => {
-                      const value = row[col.field as keyof TData]
-                      return (
-                        <TableCell key={String(col.field)}
-                          align={col.align ?? 'left'}
-                          sx={{ width:col.width, minWidth:col.minWidth, py:rowPy }}>
-                          {col.renderCell ? col.renderCell(value, row) : String(value ?? '—')}
-                        </TableCell>
-                      )
-                    })}
-
-                    {/* Row menu */}
-                    {rowMenuItems && (
-                      <TableCell align="right" onClick={e => e.stopPropagation()} sx={{ py:rowPy }}>
-                        <RowMenu items={rowMenuItems(row)} row={row} />
-                      </TableCell>
-                    )}
-                  </TableRow>
-
+                    )
+                  })}
+                  {rowMenuItems && (
+                    <TableCell align="right" onClick={e => e.stopPropagation()} sx={{ py:rowPy }}>
+                      <RowMenu items={rowMenuItems(row)} row={row} />
+                    </TableCell>
+                  )}
+                </TableRow>
               )
-            })
-          }
+            })}
+            {/* Expansion rows — separate pass to avoid Fragment-in-TableBody */}
+            {rowExpansion && rows.map((row, idx) => {
+              const rowId = String(row[rowKey] ?? idx)
+              if (!expandedRows.has(rowId)) return null
+              return (
+                <TableRow key={`${rowId}-exp`} sx={{ bgcolor:'action.selected' }}>
+                  <TableCell colSpan={colCount} sx={{ py:1.5, px:3 }}>
+                    {rowExpansion.render(row)}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </TableContainer>
 
-      {/* Pagination */}
       {isPaginated && (
         <Pagination
           page={state.page as number} pageSize={state.pageSize as number} total={total}
-          onPageChange={p => setState({ page: p })}
-          onPageSizeChange={s => setState({ pageSize: s, page: 0 })}
+          onPageChange={p => setState({ page:p })}
+          onPageSizeChange={s => setState({ pageSize:s, page:0 })}
         />
       )}
 
-      {/* Email dialog */}
       {hasEmail && emailConfig && (
         <EmailDialog open={emailOpen} onClose={() => setEmailOpen(false)} config={emailConfig} />
       )}
 
-      {/* Right-click context menu */}
       {contextMenu && rowMenuItems && (
         <ContextMenu
-          items={rowMenuItems(contextMenu.row).filter(
-            item => !item.hidden?.(contextMenu.row)
-          )}
+          items={rowMenuItems(contextMenu.row).filter(item => !item.hidden?.(contextMenu.row))}
           row={contextMenu.row}
-          x={contextMenu.x}
-          y={contextMenu.y}
+          x={contextMenu.x} y={contextMenu.y}
           onClose={() => setContextMenu(null)}
         />
       )}
