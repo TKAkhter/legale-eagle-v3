@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import React, { useState, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -39,6 +40,22 @@ export default function ProfilePage() {
     reader.onload = ev => setAvatarUrl(ev.target?.result as string)
     reader.readAsDataURL(file)
     toast.info("Avatar updated locally")
+  }
+
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  async function handleSaveProfile() {
+    setSavingProfile(true)
+    try {
+      if (!env.USE_STATIC_DATA) {
+        const { axiosClient: ax } = await import("@lib/api/axios")
+        await ax.put("/api/user/update", { firstName: user?.firstName, lastName: user?.lastName })
+      } else {
+        await new Promise(r => setTimeout(r, 400))
+      }
+      toast.success("Profile saved")
+    } catch { toast.error("Failed to save profile") }
+    finally { setSavingProfile(false) }
   }
 
   async function onChangePassword(vals:PwForm) {
@@ -97,6 +114,7 @@ export default function ProfilePage() {
                 {([["en","🇬🇧 English"],["ar","🇦🇪 العربية"]] as const).map(([code,label])=><Button key={code} size="small" variant={language===code?"contained":"outlined"} onClick={()=>setLang(code)}>{label}</Button>)}
               </Box>
             </Box>
+            <Box sx={{mt:2}}><Button variant="outlined" size="small" onClick={handleSaveProfile} disabled={savingProfile}>{savingProfile?"Saving…":"Save Preferences"}</Button></Box>
           </Box>
         </Paper>
         <Paper variant="outlined" sx={{borderRadius:2,overflow:"hidden",gridColumn:{md:"span 2"}}}>

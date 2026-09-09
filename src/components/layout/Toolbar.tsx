@@ -10,7 +10,8 @@ import {
   AppBar, Box, IconButton, ThemeProvider, Tooltip,
   Avatar, Menu, MenuItem, Divider, Typography, useMediaQuery,
 } from "@mui/material"
-import MenuIcon            from "@mui/icons-material/Menu"
+import MenuIcon     from "@mui/icons-material/Menu"
+import MenuOpenIcon  from "@mui/icons-material/MenuOpen"
 import DarkModeIcon        from "@mui/icons-material/DarkMode"
 import LightModeIcon       from "@mui/icons-material/LightMode"
 import TranslateIcon       from "@mui/icons-material/Translate"
@@ -36,7 +37,9 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
   const toggleLang = useThemeStore((s) => s.toggleLanguage)
   const logout     = useAuthStore((s) => s.clearAuth)
   const user       = useAuthStore((s) => s.user)
-  const isDesktop     = useMediaQuery("(min-width:1024px)")
+  const isDesktop   = useMediaQuery("(min-width:1024px)")
+  const isMobile    = useMediaQuery("(max-width:599px)")
+  const collapsed   = useThemeStore(s => s.sidebarCollapsed)
   const toolbarTheme  = buildToolbarTheme(colorMode, direction)
 
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
@@ -61,7 +64,7 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
           color: "text.primary",
           borderBottom: "1px solid",
           borderColor: "divider",
-          zIndex: 1201,
+          zIndex: 1201,  // above sidebar (1100) + MUI default (1200)
           transition: "left .2s, right .2s",
         }}
       >
@@ -78,7 +81,9 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
             aria-label="Toggle navigation"
             sx={{ mr: 0.5 }}
           >
-            <MenuIcon />
+            <Box sx={{ display:'flex', transition:'transform 220ms', transform: (!isMobile && !collapsed) ? 'rotate(0deg)' : 'rotate(0deg)' }}>
+              {!isMobile && !collapsed ? <MenuOpenIcon /> : <MenuIcon />}
+            </Box>
           </IconButton>
 
           <GlobalSearch />

@@ -1,22 +1,51 @@
-import { Box, Typography, IconButton } from "@mui/material"
-import MenuOpenIcon from "@mui/icons-material/MenuOpen"
-import MenuIcon from "@mui/icons-material/Menu"
+/**
+ * SidebarHeader.tsx — logo + brand shown at top of the sidebar.
+ *
+ * NO hamburger here — the single hamburger lives in Toolbar.tsx.
+ * Collapsed state shows icon-only; expanded shows icon + wordmark.
+ */
+import { Box, Typography } from "@mui/material"
 import GavelIcon from "@mui/icons-material/Gavel"
-import { useThemeStore } from "@lib/store/themeStore"
 
 export function SidebarHeader({ collapsed }: { collapsed: boolean }) {
-  const toggle = useThemeStore((s) => s.toggleSidebar)
   return (
-    <Box sx={{ height: 56, display:"flex", alignItems:"center", px: collapsed ? 1.5 : 2, gap: 1, borderBottom:"1px solid", borderColor:"divider", flexShrink:0 }}>
-      <GavelIcon sx={{ color:"secondary.main", fontSize: 22, flexShrink: 0 }} />
-      {!collapsed && (
-        <Typography variant="h6" sx={{ fontWeight:700, color:"text.primary", flex:1, whiteSpace:"nowrap" }}>
+    <Box sx={{
+      height: 56,
+      display: "flex",
+      alignItems: "center",
+      px: collapsed ? 1.5 : 2,
+      gap: 1.25,
+      borderBottom: "1px solid",
+      borderColor: "divider",
+      flexShrink: 0,
+      overflow: "hidden",
+    }}>
+      {/* Logo icon — always visible */}
+      <Box sx={{
+        width: 32, height: 32,
+        borderRadius: 1.5,
+        bgcolor: "secondary.main",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <GavelIcon sx={{ color: "white", fontSize: 18 }} />
+      </Box>
+
+      {/* Wordmark — hidden when collapsed */}
+      <Box sx={{
+        overflow: "hidden",
+        opacity: collapsed ? 0 : 1,
+        width: collapsed ? 0 : "auto",
+        transition: "opacity 180ms, width 220ms",
+        whiteSpace: "nowrap",
+      }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "text.primary", lineHeight: 1.1 }}>
           LegalEagle
         </Typography>
-      )}
-      <IconButton size="small" onClick={toggle} sx={{ color:"text.secondary", ml: "auto" }}>
-        {collapsed ? <MenuIcon fontSize="small" /> : <MenuOpenIcon fontSize="small" />}
-      </IconButton>
+        <Typography variant="caption" sx={{ color: "text.disabled", fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          Legal Management
+        </Typography>
+      </Box>
     </Box>
   )
 }
