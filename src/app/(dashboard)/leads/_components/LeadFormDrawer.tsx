@@ -6,6 +6,8 @@ import { Box, Alert } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
 import { FormDrawer } from "@components/ui/FormDrawer"
 import { ControlledInput, ControlledSelect, ControlledAsyncSelect, FormSection } from "@components/forms"
+import { useDraftSave } from "@/hooks/useDraftSave"
+import { DraftBanner } from "@/components/ui/DraftBanner"
 import { leadsApi } from "@/api/leads"
 import { adminApi } from "@/api/admin"
 
@@ -29,10 +31,12 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
   const isEdit = !!leadId
   const [error, setError] = useState("")
 
-  const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<LeadForm>({
+  const { control, handleSubmit, reset, getValues, formState: { isSubmitting } } = useForm<LeadForm>({
     resolver: zodResolver(schema),
     defaultValues: { leadType: "PERSON" },
   })
+
+  const { hasDraft, loadDraft, clearDraft } = useDraftSave('lead-form', getValues, reset, isEdit)
 
   const { data: existing } = useQuery({
     queryKey: ["leads","detail",leadId],
@@ -79,6 +83,7 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
       }
       if (isEdit) await leadsApi.update(leadId!, payload as Record<string,unknown>)
       else        await leadsApi.create(payload as Record<string,unknown>)
+      clearDraft()
       onSaved()
     } catch (e: unknown) {
       setError((e as {response?:{data?:{message?:string}}})?.response?.data?.message ?? "Something went wrong")
@@ -89,7 +94,8 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
     <FormDrawer open={open} onClose={onClose} title={isEdit ? "Edit Lead" : "New Lead"}
       onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting} submitLabel={isEdit ? "Update" : "Create Lead"}>
       {error && <Alert severity="error" sx={{ mb:2 }} onClose={() => setError("")}>{error}</Alert>}
-      <FormSection title="Basic Info">
+      {hasDraft && !isEdit && <DraftBanner onRestore={loadDraft} onDiscard={clearDraft} />}
+    <FormSection title="Basic Info">
         <ControlledSelect name="leadType" control={control} label="Lead Type"
           options={[{value:"PERSON",label:"Individual"},{value:"COMPANY",label:"Company"}]} />
         <Box sx={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2 }}>
@@ -98,16 +104,19 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
         </Box>
         <ControlledInput name="companyName" control={control} label="Company Name" />
       </FormSection>
-      <FormSection title="Contact">
+      {hasDraft && !isEdit && <DraftBanner onRestore={loadDraft} onDiscard={clearDraft} />}
+    <FormSection title="Contact">
         <ControlledInput name="email" control={control} label="Email" type="email" />
         <ControlledInput name="phone" control={control} label="Phone" />
       </FormSection>
-      <FormSection title="Assignment">
+      {hasDraft && !isEdit && <DraftBanner onRestore={loadDraft} onDiscard={clearDraft} />}
+    <FormSection title="Assignment">
         <ControlledAsyncSelect name="lawyerId"       control={control} label="Responsible Attorney" options={toOpts(users)} />
         <ControlledAsyncSelect name="practiceAreaId" control={control} label="Practice Area"        options={toOpts(pas)}   />
         <ControlledAsyncSelect name="leadSourceId"   control={control} label="Lead Source"          options={toOpts(srcs)}  />
       </FormSection>
-      <FormSection title="Notes">
+      {hasDraft && !isEdit && <DraftBanner onRestore={loadDraft} onDiscard={clearDraft} />}
+    <FormSection title="Notes">
         <ControlledInput name="description" control={control} label="Notes" multiline rows={3} />
       </FormSection>
     </FormDrawer>

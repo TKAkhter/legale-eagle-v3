@@ -20,6 +20,7 @@ import { Box, useMediaQuery } from "@mui/material"
 import { Outlet }        from "react-router-dom"
 import { Sidebar, SIDEBAR_W, COLLAPSED_W } from "./Sidebar"
 import { Toolbar }       from "./Toolbar"
+import { SessionTimeoutWarning } from './SessionTimeoutWarning'
 import { KeyboardShortcutsModal } from '@/components/ui/KeyboardShortcutsModal'
 import { CommandPalette } from './CommandPalette'
 import { ToastContainer } from "@/components/ui/ToastContainer"
@@ -117,6 +118,7 @@ export function MainLayout() {
       </Box>
 
       {/* Global command palette — Ctrl+K opens from anywhere */}
+      <SessionTimeoutWarning />
       <KeyboardShortcutsModal />
       <CommandPalette />
       {/* Global toast notifications */}
