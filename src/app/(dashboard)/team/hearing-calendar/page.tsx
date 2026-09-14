@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { matterHearings as staticHearings } from '@/data/static'
 import { env } from '@/config/env'
 import { Box, Typography } from '@mui/material'
@@ -40,12 +41,12 @@ const columns: ColumnDef<HearingEntry>[] = [
 export default function HearingCalendarPage() {
   const navigate = useNavigate()
   return (
-    <Box>
+    <PageShell title="Hearing Calendar">
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Team Hearing Calendar</Typography>
       <AppCalendar
         queryFn={fetchHearings} entryQueryFn={fetchDayEntries} entryColumns={columns}
         onEventClick={e => { const m = (e.extendedProps as Record<string, unknown>)?.matterId; if (m) navigate(`/matters/${m}`) }}
       />
-    </Box>
+    </PageShell>
   )
 }

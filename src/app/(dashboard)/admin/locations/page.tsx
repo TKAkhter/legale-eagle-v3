@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { adminApi } from '@/api/admin'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
@@ -43,7 +44,7 @@ export default function LocationsPage() {
   }
 
   return (
-    <Box>
+    <PageShell title="Locations">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Locations</Typography>
         <Can do={PERMISSIONS.LOCATIONS_MANAGE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalOpen(true)}>Add Location</Button></Can>
@@ -68,6 +69,6 @@ export default function LocationsPage() {
           <ControlledInput name="country" control={control} label="Country" />
         </Box>
       </Modal>
-    </Box>
+    </PageShell>
   )
 }

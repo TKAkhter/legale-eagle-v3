@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography, Button, Avatar, Chip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -62,7 +63,7 @@ export default function UsersPage() {
   }
 
   return (
-    <Box>
+    <PageShell title="Users">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Manage Users</Typography>
         <Can do={PERMISSIONS.USERS_CREATE}>
@@ -100,6 +101,6 @@ export default function UsersPage() {
       <InviteUserDrawer open={inviteOpen} onClose={() => setInviteOpen(false)} />
       {editUserId && <EditUserDrawer open={!!editUserId} onClose={() => setEditUserId(null)} userId={editUserId} onSuccess={() => setEditUserId(null)} />}
       {resetUser  && <ResetPasswordDialog open={!!resetUser} onClose={() => setResetUser(null)} userId={resetUser.id} userName={resetUser.name} />}
-    </Box>
+    </PageShell>
   )
 }

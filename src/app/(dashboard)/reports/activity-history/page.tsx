@@ -8,7 +8,9 @@
  * This page is for partners/managers to review firm activity over a period.
  */
 import { useState } from "react"
-import { Box, Button, Chip, Typography } from "@mui/material"
+import { Box, Button, Chip, Typography, Paper } from "@mui/material"
+import { ApexChart } from '@components/charts/ApexChart'
+import { activityFeed as staticFeed } from '@/data/static'
 import { PageShell }   from "@/components/ui/PageShell"
 import { DataGrid }    from "@components/data-grid/DataGrid"
 import { SearchInput } from "@components/filters/SearchInput"
@@ -40,7 +42,16 @@ function Filters({ onSearch, onReset, filters }: FilterPanelProps) {
 export default function ActivityHistoryPage() {
   return (
     <PageShell title="Activity History" description="Firm-wide activity log for the selected period">
-      <DataGrid
+      {/* Summary */}
+      <Box sx={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:2, mb:3 }}>
+        {[["Total Entries","3"],["This Month","2"],["Avg Per Day","0.3"]].map(([l,v])=>(
+          <Paper key={l} variant="outlined" sx={{p:2,borderRadius:2,textAlign:"center"}}>
+            <Typography variant="caption" color="text.secondary">{l}</Typography>
+            <Typography variant="h5" sx={{fontWeight:700}}>{v}</Typography>
+          </Paper>
+        ))}
+      </Box>
+            <DataGrid
         columns={[
           { field:"createdAt", header:"When", sortKey:"createdAt",
             renderCell:(v) => (

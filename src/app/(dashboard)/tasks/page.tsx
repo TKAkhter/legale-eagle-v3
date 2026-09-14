@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import ViewListIcon   from '@mui/icons-material/ViewList'
 import { tasks as staticTasks } from '@/data/static'
@@ -55,11 +56,7 @@ export default function TasksPage() {
   const [editId, setEditId] = useState<string | undefined>()
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>Tasks</Typography>
-        <Can do={PERMISSIONS.TASKS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Task</Button></Can>
-      </Box>
+    <PageShell title="Tasks" description="All tasks across matters" action={<Can do={PERMISSIONS.TASKS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Task</Button></Can>}>
       {view === 'board' ? (
         <TaskKanban tasks={kanbanTasks} onAddTask={()=>{setEditId(undefined);setDrawerOpen(true)}} />
       ) : (
@@ -84,6 +81,6 @@ export default function TasksPage() {
       )}
       <TaskFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} taskId={editId}
         onSuccess={() => { qc.invalidateQueries({ queryKey: ['tasks','list'] }); setDrawerOpen(false) }} />
-    </Box>
+    </PageShell>
   )
 }

@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { adminApi } from '@/api/admin'
@@ -48,7 +49,7 @@ export default function GroupsPage() {
   }
 
   return (
-    <Box>
+    <PageShell title="Groups & Roles">
       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
         <Typography variant="h5" sx={{ fontWeight:600 }}>Groups & Roles</Typography>
         <Can do={PERMISSIONS.GROUPS_MANAGE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setModalOpen(true)}>New Group</Button></Can>
@@ -67,6 +68,6 @@ export default function GroupsPage() {
         actions={<><Button onClick={()=>setModalOpen(false)}>Cancel</Button><Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>{isSubmitting?'Creating…':'Create'}</Button></>}>
         <ControlledInput name="name" control={control} label="Group Name" required />
       </Modal>
-    </Box>
+    </PageShell>
   )
 }

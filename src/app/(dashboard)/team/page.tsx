@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { adminApi } from '@/api/admin'
 import { Box, Typography, Avatar } from '@mui/material'
@@ -31,8 +32,7 @@ function TeamFilter({ onSearch, onReset, filters }: FilterPanelProps) {
 
 export default function TeamPage() {
   return (
-    <Box>
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>My Team</Typography>
+    <PageShell title="Team" description="Attorneys and support staff">
       <DataGrid
         columns={[
           { field: 'firstName', header: 'Name', renderCell: (_, row) => {
@@ -48,6 +48,6 @@ export default function TeamPage() {
         queryKey={['team', 'list']} queryFn={fetchTeam}
         FilterPanel={TeamFilter} hasFilters syncWithUrl
       />
-    </Box>
+    </PageShell>
   )
 }

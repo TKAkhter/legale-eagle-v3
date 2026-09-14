@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, Skeleton, Button, Chip } from '@mui/material'
@@ -72,7 +73,7 @@ export default function PermissionsPage() {
   const topLevelMenus = menuItems.filter((m:MenuItem)=>!m.parent||m.parent==='0'||m.parent==='')
 
   return (
-    <Box>
+    <PageShell title="Permissions Matrix">
       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
         <Typography variant="h5" sx={{ fontWeight:600 }}>Permissions Matrix</Typography>
         {selectedGroup && (
@@ -119,6 +120,6 @@ export default function PermissionsPage() {
           </Table>
         </TableContainer>
       )}
-    </Box>
+    </PageShell>
   )
 }
