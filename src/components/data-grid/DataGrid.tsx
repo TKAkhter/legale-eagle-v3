@@ -62,6 +62,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
   syncWithUrl: _su  = true,
   zebraStriping     = false,
   reorderableColumns = false,
+  resizableColumns   = false,
   defaultDensity    = 'normal',
   defaultPageSize   = 25,
   defaultSortBy     = 'createdAt',
@@ -73,6 +74,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
 
   // ── State ───────────────────────────────────────────────────────────────────
   const [colOrder,      setColOrder]      = useState<number[]>([])
+  const [colWidths,     setColWidths]     = useState<Record<string,number>>({})
   const [dragFrom,      setDragFrom]      = useState<number|null>(null)
   const [dragOver,      setDragOver]      = useState<number|null>(null)
   const [editingCell,   setEditingCell]   = useState<EditingCell|null>(null)
@@ -342,6 +344,9 @@ export function DataGrid<TData extends Record<string, unknown>>({
                   onSort={handleSort}
                   index={i}
                   reorderable={reorderableColumns}
+                  resizable={resizableColumns}
+                  colWidths={colWidths}
+                  onResize={(field, w) => setColWidths(prev => ({ ...prev, [field]: w }))}
                   onDragStart={handleDragStart}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}

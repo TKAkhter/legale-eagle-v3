@@ -162,6 +162,8 @@ export interface DataGridProps<TData = unknown> {
   rowKey?:           keyof TData
   /** Allow columns to be dragged to reorder — default: false */
   reorderableColumns?: boolean
+  /** Allow columns to be resized by dragging the column border — default: false */
+  resizableColumns?: boolean
 }
 
 // ─── Filter panel props ───────────────────────────────────────────────────────

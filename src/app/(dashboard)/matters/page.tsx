@@ -9,6 +9,7 @@ import { PageShell }         from "@/components/ui/PageShell"
 import { mattersApi }        from "@/api/matters"
 import { useAuthStore }      from "@lib/store/authStore"
 import { MatterFormDrawer }  from "./_components/MatterFormDrawer"
+import { NewMatterWizard }   from "./_components/NewMatterWizard"
 import type { GridParams }   from "@/types/common.types"
 import { useQueryClient }    from "@tanstack/react-query"
 
@@ -78,15 +79,18 @@ export default function MattersPage() {
         ]}
       />
 
-      <MatterFormDrawer
-        open={createOpen}
-        onClose={() => { setCreateOpen(false); setEditId(undefined) }}
-        matterId={editId}
-        onSuccess={() => {
-          setCreateOpen(false); setEditId(undefined)
-          qc.invalidateQueries({ queryKey:["matters","list"] })
-        }}
-      />
+      {/* New Matter — use wizard for create, drawer for edit */}
+      {createOpen && !editId && (
+        <NewMatterWizard open={createOpen} onClose={() => setCreateOpen(false)} />
+      )}
+      {createOpen && editId && (
+        <MatterFormDrawer
+          open={createOpen}
+          onClose={() => { setCreateOpen(false); setEditId(undefined) }}
+          matterId={editId}
+          onSuccess={() => { setCreateOpen(false); setEditId(undefined); qc.invalidateQueries({ queryKey:["matters","list"] }) }}
+        />
+      )}
     </PageShell>
   )
 }
