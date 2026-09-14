@@ -41,4 +41,20 @@ export const mattersApi = {
     const res = await axiosClient.post('/api/matter/get/by/id', null, { params: { matterId } })
     return res.data?.data ?? res.data
   },
+  async close(matterId: string, reason: string): Promise<void> {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 500)); return }
+    await axiosClient.post("/api/matter/close", { matterId, reason })
+  },
+
+  async search(query: string): Promise<Record<string,unknown>[]> {
+    if (env.USE_STATIC_DATA) {
+      const { matters } = await import("@/data/static")
+      const q = query.toLowerCase()
+      return (matters as Record<string,unknown>[]).filter(m => String(m.title ?? "").toLowerCase().includes(q)).slice(0, 10)
+    }
+    const r = await axiosClient.get("/api/matter/get/short-info", { params: { searchText: query } })
+    const d = r.data?.data ?? r.data
+    return d.content ?? d ?? []
+  },
+
 }

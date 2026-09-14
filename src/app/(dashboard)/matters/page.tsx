@@ -1,110 +1,92 @@
-import { useSearchParams } from "react-router-dom"
 import { useState, useEffect } from "react"
-import { Button, Box, Chip, FormControl, InputLabel, Select, MenuItem } from "@mui/material"
+import { useSearchParams } from "react-router-dom"
+import { Box, Button, Chip } from "@mui/material"
 import AddIcon   from "@mui/icons-material/Add"
 import GavelIcon from "@mui/icons-material/Gavel"
-import { DataGrid }    from "@/components/data-grid/DataGrid"
-import { StatusBadge } from "@/components/ui/StatusBadge"
-import { SearchInput } from "@/components/filters/SearchInput"
-import { MatterFormDrawer } from "./_components/MatterFormDrawer"
-import { mattersApi }  from "@/api/matters"
-import { useAuthStore } from "@lib/store/authStore"
-import type { GridParams } from "@/types"
-import type { FilterPanelProps } from "@/components/data-grid/types"
-
-function MatterFilters({ onSearch, onReset, filters }: FilterPanelProps) {
-  const [f, setF] = useState<Record<string,unknown>>(filters)
-  return (
-    <Box sx={{ display:"flex", flexWrap:"wrap", gap:1.5, alignItems:"flex-end" }}>
-      <SearchInput value={String(f.searchText??"")} onChange={v => setF(p => ({...p,searchText:v}))} placeholder="Search matters..." />
-      <FormControl size="small" sx={{ minWidth:140 }}>
-        <InputLabel>Status</InputLabel>
-        <Select label="Status" value={String(f.status??"")} onChange={e => setF(p => ({...p,status:e.target.value}))}>
-          <MenuItem value=""><em>All</em></MenuItem>
-          <MenuItem value="OPEN">Open</MenuItem>
-          <MenuItem value="CLOSED">Closed</MenuItem>
-          <MenuItem value="RE_OPEN">Re-Opened</MenuItem>
-        </Select>
-      </FormControl>
-      <FormControl size="small" sx={{ minWidth:140 }}>
-        <InputLabel>Billing Type</InputLabel>
-        <Select label="Billing Type" value={String(f.billingType??"")} onChange={e => setF(p => ({...p,billingType:e.target.value}))}>
-          <MenuItem value=""><em>All</em></MenuItem>
-          {["Hourly","Fixed","Session","Contingent","NoAgreement"].map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-        </Select>
-      </FormControl>
-      <Box sx={{ display:"flex", gap:1 }}>
-        <Button variant="contained" size="small" onClick={() => onSearch(f)}>Search</Button>
-        <Button size="small" onClick={() => { setF({}); onReset() }}>Reset</Button>
-      </Box>
-    </Box>
-  )
-}
+import { DataGrid }          from "@/components/data-grid/DataGrid"
+import { StatusBadge }       from "@/components/ui/StatusBadge"
+import { PageShell }         from "@/components/ui/PageShell"
+import { mattersApi }        from "@/api/matters"
+import { useAuthStore }      from "@lib/store/authStore"
+import { MatterFormDrawer }  from "./_components/MatterFormDrawer"
+import type { GridParams }   from "@/types/common.types"
+import { useQueryClient }    from "@tanstack/react-query"
 
 export default function MattersPage() {
   const [createOpen, setCreateOpen] = useState(false)
+  const [editId,     setEditId]     = useState<string|undefined>()
   const [searchParams, setSearchParams] = useSearchParams()
+  const canAdd   = useAuthStore(s => s.hasPermission)("/matters")
+  const qc       = useQueryClient()
+
   useEffect(() => {
     if (searchParams.get("new") === "1") {
       setCreateOpen(true)
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, setSearchParams])
-  const canAdd = useAuthStore((s) => s.hasPermission)("/matters")
 
   return (
-    <Box>
-      <Box sx={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", mb:2.5 }}>
-        <Box>
-          <Box component="h1" sx={{ m:0, fontSize:"1.375rem", fontWeight:700, color:"text.primary" }}>Matters</Box>
-          <Box component="p" sx={{ m:0, fontSize:"0.875rem", color:"text.secondary" }}>All active and closed legal matters</Box>
-        </Box>
-        {canAdd && (
-          <Button variant="contained" startIcon={<AddIcon />}>New Matter</Button>
-        )}
-      </Box>
-
+    <PageShell
+      title="Matters"
+      description="All active and closed legal matters"
+      action={canAdd && (
+        <Button variant="contained" startIcon={<AddIcon />}
+          onClick={() => { setEditId(undefined); setCreateOpen(true) }}>
+          New Matter
+        </Button>
+      )}
+    >
       <DataGrid
         columns={[
-          { field:"title", header:"Matter Title", renderCell:(v,row) => {
-            const r = row as Record<string,unknown>
-            return (
-              <Box sx={{ display:"flex", alignItems:"center", gap:1 }}>
-                <GavelIcon sx={{ fontSize:16, color:"text.disabled" }} />
-                <Box>
-                  <Box sx={{ fontWeight:500, fontSize:13 }}>{String(v??"")}</Box>
-                  <Box sx={{ fontSize:11, color:"text.secondary" }}>{String(r.practiceArea??"")}</Box>
+          { field:"title", header:"Matter Title", sortKey:"title",
+            renderCell:(v,row) => {
+              const r = row as Record<string,unknown>
+              return (
+                <Box sx={{ display:"flex", alignItems:"center", gap:1 }}>
+                  <GavelIcon sx={{ fontSize:16, color:"text.disabled" }} />
+                  <Box>
+                    <Box sx={{ fontWeight:500, fontSize:13 }}>{String(v??"")}</Box>
+                    <Box sx={{ fontSize:11, color:"text.secondary" }}>{String(r.practiceArea??"")}</Box>
+                  </Box>
                 </Box>
-              </Box>
-            )
-          }},
-          { field:"clientMini", header:"Client", renderCell:(v) => {
-            const c = v as Record<string,string>
-            return c?.companyName || c?.firstName || "—"
-          }},
+              )
+            }
+          },
+          { field:"clientMini", header:"Client",
+            renderCell:(v) => { const c=v as Record<string,string>; return c?.companyName||c?.firstName||"—" }
+          },
           { field:"lawyers",     header:"Attorney" },
-          { field:"billingType", header:"Billing", renderCell:(v) => <Chip size="small" label={String(v??"")} variant="outlined" /> },
-          { field:"status",      header:"Status",  renderCell:(v) => <StatusBadge status={String(v??"")} /> },
-          { field:"createdAt",   header:"Created", renderCell:(v) => v ? new Date(String(v)).toLocaleDateString("en-GB") : "—" },
+          { field:"billingType", header:"Billing",
+            renderCell:(v) => <Chip size="small" label={String(v??"")} variant="outlined" />
+          },
+          { field:"status", header:"Status",
+            renderCell:(v) => <StatusBadge status={String(v??"")} />
+          },
+          { field:"openDate", header:"Opened", sortKey:"openDate",
+            renderCell:(v) => v ? new Date(String(v)).toLocaleDateString("en-GB") : "—"
+          },
         ]}
         queryKey={["matters","list"]}
-        queryFn={(p) => mattersApi.getAll(p as GridParams) as unknown as Promise<import("@/types").PageResponse<Record<string,unknown>>>}
-        FilterPanel={MatterFilters}
+        queryFn={(p) => mattersApi.getAll(p as GridParams) as unknown as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>}
         hasFilters syncWithUrl
-        detailPath={(row) => `/matters/${(row as Record<string,string>).matterId}`}
-        defaultSortBy="createdAt" defaultSortDir="desc"
+        detailPath={(row) => `/matters/${(row as Record<string,string>).matterId ?? (row as Record<string,string>).id}`}
+        defaultSortBy="openDate" defaultSortDir="desc"
+        rowMenuItems={(row) => [
+          { label:"View",  onClick: () => window.location.href = `/matters/${(row as Record<string,string>).matterId ?? (row as Record<string,string>).id}` },
+          { label:"Edit",  onClick: () => { setEditId((row as Record<string,string>).id); setCreateOpen(true) } },
+        ]}
       />
-    </Box>
-  )
-  return (
-    <>
-      {createOpen && (
-        <MatterFormDrawer
-          open={createOpen}
-          onClose={() => setCreateOpen(false)}
-          onSuccess={() => setCreateOpen(false)}
-        />
-      )}
-    </>
+
+      <MatterFormDrawer
+        open={createOpen}
+        onClose={() => { setCreateOpen(false); setEditId(undefined) }}
+        matterId={editId}
+        onSuccess={() => {
+          setCreateOpen(false); setEditId(undefined)
+          qc.invalidateQueries({ queryKey:["matters","list"] })
+        }}
+      />
+    </PageShell>
   )
 }

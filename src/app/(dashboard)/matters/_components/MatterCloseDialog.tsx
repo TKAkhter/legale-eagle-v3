@@ -1,3 +1,4 @@
+import { mattersApi } from '@/api/matters'
 import { env } from '@/config/env'
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Alert, CircularProgress, Typography } from '@mui/material'
@@ -29,7 +30,7 @@ export function MatterCloseDialog({ open, onClose, matterId, matterTitle }: Prop
     setError('')
     try {
       if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
-      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/matter/close', { matterId, ...data })
+      if (!env.USE_STATIC_DATA) await mattersApi.close(matterId, String(data.reason ?? ''))
       qc.invalidateQueries({ queryKey: ['matters'] })
       reset()
       onClose()

@@ -59,6 +59,13 @@ export default function DashboardPage() {
   const [custOpen, setCustOpen] = useState(false)
   const [chartRange, setChartRange] = useState<'30'|'90'|'180'>('30')
 
+  // Compute fromDate from chartRange
+  const chartFromDate = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() - Number(chartRange))
+    return d.toISOString().slice(0, 10)
+  })()
+
   // ── KPI data ────────────────────────────────────────────────────────────────
   const { data:counts, isLoading:l1 } = useQuery({
     queryKey: ["dashboard","counts"],
@@ -83,6 +90,7 @@ export default function DashboardPage() {
   const { data:history, isLoading:l2 } = useQuery({
     queryKey: ["dashboard","history", chartRange],
     queryFn: async () => {
+      const fromDate = chartFromDate
       if (env.USE_STATIC_DATA) return staticDashboard.matterHistory
       const r = await apiClient.get("/api/analytics/graph/matters-history-monthly")
       return r.data?.data ?? []
@@ -93,6 +101,7 @@ export default function DashboardPage() {
   const { data:revenue, isLoading:l3 } = useQuery({
     queryKey: ["dashboard","revenue", chartRange],
     queryFn: async () => {
+      const fromDate = chartFromDate
       if (env.USE_STATIC_DATA) return staticDashboard.revenue
       const r = await apiClient.get("/api/analytics/graph/fixedfees-timelogs-revenue")
       return r.data?.data ?? []
