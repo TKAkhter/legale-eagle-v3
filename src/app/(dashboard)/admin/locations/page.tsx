@@ -44,7 +44,7 @@ export default function LocationsPage() {
   }
 
   return (
-    <PageShell title="Locations">
+    <PageShell title="Locations" description="Office locations and court venues">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Locations</Typography>
         <Can do={PERMISSIONS.LOCATIONS_MANAGE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalOpen(true)}>Add Location</Button></Can>

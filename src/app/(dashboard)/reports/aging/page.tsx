@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Box, Paper, Typography, Chip, LinearProgress } from "@mui/material"
+import { ApexChart } from '@components/charts/ApexChart'
 import { PageShell }      from "@/components/ui/PageShell"
 import { StatusBadge }    from "@/components/ui/StatusBadge"
 import { env }            from "@/config/env"
@@ -51,7 +52,20 @@ export default function AgingReportPage() {
           </Paper>
         ))}
       </Box>
-      {isLoading ? <LinearProgress /> : bucketData.filter(b=>b.items.length>0).map(b=>(
+
+      {/* Aging distribution chart */}
+      {grandTotal > 0 && !isLoading && (
+        <Box sx={{ mb:3 }}>
+          <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight:600, mb:2 }}>Outstanding by Age Bucket</Typography>
+            <ApexChart type="bar" height={180}
+              series={[{ name:"Outstanding (AED)", data: bucketData.map(b=>b.total) }]}
+              options={{ chart:{ toolbar:{ show:false } }, xaxis:{ categories: bucketData.map(b=>b.label) }, colors: bucketData.map(b=>b.color), plotOptions:{ bar:{ borderRadius:4, columnWidth:"55%", distributed:true } }, legend:{ show:false }, grid:{ strokeDashArray:4 }, dataLabels:{ enabled:false }, yaxis:{ labels:{ formatter:(v:number)=>`${(v/1000).toFixed(0)}K` } } }}
+            />
+          </Paper>
+        </Box>
+      )}
+            {isLoading ? <LinearProgress /> : bucketData.filter(b=>b.items.length>0).map(b=>(
         <Box key={b.label} sx={{mb:3}}>
           <Box sx={{display:"flex",alignItems:"center",gap:1,mb:1.5}}>
             <Box sx={{width:12,height:12,borderRadius:"50%",bgcolor:b.color}}/>

@@ -73,7 +73,7 @@ export default function PermissionsPage() {
   const topLevelMenus = menuItems.filter((m:MenuItem)=>!m.parent||m.parent==='0'||m.parent==='')
 
   return (
-    <PageShell title="Permissions Matrix">
+    <PageShell title="Permissions Matrix" description="Manage group permissions and access control">
       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
         <Typography variant="h5" sx={{ fontWeight:600 }}>Permissions Matrix</Typography>
         {selectedGroup && (

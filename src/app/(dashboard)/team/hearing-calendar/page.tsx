@@ -41,7 +41,7 @@ const columns: ColumnDef<HearingEntry>[] = [
 export default function HearingCalendarPage() {
   const navigate = useNavigate()
   return (
-    <PageShell title="Hearing Calendar">
+    <PageShell title="Hearing Calendar" description="Upcoming hearings for all team members">
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Team Hearing Calendar</Typography>
       <AppCalendar
         queryFn={fetchHearings} entryQueryFn={fetchDayEntries} entryColumns={columns}

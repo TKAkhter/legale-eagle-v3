@@ -49,7 +49,7 @@ export default function GroupsPage() {
   }
 
   return (
-    <PageShell title="Groups & Roles">
+    <PageShell title="Groups & Roles" description="User groups and role assignments">
       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
         <Typography variant="h5" sx={{ fontWeight:600 }}>Groups & Roles</Typography>
         <Can do={PERMISSIONS.GROUPS_MANAGE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setModalOpen(true)}>New Group</Button></Can>

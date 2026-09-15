@@ -63,7 +63,7 @@ export default function UsersPage() {
   }
 
   return (
-    <PageShell title="Users">
+    <PageShell title="Users" description="Manage system users and their access">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Manage Users</Typography>
         <Can do={PERMISSIONS.USERS_CREATE}>
