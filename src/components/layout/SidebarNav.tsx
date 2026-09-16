@@ -74,12 +74,69 @@ import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
 import ReceiptOutlinedIcon from '@mui/icons-material/ReceiptOutlined'
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined'
 import IntegrationInstructionsOutlinedIcon from '@mui/icons-material/IntegrationInstructionsOutlined'
+import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
+import RequestPageOutlinedIcon from '@mui/icons-material/RequestPageOutlined'
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
 import { useAuthStore }  from "@lib/store/authStore"
 import { hasPermission } from "@lib/auth/permissions"
 import { navigationConfig, type NavItem } from "@config/navigation"
 import { useTranslation } from "react-i18next"
 import { env } from "@/config/env"
 import { logger } from "@/lib/logger"
+
+const ICONS = {
+  DashboardOutlined: DashboardOutlinedIcon,
+  TrendingUpOutlined: TrendingUpOutlinedIcon,
+  PersonSearchOutlined: PersonSearchOutlinedIcon,
+  BusinessOutlined: BusinessOutlinedIcon,
+  GavelOutlined: GavelOutlinedIcon,
+  FolderOutlined: FolderOutlinedIcon,
+  FindInPageOutlined: FindInPageOutlinedIcon,
+  AccessTimeOutlined: AccessTimeOutlinedIcon,
+  CalendarMonthOutlined: CalendarMonthOutlinedIcon,
+  TaskAltOutlined: TaskAltOutlinedIcon,
+  ReceiptLongOutlined: ReceiptLongOutlinedIcon,
+  FactCheckOutlined: FactCheckOutlinedIcon,
+  AssignmentTurnedInOutlined: AssignmentTurnedInOutlinedIcon,
+  AssignmentOutlined: AssignmentOutlinedIcon,
+  ArticleOutlined: ArticleOutlinedIcon,
+  DescriptionOutlined: DescriptionOutlinedIcon,
+  LibraryBooksOutlined: LibraryBooksOutlinedIcon,
+  SummarizeOutlined: SummarizeOutlinedIcon,
+  BarChartOutlined: BarChartOutlinedIcon,
+  SpeedOutlined: SpeedOutlinedIcon,
+  HistoryOutlined: HistoryOutlinedIcon,
+  TrendingDownOutlined: TrendingDownOutlinedIcon,
+  GroupsOutlined: GroupsOutlinedIcon,
+  GroupOutlined: GroupOutlinedIcon,
+  EventNoteOutlined: EventNoteOutlinedIcon,
+  ReviewsOutlined: ReviewsOutlinedIcon,
+  PendingActionsOutlined: PendingActionsOutlinedIcon,
+  HowToRegOutlined: HowToRegOutlinedIcon,
+  CloudOutlined: CloudOutlinedIcon,
+  AccountBalanceWalletOutlined: AccountBalanceWalletOutlinedIcon,
+  CreditCardOutlined: CreditCardOutlinedIcon,
+  PriceChangeOutlined: PriceChangeOutlinedIcon,
+  SavingsOutlined: SavingsOutlinedIcon,
+  AdminPanelSettingsOutlined: AdminPanelSettingsOutlinedIcon,
+  ManageAccountsOutlined: ManageAccountsOutlinedIcon,
+  GroupWorkOutlined: GroupWorkOutlinedIcon,
+  LockOutlined: LockOutlinedIcon,
+  LocationOnOutlined: LocationOnOutlinedIcon,
+  SettingsOutlined: SettingsOutlinedIcon,
+  ConfirmationNumberOutlined: ConfirmationNumberOutlinedIcon,
+  WorkOutlineOutlined: WorkOutlineOutlinedIcon,
+  PaidOutlined: PaidOutlinedIcon,
+  AccountBalanceOutlined: AccountBalanceOutlinedIcon,
+  CollectionsBookmarkOutlined: CollectionsBookmarkOutlinedIcon,
+  TimerOutlined: TimerOutlinedIcon,
+  ReceiptOutlined: ReceiptOutlinedIcon,
+  CheckCircleOutlined: CheckCircleOutlinedIcon,
+  IntegrationInstructionsOutlined: IntegrationInstructionsOutlinedIcon,
+  PeopleOutlined: PeopleOutlinedIcon,
+  RequestPageOutlined: RequestPageOutlinedIcon,
+  RateReviewOutlined: RateReviewOutlinedIcon,
+} as const
 
 interface Props {
   collapsed:    boolean
@@ -146,6 +203,19 @@ export function SidebarNav({ collapsed, onNavClick }: Props) {
     }
   }
 
+  function renderIcon(iconName?: string) {
+    if (!iconName) return null
+  
+    const Icon = ICONS[iconName as keyof typeof ICONS]
+  
+    if (!Icon) {
+      logger.warn("SidebarNav", `Unknown navigation icon: ${iconName}`)
+      return null
+    }
+  
+    return <Icon fontSize="small" />
+  }
+
   /** Render one nav item (recursively for children) */
   function renderItem(item: NavItem, depth = 0): React.ReactNode {
     if (!isVisible(item)) return null
@@ -187,7 +257,7 @@ export function SidebarNav({ collapsed, onNavClick }: Props) {
             transition: "color 150ms ease",
           }}
         >
-          {item.icon}
+          {renderIcon(item.icon)}
         </ListItemIcon>
 
         {/* Label — hidden when sidebar is collapsed */}

@@ -111,7 +111,8 @@ export const authStoreFactory = () =>
         storage: createJSONStorage(() => sessionStorage),
         // Only persist non-sensitive state
         partialize: (state) => ({
-          accessScope: state.accessScope,
+          accessToken:  state.accessToken,   // ← needed for protectedLoader on refresh
+          accessScope:  state.accessScope,
           user: state.user
             ? {
                 id:              state.user.id,

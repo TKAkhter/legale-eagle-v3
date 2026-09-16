@@ -1,10 +1,13 @@
+import { env } from "@/config/env"
 import { redirect }    from "react-router-dom"
 import { useAuthStore } from "@lib/store/authStore"
 
 export function protectedLoader(routeUrl?: string) {
   return (): Response | null => {
     const store = useAuthStore.getState()
-    if (!store.accessToken) return redirect("/login") as unknown as Response
+    // In static mode: allow if user is set (token lives only in memory after factory login)
+    const isAuthed = !!store.accessToken || (env.USE_STATIC_DATA && !!store.user)
+    if (!isAuthed) return redirect("/login") as unknown as Response
     if (routeUrl) {
       const menu = store.menuItems ?? []
       if (menu.length > 0) {
