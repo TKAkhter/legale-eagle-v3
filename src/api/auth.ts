@@ -46,4 +46,24 @@ export const authApi = {
     if (env.USE_STATIC_DATA) return
     await axiosClient.get("/api/user/check/session").catch(() => {})
   },
+  async updateProfile(data: { firstName: string; lastName: string }): Promise<void> {
+    /** Update user display name */
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)); return }
+    await axiosClient.put("/api/user/update", data)
+  },
+
+  async uploadAvatar(file: File): Promise<string> {
+    /** Upload avatar image, returns the new URL */
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 600))
+      return URL.createObjectURL(file)
+    }
+    const form = new FormData()
+    form.append("file", file)
+    const r = await axiosClient.post("/api/user/avatar", form, {
+      headers: { "Content-Type": "multipart/form-data" }
+    })
+    return r.data?.data?.url ?? r.data?.url ?? ""
+  },
+
 }

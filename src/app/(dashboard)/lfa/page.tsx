@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { SendForSignatureDialog } from './_components/SendForSignatureDialog'
 import { Box, Typography, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +13,6 @@ import { formatCurrency } from '@lib/utils/formatCurrency'
 import { formatDate } from '@lib/utils/formatDate'
 import { ClientSelectFilter } from '@components/filters/ClientSelectFilter'
 import { BillingTypeFilter } from '@components/filters/BillingTypeFilter'
-import { useState } from 'react'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
 import { lfaApi } from '@/api/lfa'
@@ -45,32 +46,46 @@ function LfaFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function LfaPage() {
+  const [sigDialogOpen, setSigDialogOpen] = useState(false)
+  const [selectedLfa,   setSelectedLfa]   = useState<Record<string,unknown> | null>(null)
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
   return (
-    <Box>
-      <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
-        <Typography variant="h5" sx={{ fontWeight:600 }}>LFA — Legal Fee Agreements</Typography>
-        <Can do={PERMISSIONS.LFA_CREATE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setDrawerOpen(true)}>New LFA</Button></Can>
+    <>
+      <Box>
+        <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
+          <Typography variant="h5" sx={{ fontWeight:600 }}>LFA — Legal Fee Agreements</Typography>
+          <Can do={PERMISSIONS.LFA_CREATE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setDrawerOpen(true)}>New LFA</Button></Can>
+        </Box>
+        <DataGrid
+          columns={[
+            { field:'agreementNo', header:'Agreement #' },
+            { field:'client', header:'Client', renderCell:(v)=>{ const c=v as Record<string,string>; return c?.companyName??c?.firstName??'—' } },
+            { field:'billingType', header:'Type', renderCell:(v)=><StatusBadge status={String(v??'')} /> },
+            { field:'fixedBillingAmount', header:'Fixed Amount', align:'right', renderCell:(v)=>v?formatCurrency(Number(v)):'—' },
+            { field:'contingent', header:'Contingent', align:'right', renderCell:(v)=>v?`${v}%`:'—' },
+            { field:'agreementDate', header:'Date', renderCell:(v)=>formatDate(String(v??'')) },
+            { field:'current', header:'Status', renderCell:(v)=><StatusBadge status={v?'Approved':'Draft'} /> },
+            { field:'signatureStatus', header:'Signature', renderCell:(v)=><StatusBadge status={String(v??'Not Sent')} /> },
+          ]}
+          queryKey={['lfa','list']}
+          queryFn={fetchLfas}
+          FilterPanel={LfaFilterPanel}
+          hasFilters hasExport syncWithUrl
+          detailPath={(row)=>`/lfa/${row.id}`}
+        />
+        <LfaFormDrawer open={drawerOpen} onClose={()=>setDrawerOpen(false)} onSuccess={()=>qc.invalidateQueries({queryKey:['lfa','list']})} />
       </Box>
-      <DataGrid
-        columns={[
-          { field:'agreementNo', header:'Agreement #' },
-          { field:'client', header:'Client', renderCell:(v)=>{ const c=v as Record<string,string>; return c?.companyName??c?.firstName??'—' } },
-          { field:'billingType', header:'Type', renderCell:(v)=><StatusBadge status={String(v??'')} /> },
-          { field:'fixedBillingAmount', header:'Fixed Amount', align:'right', renderCell:(v)=>v?formatCurrency(Number(v)):'—' },
-          { field:'contingent', header:'Contingent', align:'right', renderCell:(v)=>v?`${v}%`:'—' },
-          { field:'agreementDate', header:'Date', renderCell:(v)=>formatDate(String(v??'')) },
-          { field:'current', header:'Status', renderCell:(v)=><StatusBadge status={v?'Approved':'Draft'} /> },
-        ]}
-        queryKey={['lfa','list']}
-        queryFn={fetchLfas}
-        FilterPanel={LfaFilterPanel}
-        hasFilters hasExport syncWithUrl
-        detailPath={(row)=>`/lfa/${row.id}`}
-      />
-      <LfaFormDrawer open={drawerOpen} onClose={()=>setDrawerOpen(false)} onSuccess={()=>qc.invalidateQueries({queryKey:['lfa','list']})} />
-    </Box>
+
+      {sigDialogOpen && selectedLfa && (
+        <SendForSignatureDialog
+        open={sigDialogOpen}
+        onClose={() => { setSigDialogOpen(false); setSelectedLfa(null) }}
+        lfa={selectedLfa!}
+        onSent={() => setSigDialogOpen(false)}
+        />
+      )}
+    </>
   )
 }
