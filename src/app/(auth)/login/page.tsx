@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 "use client"
 import { useState } from "react"
 import { useNavigate, Link as RouterLink } from "react-router-dom"
@@ -18,6 +19,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const login    = useAuthStore((s) => s.setAuth)
   const [error, setError]       = useState("")
@@ -102,7 +104,7 @@ export default function LoginPage() {
         <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <ControlledInput name="username" control={control} label="Email address" type="email" required />
           <Box>
-            <ControlledInput name="password" control={control} label="Password" type="password" required />
+            <ControlledInput name="password" control={control} label={t("auth.password", "Password")} type="password" required />
             <Box sx={{ textAlign: "right", mt: 0.75 }}>
               <Link component={RouterLink} to="/forgot-password"
                 sx={{ fontSize: 12, color: "secondary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}>

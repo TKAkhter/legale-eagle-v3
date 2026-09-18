@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * ContextMenu.tsx — right-click context menu for DataGrid rows.
  *

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { StopwatchWidget } from './StopwatchWidget'
 /**
  * Toolbar.tsx
@@ -37,6 +38,7 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
   const toggleLang = useThemeStore((s) => s.toggleLanguage)
   const logout     = useAuthStore((s) => s.clearAuth)
   const user       = useAuthStore((s) => s.user)
+  const { t } = useTranslation()
   const isDesktop   = useMediaQuery("(min-width:1024px)")
   const isMobile    = useMediaQuery("(max-width:599px)")
   const collapsed   = useThemeStore(s => s.sidebarCollapsed)
@@ -92,7 +94,7 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
           <StopwatchWidget />
           <NotificationsPanel />
 
-          <Tooltip title={colorMode === "dark" ? "Light mode" : "Dark mode"}>
+          <Tooltip title={colorMode === "dark" ? t("settings.lightMode", "Light mode") : t("settings.darkMode",  "Dark mode")}>
             <IconButton size="small" onClick={toggleMode}>
               {colorMode === "dark" ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
             </IconButton>

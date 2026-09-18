@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { Box, Typography, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useState } from 'react'
@@ -47,7 +48,7 @@ function TimeLogFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 export default function TimeLogEntriesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   return (
-    <Box>
+    <PageShell title="Time Entries" description="Billable time log entries">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Time Log Entries</Typography>
         <Can do={PERMISSIONS.TIMELOGS_CREATE}>
@@ -73,6 +74,6 @@ export default function TimeLogEntriesPage() {
         defaultSortBy="entryDate" defaultSortDir="desc"
       />
       <ActivityFormDrawer open={modalOpen} onClose={() => setModalOpen(false)} onSuccess={() => setModalOpen(false)} />
-    </Box>
+    </PageShell>
   )
 }

@@ -17,7 +17,7 @@
  * Static mode: uses emails from src/data/static.ts
  * Live mode:   uses Microsoft Graph via emailApi
  */
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Box, List, ListItemButton, ListItemIcon, ListItemText,
   Typography, Divider, Badge, IconButton, Tooltip,
@@ -59,6 +59,7 @@ function fmtSize(bytes: number): string {
 }
 
 export default function EmailPage() {
+  useEffect(() => { document.title = 'Email — LegalEagle LMS' }, [])
   const qc             = useQueryClient()
   const isDesktop      = useMediaQuery("(min-width:1024px)")
   const isTablet       = useMediaQuery("(min-width:640px)")

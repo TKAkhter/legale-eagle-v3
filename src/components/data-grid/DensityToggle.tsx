@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * DensityToggle.tsx — row density selector for DataGrid.
  * Saves preference to localStorage so it persists between sessions.
@@ -7,7 +8,7 @@
  * Comfortable: more padding, easier to read on large screens
  */
 import { useState } from "react"
-import { IconButton, Popover, MenuItem, MenuList, ListItemIcon, ListItemText, Tooltip, Divider, Typography, Box } from "@mui/material"
+import { IconButton, Popover, MenuItem, ListItemIcon, ListItemText, Tooltip, Divider, Typography, Box } from "@mui/material"
 import DensitySmallIcon  from "@mui/icons-material/DensitySmall"
 import DensityMediumIcon from "@mui/icons-material/DensityMedium"
 import DensityLargeIcon  from "@mui/icons-material/DensityLarge"
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function DensityToggle({ value, onChange }: Props) {
+  const { t } = useTranslation()
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
 
   function select(d: TableDensity) {
@@ -40,13 +42,7 @@ export function DensityToggle({ value, onChange }: Props) {
   return (
     <>
       <Tooltip title="Row density">
-        <IconButton
-          size="small"
-          onClick={e => setAnchor(e.currentTarget)}
-          aria-label="Row density"
-          aria-haspopup="menu"
-          aria-expanded={Boolean(anchor)}
-        >
+        <IconButton size="small" onClick={e => setAnchor(e.currentTarget)}>
           {currentIcon}
         </IconButton>
       </Tooltip>
@@ -64,39 +60,25 @@ export function DensityToggle({ value, onChange }: Props) {
             Row Density
           </Typography>
         </Box>
-
         <Divider />
-
-        <MenuList dense>
-          {OPTIONS.map(opt => (
-            <MenuItem
-              key={opt.value}
-              selected={value === opt.value}
-              onClick={() => select(opt.value)}
-            >
-              <ListItemIcon>{opt.icon}</ListItemIcon>
-              <ListItemText>{opt.label}</ListItemText>
-            </MenuItem>
-          ))}
-        </MenuList>
+        {OPTIONS.map(opt => (
+          <MenuItem
+            key={opt.value}
+            selected={value === opt.value}
+            onClick={() => select(opt.value)}
+            dense
+          >
+            <ListItemIcon>{opt.icon}</ListItemIcon>
+            <ListItemText>{t(`dataGrid.${opt.value}`, opt.label)}</ListItemText>
+          </MenuItem>
+        ))}
       </Popover>
     </>
   )
 }
 
 /** Load saved density from localStorage */
-export function loadDensity(
-  defaultDensity: TableDensity = "normal",
-): TableDensity {
+export function loadDensity(defaultDensity: TableDensity = "normal"): TableDensity {
   const saved = localStorage.getItem(STORAGE_KEY)
-
-  if (
-    saved === "compact" ||
-    saved === "normal" ||
-    saved === "comfortable"
-  ) {
-    return saved
-  }
-
-  return defaultDensity
+  return (saved as TableDensity) ?? defaultDensity
 }

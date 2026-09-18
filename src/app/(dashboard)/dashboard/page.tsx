@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 /**
  * Dashboard page — customisable widget layout.
  *
@@ -126,7 +127,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <Box>
+    <PageShell title="Dashboard" description="Overview and key performance indicators">
       {/* Page header */}
       <Box sx={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", mb:2.5 }}>
         <Box>
@@ -224,6 +225,6 @@ export default function DashboardPage() {
 
       {/* Customise drawer */}
       <DashboardCustomiser open={custOpen} onClose={() => setCustOpen(false)} />
-    </Box>
+    </PageShell>
   )
 }

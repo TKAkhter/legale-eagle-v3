@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Typography, Paper, Button, Alert, Chip, CircularProgress, IconButton } from '@mui/material'
@@ -42,7 +43,7 @@ export default function ConflictCheckPage() {
   const hasConflict = results?.some(r => r.conflictStatus === 'Conflicted')
 
   return (
-    <Box>
+    <PageShell title="Conflict Check" description="Check for conflicts of interest">
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Conflict Check</Typography>
         <Typography variant="body2" color="text.secondary">Check parties against existing clients and matters before opening a new matter.</Typography>
@@ -100,6 +101,6 @@ export default function ConflictCheckPage() {
           ))}
         </Paper>
       )}
-    </Box>
+    </PageShell>
   )
 }

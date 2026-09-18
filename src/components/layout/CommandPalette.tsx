@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * CommandPalette.tsx — global Ctrl+K command palette.
  *

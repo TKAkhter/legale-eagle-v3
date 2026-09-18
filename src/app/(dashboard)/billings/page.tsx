@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
@@ -68,7 +69,7 @@ export default function BillingsPage() {
 
 
   return (
-    <Box>
+    <PageShell title="Billing" description="Invoices and payment records">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Billing</Typography>
         <Can do={PERMISSIONS.BILLING_CREATE}>
@@ -100,6 +101,6 @@ export default function BillingsPage() {
         onClose={() => setCreateOpen(false)}
         onSuccess={() => qc.invalidateQueries({ queryKey: ['invoices', 'list'] })}
       />
-    </Box>
+    </PageShell>
   )
 }

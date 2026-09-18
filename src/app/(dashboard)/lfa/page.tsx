@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { useState } from 'react'
 import { SendForSignatureDialog } from './_components/SendForSignatureDialog'
 import { Box, Typography, Button } from '@mui/material'
@@ -52,40 +53,37 @@ export default function LfaPage() {
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
   return (
-    <>
-      <Box>
-        <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
-          <Typography variant="h5" sx={{ fontWeight:600 }}>LFA — Legal Fee Agreements</Typography>
-          <Can do={PERMISSIONS.LFA_CREATE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setDrawerOpen(true)}>New LFA</Button></Can>
-        </Box>
-        <DataGrid
-          columns={[
-            { field:'agreementNo', header:'Agreement #' },
-            { field:'client', header:'Client', renderCell:(v)=>{ const c=v as Record<string,string>; return c?.companyName??c?.firstName??'—' } },
-            { field:'billingType', header:'Type', renderCell:(v)=><StatusBadge status={String(v??'')} /> },
-            { field:'fixedBillingAmount', header:'Fixed Amount', align:'right', renderCell:(v)=>v?formatCurrency(Number(v)):'—' },
-            { field:'contingent', header:'Contingent', align:'right', renderCell:(v)=>v?`${v}%`:'—' },
-            { field:'agreementDate', header:'Date', renderCell:(v)=>formatDate(String(v??'')) },
-            { field:'current', header:'Status', renderCell:(v)=><StatusBadge status={v?'Approved':'Draft'} /> },
-            { field:'signatureStatus', header:'Signature', renderCell:(v)=><StatusBadge status={String(v??'Not Sent')} /> },
-          ]}
-          queryKey={['lfa','list']}
-          queryFn={fetchLfas}
-          FilterPanel={LfaFilterPanel}
-          hasFilters hasExport syncWithUrl
-          detailPath={(row)=>`/lfa/${row.id}`}
-        />
-        <LfaFormDrawer open={drawerOpen} onClose={()=>setDrawerOpen(false)} onSuccess={()=>qc.invalidateQueries({queryKey:['lfa','list']})} />
+    <PageShell title="Fee Agreements" description="Legal Fee Agreements with clients">
+      <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
+        <Typography variant="h5" sx={{ fontWeight:600 }}>LFA — Legal Fee Agreements</Typography>
+        <Can do={PERMISSIONS.LFA_CREATE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setDrawerOpen(true)}>New LFA</Button></Can>
       </Box>
-
+      <DataGrid
+        columns={[
+          { field:'agreementNo', header:'Agreement #' },
+          { field:'client', header:'Client', renderCell:(v)=>{ const c=v as Record<string,string>; return c?.companyName??c?.firstName??'—' } },
+          { field:'billingType', header:'Type', renderCell:(v)=><StatusBadge status={String(v??'')} /> },
+          { field:'fixedBillingAmount', header:'Fixed Amount', align:'right', renderCell:(v)=>v?formatCurrency(Number(v)):'—' },
+          { field:'contingent', header:'Contingent', align:'right', renderCell:(v)=>v?`${v}%`:'—' },
+          { field:'agreementDate', header:'Date', renderCell:(v)=>formatDate(String(v??'')) },
+          { field:'current', header:'Status', renderCell:(v)=><StatusBadge status={v?'Approved':'Draft'} /> },
+          { field:'signatureStatus', header:'Signature', renderCell:(v)=><StatusBadge status={String(v??'Not Sent')} /> },
+        ]}
+        queryKey={['lfa','list']}
+        queryFn={fetchLfas}
+        FilterPanel={LfaFilterPanel}
+        hasFilters hasExport syncWithUrl
+        detailPath={(row)=>`/lfa/${row.id}`}
+      />
+      <LfaFormDrawer open={drawerOpen} onClose={()=>setDrawerOpen(false)} onSuccess={()=>qc.invalidateQueries({queryKey:['lfa','list']})} />
       {sigDialogOpen && selectedLfa && (
         <SendForSignatureDialog
-        open={sigDialogOpen}
-        onClose={() => { setSigDialogOpen(false); setSelectedLfa(null) }}
-        lfa={selectedLfa!}
-        onSent={() => setSigDialogOpen(false)}
+          open={sigDialogOpen}
+          onClose={() => { setSigDialogOpen(false); setSelectedLfa(null) }}
+          lfa={selectedLfa!}
+          onSent={() => setSigDialogOpen(false)}
         />
       )}
-    </>
+    </PageShell>
   )
 }

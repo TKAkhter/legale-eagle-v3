@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * StopwatchEndDialog.tsx — shown when user clicks stop on the stopwatch.
  *
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function StopwatchEndDialog({ open, elapsed, matterId, matterTitle, onSave, onDiscard }: Props) {
+  const { t } = useTranslation()
   const navigate  = useNavigate()
   const [saving,  setSaving]  = useState(false)
 
@@ -97,7 +99,7 @@ export function StopwatchEndDialog({ open, elapsed, matterId, matterTitle, onSav
           startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <CheckIcon />}
           sx={{ flex: 1 }}
         >
-          {saving ? "Saving…" : "Save Time Entry"}
+          {saving ? "Saving…" : t("layout.stopwatchSave", "Save Time Entry")}
         </Button>
       </DialogActions>
     </Dialog>

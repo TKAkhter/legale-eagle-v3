@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { Box, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
@@ -58,7 +59,7 @@ const entryColumns: ColumnDef<EntryRow>[] = [
 export default function CalendarPage() {
   const navigate = useNavigate()
   return (
-    <Box>
+    <PageShell title="Calendar" description="Hearings, deadlines and appointments">
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Calendar</Typography>
       <AppCalendar
         queryFn={fetchCalendarEvents}
@@ -69,6 +70,6 @@ export default function CalendarPage() {
           if (matterId) navigate(`/matters/${matterId}`)
         }}
       />
-    </Box>
+    </PageShell>
   )
 }

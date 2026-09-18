@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
@@ -32,7 +33,7 @@ export default function TaskApprovalPage() {
   }
 
   return (
-    <Box>
+    <PageShell title="Task Approvals" description="Tasks pending your approval">
       <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>Task Approvals</Typography>
       <DataGrid
         columns={[
@@ -48,6 +49,6 @@ export default function TaskApprovalPage() {
           { label:'Reject', icon:<CloseIcon fontSize="small"/>, color:'error', onClick:()=>handleAction(row,false) },
         ]}
       />
-    </Box>
+    </PageShell>
   )
 }

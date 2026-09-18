@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography, Button } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
@@ -35,7 +36,7 @@ export default function InvoiceApprovalPage() {
   }
 
   return (
-    <Box>
+    <PageShell title="Invoice Approvals" description="Invoices pending your approval">
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Invoice Approvals</Typography>
       <DataGrid
         columns={[
@@ -53,6 +54,6 @@ export default function InvoiceApprovalPage() {
           { label: 'Reject', icon: <CloseIcon fontSize="small" />, color: 'error', onClick: () => handleApprove(row, false) },
         ]}
       />
-    </Box>
+    </PageShell>
   )
 }

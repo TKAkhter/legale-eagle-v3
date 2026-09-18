@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * StopwatchWidget.tsx — live timer chip in the Toolbar.
  *
@@ -21,6 +22,7 @@ import { axiosClient } from "@lib/api/axios"
 import { env } from "@/config/env"
 
 export function StopwatchWidget() {
+  const { t } = useTranslation()
   const { status, elapsed, matterId, matterTitle, tick, pause, resume, end, start, setElapsed } = useStopwatchStore()
   const [endDialogOpen, setEndDialogOpen] = useState(false)
 
@@ -72,7 +74,7 @@ export function StopwatchWidget() {
   return (
     <>
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-        <Tooltip title={matterTitle ? `Timer: ${matterTitle}` : "Stopwatch"}>
+        <Tooltip title={matterTitle ? `Timer: ${matterTitle}` : t("layout.stopwatch", "Stopwatch")}>
           <Chip
             icon={<TimerIcon />}
             label={formatElapsed(elapsed)}

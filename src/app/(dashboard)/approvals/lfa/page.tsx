@@ -1,3 +1,4 @@
+import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
@@ -32,7 +33,7 @@ export default function LfaApprovalPage() {
   }
 
   return (
-    <Box>
+    <PageShell title="LFA Approvals" description="Fee agreements pending your approval">
       <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>LFA Approvals</Typography>
       <DataGrid
         columns={[
@@ -48,6 +49,6 @@ export default function LfaApprovalPage() {
           { label:'Reject',  icon:<CloseIcon  fontSize="small"/>, permission:'lfa:approve', color:'error', onClick:()=>handleAction(row,'Canceled') },
         ]}
       />
-    </Box>
+    </PageShell>
   )
 }
