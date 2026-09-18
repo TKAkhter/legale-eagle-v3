@@ -4,6 +4,7 @@
  * Wraps every page via PageShell. Shows a friendly error card
  * with a retry button and error detail (dev mode only).
  */
+import i18n from 'i18next'
 import { Component, type ReactNode, type ErrorInfo } from 'react'
 import { Box, Typography, Button, Paper, Alert } from '@mui/material'
 import RefreshIcon    from '@mui/icons-material/Refresh'

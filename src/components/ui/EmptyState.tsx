@@ -1,4 +1,5 @@
 import { Box, Typography, Button } from "@mui/material"
+import { useTranslation } from 'react-i18next'
 import type { ReactNode } from "react"
 type Variant = "empty"|"search"|"error"|"access"|"offline"
 const ILLUSTRATIONS: Record<Variant, ReactNode> = {
@@ -17,12 +18,13 @@ const DEFAULTS: Record<Variant,{title:string;description:string}> = {
 }
 interface Props {variant?:Variant;title?:string;description?:string;action?:{label:string;onClick:()=>void};secondAction?:{label:string;onClick:()=>void};compact?:boolean}
 export function EmptyState({variant="empty",title,description,action,secondAction,compact=false}:Props) {
-  const d=DEFAULTS[variant]
+  const { t } = useTranslation()
+  const d = DEFAULTS[variant]
   return (
     <Box sx={{py:compact?4:8,px:2,display:"flex",flexDirection:"column",alignItems:"center",gap:1.5,textAlign:"center",color:"text.secondary"}}>
       <Box sx={{mb:0.5}}>{ILLUSTRATIONS[variant]}</Box>
-      <Typography variant={compact?"subtitle2":"subtitle1"} sx={{fontWeight:600,color:"text.primary"}}>{title??d.title}</Typography>
-      <Typography variant="body2" sx={{color:"text.secondary",maxWidth:360,lineHeight:1.6}}>{description??d.description}</Typography>
+      <Typography variant={compact?"subtitle2":"subtitle1"} sx={{fontWeight:600,color:"text.primary"}}>{title ?? t(`emptyState.${variant}_title`, d.title)}</Typography>
+      <Typography variant="body2" sx={{color:"text.secondary",maxWidth:360,lineHeight:1.6}}>{description ?? t(`emptyState.${variant}_desc`, d.description)}</Typography>
       {(action||secondAction)&&<Box sx={{display:"flex",gap:1,mt:0.5,flexWrap:"wrap",justifyContent:"center"}}>
         {secondAction&&<Button size="small" variant="outlined" onClick={secondAction.onClick}>{secondAction.label}</Button>}
         {action&&<Button size="small" variant="contained" onClick={action.onClick}>{action.label}</Button>}

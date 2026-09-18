@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * NotificationsPanel.tsx — notification bell with background polling + browser push.
  *
@@ -66,6 +67,7 @@ const STATIC_NOTIFICATIONS: Notification[] = [
 export function NotificationsPanel() {
   const navigate    = useNavigate()
   const qc          = useQueryClient()
+  const { t } = useTranslation()
   const [anchor, setAnchor] = useState<HTMLElement|null>(null)
   const prevIdsRef  = useRef<Set<string>>(new Set())
 
@@ -182,7 +184,7 @@ export function NotificationsPanel() {
               </Tooltip>
             )}
             {unread > 0 && (
-              <Tooltip title="Mark all as read">
+              <Tooltip title={t("layout.markAllRead", "Mark all as read")}>
                 <IconButton size="small" onClick={markAllRead}><DoneAllIcon sx={{ fontSize: 16 }} /></IconButton>
               </Tooltip>
             )}

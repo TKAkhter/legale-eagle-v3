@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * DataGrid.tsx — enterprise list component.
  *
@@ -69,6 +70,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
   defaultSortDir    = 'desc',
   onRowClick, rowKey = 'id' as keyof TData,
 }: DataGridProps<TData>) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const isMobile = useMediaQuery('(max-width:639px)')
 
@@ -294,7 +296,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
         <Box sx={{ display:'flex', justifyContent:'flex-end', mb:0.5 }}>
           <Typography variant="caption" color="text.disabled" sx={{ fontSize:10 }}>
             ↑↓ navigate · Enter open · Ctrl+C copy · right-click for actions
-            {reorderableColumns && ' · drag column headers to reorder'}
+            {reorderableColumns && ' ' + t('dataGrid.dragHint')}
           </Typography>
         </Box>
       )}
@@ -302,7 +304,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
       {isError && (
         <Alert severity="error" sx={{ mb:1 }}
           action={<Button onClick={() => refetch()} size="small">Retry</Button>}>
-          {(error as Error)?.message ?? 'Failed to load data. Please try again.'}
+          {(error as Error)?.message ?? t("dataGrid.error")}
         </Alert>
       )}
 

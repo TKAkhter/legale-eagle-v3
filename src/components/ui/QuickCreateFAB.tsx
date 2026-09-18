@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * QuickCreateFAB.tsx — floating speed-dial for quick record creation.
  *
@@ -20,12 +21,13 @@ const ACTIONS = [
 ]
 
 export function QuickCreateFAB() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
 
   return (
     <SpeedDial
-      ariaLabel="Quick create"
+      ariaLabel={t("layout.quickCreate", "Quick create")}
       sx={{
         position: "fixed",
         bottom: { xs: 16, sm: 24 },

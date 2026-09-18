@@ -1,10 +1,11 @@
+import { useTranslation } from 'react-i18next'
 /**
  * SessionTimeoutWarning.tsx — shows a dismissible warning banner
  * 2 minutes before the session token expires.
  *
  * Mounted once in MainLayout. Polls token expiry every 30s.
- * "Stay logged in" silently refreshes the token.
- * "Log out" calls authApi.logout().
+ * {t("layout.sessionStayLoggedIn", "Stay logged in")} silently refreshes the token.
+ * {t("layout.sessionLogOut", "Log out")} calls authApi.logout().
  */
 import { useState, useEffect, useCallback } from 'react'
 import { Alert, Button, Box, LinearProgress } from '@mui/material'
@@ -18,6 +19,7 @@ const POLL_INTERVAL_MS  = 30 * 1000      // check every 30s
 const SESSION_TTL_MS    = 60 * 60 * 1000 // 1 hour default session
 
 export function SessionTimeoutWarning() {
+  const { t } = useTranslation()
   const [show,      setShow]      = useState(false)
   const [remaining, setRemaining] = useState(0)
   const [dismissed, setDismissed] = useState(false)
@@ -93,7 +95,7 @@ export function SessionTimeoutWarning() {
           </Box>
         }
       >
-        Your session expires in <strong>{minutesLeft} minute{minutesLeft !== 1 ? 's' : ''}</strong>.
+        {t("layout.sessionExpiringSoon", { minutes: minutesLeft })}
         <LinearProgress
           variant="determinate"
           value={Math.max(0, progress)}

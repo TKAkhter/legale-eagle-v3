@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * RichTextEditor.tsx — lightweight rich text editor using TipTap.
  *
@@ -33,9 +34,11 @@ interface Props {
 }
 
 export function RichTextEditor({
-  value = "", onChange, onSave, placeholder = "Write something…",
+  value = "", onChange, onSave, placeholder: propPlaceholder = "Write something…",
   minHeight = 160, readOnly = false, autoSave = false,
 }: Props) {
+  const { t } = useTranslation()
+  const placeholder = propPlaceholder || t("richText.placeholder", "Write something…")
   const editor = useEditor({
     extensions: [StarterKit],
     content:    value,
@@ -72,12 +75,12 @@ export function RichTextEditor({
       {/* Toolbar */}
       {!readOnly && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, px: 1, py: 0.5, borderBottom: "1px solid", borderColor: "divider", flexWrap: "wrap" }}>
-          <Tooltip title="Bold (Ctrl+B)">
+          <Tooltip title={t("richText.bold")}>
             <IconButton size="small" onClick={() => editor.chain().focus().toggleBold().run()} sx={btnSx(editor.isActive("bold"))}>
               <FormatBoldIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Italic (Ctrl+I)">
+          <Tooltip title={t("richText.italic")}>
             <IconButton size="small" onClick={() => editor.chain().focus().toggleItalic().run()} sx={btnSx(editor.isActive("italic"))}>
               <FormatItalicIcon fontSize="small" />
             </IconButton>
@@ -88,23 +91,23 @@ export function RichTextEditor({
             </IconButton>
           </Tooltip>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-          <Tooltip title="Bullet list">
+          <Tooltip title={t("richText.bulletList")}>
             <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()} sx={btnSx(editor.isActive("bulletList"))}>
               <FormatListBulletedIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Numbered list">
+          <Tooltip title={t("richText.numberedList")}>
             <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()} sx={btnSx(editor.isActive("orderedList"))}>
               <FormatListNumberedIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-          <Tooltip title="Undo">
+          <Tooltip title={t("richText.undo")}>
             <IconButton size="small" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} sx={btnSx(false)}>
               <UndoIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Redo">
+          <Tooltip title={t("richText.redo")}>
             <IconButton size="small" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} sx={btnSx(false)}>
               <RedoIcon fontSize="small" />
             </IconButton>

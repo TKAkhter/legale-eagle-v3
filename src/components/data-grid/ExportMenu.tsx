@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * ExportMenu.tsx — export format picker for DataGrid toolbar.
  *
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function ExportMenu({ rows, columns, exportFn, params, filename = 'export', title = 'Export', disabled }: Props) {
+  const { t } = useTranslation()
   const [anchor,    setAnchor]    = useState<HTMLElement|null>(null)
   const [exporting, setExporting] = useState<'csv'|'pdf'|'excel'|null>(null)
 
@@ -53,7 +55,7 @@ export function ExportMenu({ rows, columns, exportFn, params, filename = 'export
 
   function handlePDF() {
     setAnchor(null); setExporting('pdf')
-    try { exportToPDF(rows, columns, title, filename); toast.info('Print dialog opened — choose "Save as PDF"') }
+    try { exportToPDF(rows, columns, title, filename); toast.info('Print dialog opened — choose {t("dataGrid.exportPDF", "Save as PDF")}') }
     catch { toast.error('PDF export failed') }
     finally { setExporting(null) }
   }

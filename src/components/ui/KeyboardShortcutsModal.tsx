@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from "react"
 import { Dialog, DialogTitle, DialogContent, Box, Typography, Divider, Paper, IconButton } from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close"
@@ -20,6 +21,7 @@ const SHORTCUTS = [
   ]},
 ]
 export function KeyboardShortcutsModal() {
+  const { t } = useTranslation()
   const [open,setOpen] = useState(false)
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
@@ -59,7 +61,7 @@ export function KeyboardShortcutsModal() {
           </Box>
         ))}
         <Box sx={{mt:3,p:1.5,bgcolor:"action.hover",borderRadius:1.5,textAlign:"center"}}>
-          <Typography variant="caption" color="text.secondary">Press <Paper component="span" variant="outlined" sx={{px:0.75,py:0.125,borderRadius:0.75,fontFamily:"monospace",fontSize:11}}>?</Paper> anywhere to toggle</Typography>
+          <Typography variant="caption" color="text.secondary">{t("keyboard.pressToToggle", { key: "?" })}</Typography>
         </Box>
       </DialogContent>
     </Dialog>

@@ -52,7 +52,7 @@ type AuthStore = AuthState & AuthActions
 
 const initialState: AuthState = {
   user:         null,
-  accessToken:  getPersistedToken(), // re-hydrate from sessionStorage on load
+  accessToken:  null, // Zustand persist rehydrates this from sessionStorage — do NOT call getPersistedToken() here
   refreshToken: null,
   accessScope:  '',
   menuItems:    [],
@@ -165,7 +165,8 @@ export const useAuthStore = create<AuthStore>()(
       name: 'le-auth',
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
-        accessScope: state.accessScope,
+        accessToken:  state.accessToken,   // ← required: protectedLoader checks this on every navigation
+        accessScope:  state.accessScope,
         user: state.user
           ? {
               id:              state.user.id,
