@@ -47,12 +47,17 @@ interface Notification {
 function getNotificationPath(n: Notification): string | null {
   const type = n.notificationType?.toLowerCase() ?? ''
   const id   = n.relatedId
-  if (type.includes('matter')   && id) return `/matters/${id}`
-  if (type.includes('lead')     && id) return `/leads/${id}`
-  if (type.includes('task')     && id) return `/tasks/${id}`
-  if (type.includes('invoice')  && id) return `/billings/${id}`
-  if (type.includes('client')   && id) return `/clients/${id}`
-  if (type.includes('hearing')  && id) return `/matters/${id}`
+  if (type.includes('matter')    && id) return `/matters/${id}`
+  if (type.includes('lead')      && id) return `/leads/${id}`
+  if (type.includes('task')      && id) return `/tasks/${id}`
+  if (type.includes('invoice')   && id) return `/billings/${id}`
+  if (type.includes('client')    && id) return `/clients/${id}`
+  if (type.includes('hearing')   && id) return `/matters/${id}?tab=hearings`
+  if (type.includes('timelog')   && id) return `/time-log-entries/${id}`
+  if (type.includes('time')      && id) return `/time-log-entries/${id}`
+  if (type.includes('lfa')       && id) return `/lfa/${id}`
+  if (type.includes('approval')  && type.includes('task'))    return '/approvals/task'
+  if (type.includes('approval')  && type.includes('invoice')) return '/approvals/invoice'
   if (type.includes('approval'))       return '/approvals/task'
   return null
 }

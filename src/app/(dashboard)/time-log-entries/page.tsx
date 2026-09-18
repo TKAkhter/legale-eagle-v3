@@ -68,6 +68,7 @@ export default function TimeLogEntriesPage() {
         queryKey={['activities', 'list']}
         queryFn={fetchTimeLogs}
         FilterPanel={TimeLogFilterPanel}
+        detailPath={(row) => `/time-log-entries/${(row as Record<string,string>).id}`}
         hasFilters hasExport hasRowSelection syncWithUrl
         defaultSortBy="entryDate" defaultSortDir="desc"
       />

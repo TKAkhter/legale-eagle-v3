@@ -34,6 +34,7 @@ const router = createBrowserRouter([
       { path: '/matters',           loader: protectedLoader('/matters'),     element: L(() => import('./app/(dashboard)/matters/page')) },
       { path: '/matters/:matterId', loader: protectedLoader('/matters'),     element: L(() => import('./app/(dashboard)/matters/[matterId]/page')) },
       { path: '/time-log-entries',  loader: protectedLoader('/time-log-entries'),    element: L(() => import('./app/(dashboard)/time-log-entries/page')) },
+          { path: '/time-log-entries/:entryId', loader: protectedLoader(), element: L(() => import('./app/(dashboard)/time-log-entries/[entryId]/page')) },
       { path: '/calendar',          loader: protectedLoader('/calendar'),    element: L(() => import('./app/(dashboard)/calendar/page')) },
       { path: '/tasks',             loader: protectedLoader('/tasks'),       element: L(() => import('./app/(dashboard)/tasks/page')) },
       { path: '/tasks/:taskId',     loader: protectedLoader('/tasks'),       element: L(() => import('./app/(dashboard)/tasks/[taskId]/page')) },

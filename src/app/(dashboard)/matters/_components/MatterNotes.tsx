@@ -18,6 +18,7 @@ interface Props { matterId: string; initialNotes?: string }
 const SAVE_KEY = (id: string) => `matter-notes-${id}`
 
 export function MatterNotes({ matterId, initialNotes = "" }: Props) {
+  // Notes are loaded from API via initialNotes prop
   const [notes,   setNotes]   = useState(() => {
     if (env.USE_STATIC_DATA) return localStorage.getItem(SAVE_KEY(matterId)) ?? initialNotes
     return initialNotes
@@ -25,8 +26,12 @@ export function MatterNotes({ matterId, initialNotes = "" }: Props) {
   const [status, setStatus] = useState<"idle"|"saving"|"saved">("idle")
 
   useEffect(() => {
-    if (!env.USE_STATIC_DATA && initialNotes && initialNotes !== notes) setNotes(initialNotes)
-  }, [initialNotes]) // eslint-disable-line
+    if (env.USE_STATIC_DATA) return
+    // Fetch notes from API when in live mode
+    axiosClient.get("/api/matter/notes", { params: { matterId } })
+      .then(r => { const n = r.data?.data?.notes ?? r.data?.notes ?? ""; if (n) setNotes(n) })
+      .catch(() => { /* no notes yet */ })
+  }, [matterId]) // eslint-disable-line
 
   async function handleSave(html: string) {
     setStatus("saving")
