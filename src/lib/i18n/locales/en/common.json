@@ -468,5 +468,63 @@
     "resetFilter": "Reset",
     "allDepartments": "All Departments",
     "allTypes": "All Types"
+  },
+  "lfa": {
+    "defaultDesc": "Standard fee agreement templates",
+    "clientDesc": "Fee agreements by client",
+    "sendForSignature": "Send for Signature",
+    "signatureStatus": "Signature Status",
+    "notSent": "Not Sent",
+    "sent": "Sent",
+    "signed": "Signed",
+    "rejected": "Rejected",
+    "agreementNo": "Agreement No."
+  },
+  "budgeting": {
+    "costCards": "Cost Cards",
+    "costCardsDesc": "Attorney cost rates per activity",
+    "rateCards": "Rate Cards",
+    "rateCardsDesc": "Client billing rates per attorney",
+    "budgetCards": "Budget Cards",
+    "budgetCardsDesc": "Matter and department budget tracking",
+    "budget": "Budget",
+    "spent": "Spent",
+    "remaining": "Remaining",
+    "exceeded": "Exceeded",
+    "costPerHour": "Cost/Hour",
+    "ratePerHour": "Rate/Hour",
+    "effectiveDate": "Effective From",
+    "expiryDate": "Expires",
+    "activityType": "Activity Type"
+  },
+  "files": {
+    "title": "Files",
+    "onedrive": "Microsoft OneDrive",
+    "newFolder": "New Folder",
+    "upload": "Upload",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "myFiles": "My Files",
+    "folders": "Folders",
+    "empty": "This folder is empty",
+    "emptyHint": "Upload files or create a folder to get started",
+    "uploading": "Uploading… {{progress}}%",
+    "dropToUpload": "Drop files to upload",
+    "download": "Download",
+    "rename": "Rename",
+    "delete": "Delete",
+    "open": "Open",
+    "folderName": "Folder name",
+    "create": "Create",
+    "deleteFolder": "Delete Folder",
+    "deleteFile": "Delete File",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"?",
+    "deleteFolderWarning": " All contents will be deleted."
+  },
+  "offline": {
+    "title": "You're offline",
+    "message": "LegalEagle LMS requires an internet connection. Please check your network and try again.",
+    "retry": "Try again",
+    "noConnection": "No internet connection"
   }
 }

@@ -1,7 +1,14 @@
 /**
- * billing/page.tsx — redirects to /billings.
+ * billing/page.tsx — canonical redirect to /billings
  *
- * The canonical billing route is /billings.
- * This file exists to catch any links pointing to /billing.
+ * The route /billing is kept for backwards compatibility.
+ * All actual billing content lives under /billings.
  */
-export { default } from '../billings/page'
+import { useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+
+export default function BillingRedirectPage() {
+  const navigate = useNavigate()
+  useEffect(() => { navigate("/billings", { replace: true }) }, [navigate])
+  return null
+}

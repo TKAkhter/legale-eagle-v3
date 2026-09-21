@@ -468,5 +468,63 @@
     "resetFilter": "إعادة تعيين",
     "allDepartments": "جميع الأقسام",
     "allTypes": "جميع الأنواع"
+  },
+  "lfa": {
+    "defaultDesc": "قوالب اتفاقيات الرسوم القياسية",
+    "clientDesc": "اتفاقيات الرسوم حسب العميل",
+    "sendForSignature": "إرسال للتوقيع",
+    "signatureStatus": "حالة التوقيع",
+    "notSent": "لم يُرسل",
+    "sent": "أُرسل",
+    "signed": "موقّع",
+    "rejected": "مرفوض",
+    "agreementNo": "رقم الاتفاقية"
+  },
+  "budgeting": {
+    "costCards": "بطاقات التكلفة",
+    "costCardsDesc": "تكاليف المحامين لكل نشاط",
+    "rateCards": "بطاقات الأسعار",
+    "rateCardsDesc": "أسعار الفوترة لكل محامٍ وعميل",
+    "budgetCards": "بطاقات الميزانية",
+    "budgetCardsDesc": "تتبع ميزانية القضايا والأقسام",
+    "budget": "الميزانية",
+    "spent": "المنفَق",
+    "remaining": "المتبقي",
+    "exceeded": "تجاوز الحد",
+    "costPerHour": "تكلفة/ساعة",
+    "ratePerHour": "سعر/ساعة",
+    "effectiveDate": "يسري من",
+    "expiryDate": "ينتهي",
+    "activityType": "نوع النشاط"
+  },
+  "files": {
+    "title": "الملفات",
+    "onedrive": "Microsoft OneDrive",
+    "newFolder": "مجلد جديد",
+    "upload": "رفع",
+    "gridView": "عرض شبكي",
+    "listView": "عرض قائمة",
+    "myFiles": "ملفاتي",
+    "folders": "المجلدات",
+    "empty": "هذا المجلد فارغ",
+    "emptyHint": "ارفع ملفات أو أنشئ مجلداً للبدء",
+    "uploading": "جارٍ الرفع… {{progress}}%",
+    "dropToUpload": "أفلت الملفات للرفع",
+    "download": "تنزيل",
+    "rename": "إعادة تسمية",
+    "delete": "حذف",
+    "open": "فتح",
+    "folderName": "اسم المجلد",
+    "create": "إنشاء",
+    "deleteFolder": "حذف المجلد",
+    "deleteFile": "حذف الملف",
+    "deleteConfirm": "هل أنت متأكد من حذف \"{{name}}\"؟",
+    "deleteFolderWarning": " سيتم حذف جميع المحتويات."
+  },
+  "offline": {
+    "title": "أنت غير متصل",
+    "message": "يتطلب LegalEagle LMS اتصالاً بالإنترنت. يرجى التحقق من الشبكة والمحاولة مرة أخرى.",
+    "retry": "حاول مجدداً",
+    "noConnection": "لا يوجد اتصال بالإنترنت"
   }
 }

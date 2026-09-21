@@ -13,6 +13,7 @@ export default defineConfig({
       workbox: {
         globPatterns:   ['**/*.{js,css,html,svg,png,ico}'],
         cleanupOutdatedCaches: true,
+        navigateFallback: '/offline.html',
         runtimeCaching: [
           {
             // Never cache API calls — always go to network

@@ -15,7 +15,7 @@
  * Static mode: uses fileTree from src/data/static.ts (in-memory, mutations persist until refresh)
  * Live mode:   calls Microsoft Graph / OneDrive API
  */
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import {
   Box, Typography, IconButton, Tooltip, Button, Grid, Paper,
   List, ListItem, ListItemIcon, ListItemText, LinearProgress,
@@ -63,6 +63,7 @@ function fmtSize(bytes: number | null): string {
 
 export default function FileManagerPage() {
   const qc = useQueryClient()
+  useEffect(() => { document.title = 'Files — LegalEagle LMS' }, [])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isDesktop = useMediaQuery("(min-width:1024px)")
 

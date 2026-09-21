@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline — LegalEagle LMS</title>
+  <style>
+    :root { --primary: #0F2744; --accent: #00B4A6; --bg: #F8FAFC; --text: #1E293B; --sub: #64748B; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0F172A; --text: #F1F5F9; --sub: #94A3B8; }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: var(--bg); border: 1px solid rgba(0,0,0,0.1); border-radius: 20px; padding: 48px 40px; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+    .icon { width: 72px; height: 72px; margin: 0 auto 24px; background: linear-gradient(135deg, var(--primary), #1a4a7a); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .icon svg { width: 36px; height: 36px; fill: white; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+    p  { font-size: 14px; color: var(--sub); line-height: 1.6; margin-bottom: 28px; }
+    .btn { display: inline-block; padding: 12px 28px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; transition: opacity 200ms; }
+    .btn:hover { opacity: 0.88; }
+    .status { margin-top: 20px; font-size: 12px; color: var(--sub); }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF4444; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+    </div>
+    <h1>You're offline</h1>
+    <p>LegalEagle LMS requires an internet connection. Please check your network and try again.</p>
+    <button class="btn" onclick="window.location.reload()">Try again</button>
+    <div class="status">
+      <span class="dot"></span> No internet connection
+    </div>
+  </div>
+  <script>
+    // Auto-reload when connection is restored
+    window.addEventListener('online', () => window.location.reload())
+  </script>
+</body>
+</html>
