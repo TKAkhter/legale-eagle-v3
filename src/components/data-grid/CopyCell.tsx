@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { Box, Tooltip, IconButton } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import CheckIcon       from '@mui/icons-material/Check'
-import { toast } from '@/lib/toast'
+import { toast } from "@/lib/toast"
 
 interface Props {
   /** The text to display and copy */

@@ -1,6 +1,6 @@
 import { transformClient } from '@/transformers/client.transformer'
 import { env }         from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { clients as staticClients } from "@/data/static"
 import type { GridParams, PageResponse } from "@/types/common.types"
 

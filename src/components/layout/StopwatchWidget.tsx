@@ -16,9 +16,9 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import PauseIcon     from "@mui/icons-material/Pause"
 import StopIcon      from "@mui/icons-material/Stop"
 import TimerIcon     from "@mui/icons-material/Timer"
-import { useStopwatchStore, formatElapsed } from "@lib/store/stopwatchStore"
+import { useStopwatchStore, formatElapsed } from "@/lib/store/stopwatchStore"
 import { StopwatchEndDialog } from "./StopwatchEndDialog"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { env } from "@/config/env"
 
 export function StopwatchWidget() {

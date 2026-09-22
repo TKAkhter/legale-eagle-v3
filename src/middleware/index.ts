@@ -1,6 +1,6 @@
 import { env } from "@/config/env"
 import { redirect }    from "react-router-dom"
-import { useAuthStore } from "@lib/store/authStore"
+import { useAuthStore } from "@/lib/store/authStore"
 
 export function protectedLoader(routeUrl?: string) {
   return (): Response | null => {

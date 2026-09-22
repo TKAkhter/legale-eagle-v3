@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from "@tanstack/react-query"
 import { Box, Paper, Typography } from "@mui/material"
 import { PageShell }      from "@/components/ui/PageShell"
 import { DataGrid }       from "@/components/data-grid/DataGrid"
-import { ApexChart }      from "@components/charts/ApexChart"
+import { ApexChart }      from "@/components/charts/ApexChart"
 import { reportsApi }     from "@/api/reports"
-import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatCurrency } from "@/lib/utils/formatCurrency"
 import type { GridParams } from "@/types/common.types"
 
 export default function CollectionsReportPage() {
+  const { t } = useTranslation()
   const { data: summary } = useQuery({
     queryKey: ["reports","collections","summary"],
     queryFn: () => reportsApi.getCollections({ page:0, pageSize:100, sortBy:"collectionRate", sortDir:"desc", filters:{} }),
@@ -15,7 +17,7 @@ export default function CollectionsReportPage() {
   const rows = (summary?.content ?? []) as Record<string,unknown>[]
 
   return (
-    <PageShell title="Collections Report" description="Invoice collection rates by client">
+    <PageShell title={t("nav.reports-collections", "Collections Report")} description="Invoice collection rates by client">
       {rows.length > 0 && (
         <Box sx={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2, mb:3 }}>
           <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>

@@ -14,8 +14,8 @@ import AssignmentIcon   from "@mui/icons-material/Assignment"
 import TimerIcon        from "@mui/icons-material/Timer"
 import ReceiptIcon      from "@mui/icons-material/Receipt"
 import CheckCircleIcon  from "@mui/icons-material/CheckCircle"
-import { formatDate }   from "@lib/utils/formatDate"
-import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatDate }   from "@/lib/utils/formatDate"
+import { formatCurrency } from "@/lib/utils/formatCurrency"
 
 type EventType = "created" | "hearing" | "task" | "timelog" | "invoice"
 

@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { CircularProgress, Box } from '@mui/material'
 import { protectedLoader } from '@/middleware'
-import { PERMISSIONS } from '@config/permissions'
+import { PERMISSIONS } from '@/config/permissions'
 
 const Spin = () => <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}><CircularProgress /></Box>
 const L = (fn: () => Promise<{ default: React.ComponentType }>) => { const C = lazy(fn); return <Suspense fallback={<Spin />}><C /></Suspense> }

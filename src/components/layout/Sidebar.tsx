@@ -25,7 +25,7 @@
  */
 import { useState } from "react"
 import { Box, Drawer, ThemeProvider, useMediaQuery } from "@mui/material"
-import { useThemeStore }  from "@lib/store/themeStore"
+import { useThemeStore }  from "@/lib/store/themeStore"
 import { buildSidebarTheme } from "@/config/theme"
 import { SidebarNav }    from "./SidebarNav"
 import { SidebarHeader } from "./SidebarHeader"

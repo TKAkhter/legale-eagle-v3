@@ -1,14 +1,16 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from "@tanstack/react-query"
 import { Box, Paper, Typography, Chip } from "@mui/material"
 import { PageShell }      from "@/components/ui/PageShell"
 import { DataGrid }       from "@/components/data-grid/DataGrid"
-import { ApexChart }      from "@components/charts/ApexChart"
+import { ApexChart }      from "@/components/charts/ApexChart"
 import { StatusBadge }    from "@/components/ui/StatusBadge"
 import { reportsApi }     from "@/api/reports"
-import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatCurrency } from "@/lib/utils/formatCurrency"
 import type { GridParams } from "@/types/common.types"
 
 export default function MatterBillingReportPage() {
+  const { t } = useTranslation()
   const { data: summary } = useQuery({
     queryKey: ["reports","matter-billing","summary"],
     queryFn: () => reportsApi.getMatterBilling({ page:0, pageSize:20, sortBy:"totalBilled", sortDir:"desc", filters:{} }),
@@ -17,7 +19,7 @@ export default function MatterBillingReportPage() {
   const top5 = rows.slice(0, 5)
 
   return (
-    <PageShell title="Matter Billing Report" description="Billing summary per matter">
+    <PageShell title={t("nav.reports-matter-billing", "Matter Billing Report")} description="Billing summary per matter">
       {top5.length > 0 && (
         <Box sx={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2, mb:3 }}>
           <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>

@@ -9,7 +9,7 @@ import { Box, Button, Alert, CircularProgress, Typography, Divider, Link } from 
 import WindowIcon from "@mui/icons-material/Window"
 import { env } from "@/config/env"
 import { authApi } from "@/api/auth"
-import { useAuthStore } from "@lib/store/authStore"
+import { useAuthStore } from "@/lib/store/authStore"
 import { ControlledInput } from "@/components/forms/ControlledInput"
 
 const schema = z.object({

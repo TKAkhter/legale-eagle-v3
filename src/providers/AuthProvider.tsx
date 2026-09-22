@@ -1,6 +1,6 @@
 import { useEffect }    from "react"
-import { useAuthStore } from "@lib/store/authStore"
-import { axiosClient }  from "@lib/api/axios"
+import { useAuthStore } from "@/lib/store/authStore"
+import { axiosClient }  from "@/lib/api/axios"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Use accessToken — the field name in @lib/store/authStore

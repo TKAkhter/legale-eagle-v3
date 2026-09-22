@@ -1,5 +1,5 @@
 import { env }         from "@/config/env"
-import { axiosClient, axiosBlob } from "@lib/api/axios"
+import { axiosClient, axiosBlob } from "@/lib/api/axios"
 import { invoices as staticInvoices } from "@/data/static"
 import type { GridParams, PageResponse } from "@/types/common.types"
 

@@ -9,7 +9,7 @@ import { Tabs } from "@/components/ui/Tabs"; import { DetailSkeleton } from "@/c
 import { FollowupFormDrawer } from "../_components/FollowupFormDrawer"
 import { LeadConvertDialog } from "../_components/LeadConvertDialog"
 import { LeadFormDrawer } from "../_components/LeadFormDrawer"
-import { fromNow, formatDate } from "@lib/utils/formatDate"
+import { fromNow, formatDate } from "@/lib/utils/formatDate"
 import { leadDetail as SD, leadFollowups as SF } from "@/data/static"
 import { toast } from "@/lib/toast"; import { logger } from "@/lib/logger"
 

@@ -8,7 +8,7 @@
  * Live mode:   calls /api/activity/feed and /api/audit/log.
  */
 import { env }    from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { activityFeed as staticFeed, auditLog as staticAudit } from "@/data/static"
 import { logger } from "@/lib/logger"
 import type { GridParams, PageResponse } from "@/types/common.types"

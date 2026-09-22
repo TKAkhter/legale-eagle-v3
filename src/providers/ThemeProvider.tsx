@@ -9,7 +9,7 @@
 import { useMemo } from "react"
 import { ThemeProvider as MuiThemeProvider, CssBaseline } from "@mui/material"
 import { buildTheme } from "@/config/theme"
-import { useThemeStore } from "@lib/store/themeStore"
+import { useThemeStore } from "@/lib/store/themeStore"
 import { I18nProvider } from "./I18nProvider"
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

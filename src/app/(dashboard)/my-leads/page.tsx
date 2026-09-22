@@ -1,10 +1,12 @@
-import { useAuthStore } from "@lib/store/authStore"
+import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/utils/formatDate'
+import { useAuthStore } from "@/lib/store/authStore"
 import { PageShell }   from "@/components/ui/PageShell"
-import { DataGrid }    from "@components/data-grid/DataGrid"
-import { StatusBadge } from "@components/ui/StatusBadge"
+import { DataGrid }    from "@/components/data-grid/DataGrid"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import { Chip }        from "@mui/material"
-import { axiosClient } from "@lib/api/axios"
-import { buildQueryParams } from "@lib/utils/buildQueryParams"
+import { axiosClient } from "@/lib/api/axios"
+import { buildQueryParams } from "@/lib/utils/buildQueryParams"
 import { leadsApi }    from "@/api/leads"
 import { env }         from "@/config/env"
 import type { GridParams } from "@/types/common.types"
@@ -19,10 +21,11 @@ async function fetchMyLeads(params: GridParams) {
 }
 
 export default function MyLeadsPage() {
+  const { t } = useTranslation()
   const user = useAuthStore(s => (s as {user?:{firstName?:string}}).user)
   return (
     <PageShell
-      title="My Leads"
+      title={t("nav.my-leads", "My Leads")}
       description={`Leads assigned to ${user?.firstName ?? "you"}`}
     >
       <DataGrid
@@ -34,7 +37,7 @@ export default function MyLeadsPage() {
           { field:"practiceArea",  header:"Practice", renderCell:(v)=>(v as Record<string,string>)?.name??"—" },
           { field:"leadType",      header:"Type",     renderCell:(v)=><Chip size="small" label={String(v??"")} variant="outlined" /> },
           { field:"createdAt",     header:"Created",  sortKey:"createdAt",
-            renderCell:(v)=>v?new Date(String(v)).toLocaleDateString("en-GB"):"—" },
+            renderCell:(v)=>v?formatDate(String(v)):"—" },
         ]}
         queryKey={["leads","my"]}
         queryFn={fetchMyLeads}

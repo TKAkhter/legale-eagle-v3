@@ -4,8 +4,8 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, Box, 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { axiosClient } from '@lib/api/axios'
-import { ControlledInput } from '@components/forms/ControlledInput'
+import { axiosClient } from '@/lib/api/axios'
+import { ControlledInput } from '@/components/forms/ControlledInput'
 
 const schema = z.object({
   password:        z.string().min(8, 'Min 8 characters'),

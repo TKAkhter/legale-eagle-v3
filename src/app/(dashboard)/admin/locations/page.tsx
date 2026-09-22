@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { adminApi } from '@/api/admin'
 import { toast } from '@/lib/toast'
@@ -7,12 +8,12 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { Can } from '@components/ui/Can'
-import { Modal } from '@components/ui/Modal'
-import { ControlledInput } from '@components/forms/ControlledInput'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { Can } from '@/components/ui/Can'
+import { Modal } from '@/components/ui/Modal'
+import { ControlledInput } from '@/components/forms/ControlledInput'
+import { PERMISSIONS } from '@/config/permissions'
+import { axiosClient } from '@/lib/api/axios'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -30,6 +31,7 @@ async function fetchLocations(_p: GridParams) {
 }
 
 export default function LocationsPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
@@ -44,7 +46,7 @@ export default function LocationsPage() {
   }
 
   return (
-    <PageShell title="Locations" description="Office locations and court venues">
+    <PageShell title={t("nav.admin-locations", "Locations")} description="Office locations and court venues">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Locations</Typography>
         <Can do={PERMISSIONS.LOCATIONS_MANAGE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalOpen(true)}>Add Location</Button></Can>

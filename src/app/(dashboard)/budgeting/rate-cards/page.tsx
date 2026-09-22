@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { Box, Avatar, Typography, Chip } from '@mui/material'
 import { PageShell }     from '@/components/ui/PageShell'
-import { DataGrid }      from '@components/data-grid/DataGrid'
+import { DataGrid }      from '@/components/data-grid/DataGrid'
 import { env }           from '@/config/env'
-import { axiosClient }   from '@lib/api/axios'
-import { formatDate }     from '@lib/utils/formatDate'
+import { axiosClient }   from '@/lib/api/axios'
+import { formatDate }     from '@/lib/utils/formatDate'
 import { rateCards as staticRateCards } from '@/data/static'
 import type { GridParams } from '@/types/common.types'
 

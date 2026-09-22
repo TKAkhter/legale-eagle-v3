@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * Settings page — tabbed settings panel.
  *
@@ -18,9 +19,9 @@ import {
   CircularProgress, Chip, Avatar,
 } from "@mui/material"
 import { useForm, Controller } from "react-hook-form"
-import { useThemeStore }  from "@lib/store/themeStore"
-import { useAuthStore }   from "@lib/store/authStore"
-import { axiosClient }    from "@lib/api/axios"
+import { useThemeStore }  from "@/lib/store/themeStore"
+import { useAuthStore }   from "@/lib/store/authStore"
+import { axiosClient }    from "@/lib/api/axios"
 import { env }            from "@/config/env"
 import { logger }         from "@/lib/logger"
 import { toast }          from "@/lib/toast"
@@ -126,6 +127,7 @@ function CompanyTab({ user }: { user: { company?: Record<string,unknown> } | nul
 }
 
 export default function SettingsPage() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState(0)
   const colorMode      = useThemeStore(s => s.colorMode)
   const toggleColorMode= useThemeStore(s => s.toggleColorMode)
@@ -140,7 +142,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <PageShell title="Settings" description="Manage firm-wide settings and preferences">
+    <PageShell title={t("nav.admin-settings", "Settings")} description="Manage firm-wide settings and preferences">
       <MuiTabs
         value={tab}
         onChange={(_, v) => setTab(v)}

@@ -1,6 +1,6 @@
 import { transformUser } from '@/transformers/user.transformer'
 import { env }         from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { lookups as staticLookups } from "@/data/static"
 
 export const adminApi = {

@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from "@tanstack/react-query"
 import { Box, Paper, Typography, LinearProgress } from "@mui/material"
 import { PageShell }     from "@/components/ui/PageShell"
 import { DataGrid }      from "@/components/data-grid/DataGrid"
-import { ApexChart }     from "@components/charts/ApexChart"
+import { ApexChart }     from "@/components/charts/ApexChart"
 import { reportsApi }    from "@/api/reports"
-import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatCurrency } from "@/lib/utils/formatCurrency"
 import type { GridParams } from "@/types/common.types"
 
 export default function BilledAmountReportPage() {
+  const { t } = useTranslation()
   const { data: summary } = useQuery({
     queryKey: ["reports","billed-amount","summary"],
     queryFn: () => reportsApi.getDepartmentBilling({ page:0, pageSize:100, sortBy:"totalBilled", sortDir:"desc", filters:{} }),
@@ -15,7 +17,7 @@ export default function BilledAmountReportPage() {
   const rows = (summary?.content ?? []) as Record<string,unknown>[]
 
   return (
-    <PageShell title="Billed Amount by Department" description="Billing breakdown per practice area">
+    <PageShell title={t("nav.reports-billed-amount", "Billed Amount by Department")} description="Billing breakdown per practice area">
       {/* Charts row */}
       {rows.length > 0 && (
         <Box sx={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:2, mb:3 }}>

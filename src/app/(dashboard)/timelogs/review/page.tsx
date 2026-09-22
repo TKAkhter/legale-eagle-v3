@@ -1,12 +1,13 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { Box, Typography } from '@mui/material'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatDate } from '@lib/utils/formatDate'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import { makeReportFilterPanel } from '@components/filters/ReportFilterPanel'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { axiosClient } from '@/lib/api/axios'
+import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { formatDate } from '@/lib/utils/formatDate'
+import { formatCurrency } from '@/lib/utils/formatCurrency'
+import { makeReportFilterPanel } from '@/components/filters/ReportFilterPanel'
 import type { GridParams } from '@/types/common.types'
 import { timelogsApi } from '@/api/timelogs'
 import { env } from '@/config/env'
@@ -24,8 +25,9 @@ async function fetchForReview(params: GridParams) {
 }
 
 export default function TimelogsReviewPage() {
+  const { t } = useTranslation()
   return (
-    <PageShell title="Timelogs Review" description="Draft time entries pending review before pre-approval">
+    <PageShell title={t("nav.timelogs-review", "Timelogs Review")} description="Draft time entries pending review before pre-approval">
       <DataGrid
         columns={[
           { field:'activity', header:'Activity' },

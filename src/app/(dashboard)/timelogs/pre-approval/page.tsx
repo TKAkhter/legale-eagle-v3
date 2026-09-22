@@ -1,16 +1,17 @@
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography, Button } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send'
 import { useState } from 'react'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatDate } from '@lib/utils/formatDate'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import { makeReportFilterPanel } from '@components/filters/ReportFilterPanel'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { axiosClient } from '@/lib/api/axios'
+import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { formatDate } from '@/lib/utils/formatDate'
+import { formatCurrency } from '@/lib/utils/formatCurrency'
+import { makeReportFilterPanel } from '@/components/filters/ReportFilterPanel'
 import type { GridParams } from '@/types/common.types'
 import { timelogsApi } from '@/api/timelogs'
 import { env } from '@/config/env'
@@ -28,6 +29,7 @@ async function fetchPreApproval(params: GridParams) {
 }
 
 export default function TimelogsPreApprovalPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
 
   async function submitForApproval(row: Record<string,unknown>) {
@@ -39,7 +41,7 @@ export default function TimelogsPreApprovalPage() {
   }
 
   return (
-    <PageShell title="Timelogs Pre-Approval" description="Time entries submitted for pre-approval review">
+    <PageShell title={t("nav.timelogs-pre-approval", "Timelogs Pre-Approval")} description="Time entries submitted for pre-approval review">
       <DataGrid
         columns={[
           { field:'activity', header:'Activity' },

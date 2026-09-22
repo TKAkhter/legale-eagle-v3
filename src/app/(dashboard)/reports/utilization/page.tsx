@@ -1,12 +1,14 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from "@tanstack/react-query"
 import { Box, Paper, Typography } from "@mui/material"
 import { PageShell }      from "@/components/ui/PageShell"
 import { DataGrid }       from "@/components/data-grid/DataGrid"
-import { ApexChart }      from "@components/charts/ApexChart"
+import { ApexChart }      from "@/components/charts/ApexChart"
 import { reportsApi }     from "@/api/reports"
 import type { GridParams } from "@/types/common.types"
 
 export default function UtilizationReportPage() {
+  const { t } = useTranslation()
   const { data: summary } = useQuery({
     queryKey: ["reports","utilization","summary"],
     queryFn: () => reportsApi.getUtilization({ page:0, pageSize:100, sortBy:"utilizationRate", sortDir:"desc", filters:{} }),
@@ -14,7 +16,7 @@ export default function UtilizationReportPage() {
   const rows = (summary?.content ?? []) as Record<string,unknown>[]
 
   return (
-    <PageShell title="Utilization Report" description="Billable vs total hours by fee earner">
+    <PageShell title={t("nav.reports-utilization", "Utilization Report")} description="Billable vs total hours by fee earner">
       {rows.length > 0 && (
         <Box sx={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:2, mb:3 }}>
           <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>

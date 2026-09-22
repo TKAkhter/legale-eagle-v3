@@ -77,9 +77,9 @@ import IntegrationInstructionsOutlinedIcon from '@mui/icons-material/Integration
 import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
 import RequestPageOutlinedIcon from '@mui/icons-material/RequestPageOutlined'
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
-import { useAuthStore }  from "@lib/store/authStore"
-import { hasPermission } from "@lib/auth/permissions"
-import { navigationConfig, type NavItem } from "@config/navigation"
+import { useAuthStore }  from "@/lib/store/authStore"
+import { hasPermission } from "@/lib/auth/permissions"
+import { navigationConfig, type NavItem } from "@/config/navigation"
 import { useTranslation } from "react-i18next"
 import { env } from "@/config/env"
 import { logger } from "@/lib/logger"

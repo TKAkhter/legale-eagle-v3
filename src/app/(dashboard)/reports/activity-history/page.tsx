@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * Activity History Report — filterable activity log for reports.
  *
@@ -9,15 +10,15 @@
  */
 import { useState } from "react"
 import { Box, Button, Chip, Typography, Paper } from "@mui/material"
-import { ApexChart } from '@components/charts/ApexChart'
+import { ApexChart } from '@/components/charts/ApexChart'
 import { activityFeed as staticFeed } from '@/data/static'
 import { PageShell }   from "@/components/ui/PageShell"
-import { DataGrid }    from "@components/data-grid/DataGrid"
-import { SearchInput } from "@components/filters/SearchInput"
+import { DataGrid }    from "@/components/data-grid/DataGrid"
+import { SearchInput } from "@/components/filters/SearchInput"
 import { activityApi } from "@/api/activity"
-import { formatDateTime, fromNow } from "@lib/utils/formatDate"
+import { formatDateTime, fromNow } from "@/lib/utils/formatDate"
 import type { GridParams } from "@/types/common.types"
-import type { FilterPanelProps } from "@components/data-grid/types"
+import type { FilterPanelProps } from "@/components/data-grid/types"
 
 const ENTITY_COLOURS: Record<string, "primary"|"success"|"warning"|"info"|"secondary"|"default"> = {
   Matter:  "primary",
@@ -40,8 +41,9 @@ function Filters({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function ActivityHistoryPage() {
+  const { t } = useTranslation()
   return (
-    <PageShell title="Activity History" description="Firm-wide activity log for the selected period">
+    <PageShell title={t("nav.activity-history", "Activity History")} description="Firm-wide activity log for the selected period">
       {/* Summary */}
       <Box sx={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:2, mb:3 }}>
         {[["Total Entries","3"],["This Month","2"],["Avg Per Day","0.3"]].map(([l,v])=>(

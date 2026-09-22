@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import ViewListIcon   from '@mui/icons-material/ViewList'
@@ -7,13 +8,13 @@ import { Box, Typography, Button, Chip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useSearchParams } from "react-router-dom"
 import { useEffect } from "react"
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { Can } from '@components/ui/Can'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatDate } from '@lib/utils/formatDate'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Can } from '@/components/ui/Can'
+import { PERMISSIONS } from '@/config/permissions'
+import { axiosClient } from '@/lib/api/axios'
+import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { formatDate } from '@/lib/utils/formatDate'
 import type { GridParams } from '@/types/common.types'
 import { tasksApi } from '@/api/tasks'
 import { env } from '@/config/env'
@@ -31,6 +32,7 @@ async function fetchTasks(params: GridParams) {
 }
 
 export default function TasksPage() {
+  const { t } = useTranslation()
   const [view, setView] = useState<'list'|'board'>('list')
   // Kanban uses the same static data — in live mode fetch from API
   const { data: kanbanData } = useQuery({
@@ -56,7 +58,7 @@ export default function TasksPage() {
   const [editId, setEditId] = useState<string | undefined>()
 
   return (
-    <PageShell title="Tasks" description="All tasks across matters" action={<Can do={PERMISSIONS.TASKS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Task</Button></Can>}>
+    <PageShell title={t("nav.tasks", "Tasks")} description="All tasks across matters" action={<Can do={PERMISSIONS.TASKS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Task</Button></Can>}>
       {view === 'board' ? (
         <TaskKanban tasks={kanbanTasks} onAddTask={()=>{setEditId(undefined);setDrawerOpen(true)}} />
       ) : (

@@ -1,12 +1,13 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { Box, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
-import { AppCalendar } from '@components/calendar/AppCalendar'
-import { axiosClient } from '@lib/api/axios'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import type { CalendarEvent } from '@components/calendar/types'
-import type { ColumnDef } from '@components/data-grid/types'
+import { AppCalendar } from '@/components/calendar/AppCalendar'
+import { axiosClient } from '@/lib/api/axios'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import type { CalendarEvent } from '@/components/calendar/types'
+import type { ColumnDef } from '@/components/data-grid/types'
 import { matterHearings } from '@/data/static'
 
 interface EntryRow extends Record<string, unknown> {
@@ -57,9 +58,10 @@ const entryColumns: ColumnDef<EntryRow>[] = [
 ]
 
 export default function CalendarPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   return (
-    <PageShell title="Calendar" description="Hearings, deadlines and appointments">
+    <PageShell title={t("nav.calendar", "Calendar")} description="Hearings, deadlines and appointments">
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Calendar</Typography>
       <AppCalendar
         queryFn={fetchCalendarEvents}

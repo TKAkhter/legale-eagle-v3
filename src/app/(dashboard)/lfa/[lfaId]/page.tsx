@@ -1,14 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { useParams } from "react-router-dom"
 import { Box, Paper, Chip, Typography } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
 import { env } from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { PageShell } from "@/components/ui/PageShell"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { DetailSkeleton } from "@/components/ui/Skeletons"
 import { Tabs } from "@/components/ui/Tabs"
-import { formatDate } from "@lib/utils/formatDate"
-import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatDate } from "@/lib/utils/formatDate"
+import { formatCurrency } from "@/lib/utils/formatCurrency"
 import { lfaItems as staticLfa } from "@/data/static"
 import { logger } from "@/lib/logger"
 
@@ -22,6 +23,7 @@ function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
 }
 
 export default function LfaDetailPage() {
+  const { t } = useTranslation()
   const { lfaId } = useParams()
 
   const { data: lfa, isLoading } = useQuery({

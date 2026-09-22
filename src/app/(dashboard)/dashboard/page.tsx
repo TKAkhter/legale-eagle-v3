@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 /**
  * Dashboard page — customisable widget layout.
@@ -21,14 +22,14 @@ import TuneIcon    from "@mui/icons-material/Tune"
 import RefreshIcon from "@mui/icons-material/Refresh"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { env }             from "@/config/env"
-import { axiosClient as apiClient } from "@lib/api/axios"
-import { useAuthStore }    from "@lib/store/authStore"
-import { useDashboardStore } from "@lib/store/dashboardStore"
+import { axiosClient as apiClient } from "@/lib/api/axios"
+import { useAuthStore }    from "@/lib/store/authStore"
+import { useDashboardStore } from "@/lib/store/dashboardStore"
 import { dashboard as staticDashboard } from "@/data/static"
 import { ActivityFeed }    from "@/components/widgets/ActivityFeed"
 import { DashboardCustomiser } from "@/components/widgets/DashboardCustomiser"
 import { OnboardingChecklist } from "@/components/widgets/OnboardingChecklist"
-import { ApexChart }       from "@components/charts/ApexChart"
+import { ApexChart }       from "@/components/charts/ApexChart"
 import { logger }          from "@/lib/logger"
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ function greeting() {
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation()
   const user    = useAuthStore(s => (s as {user?:{firstName?:string}}).user)
   const getVisible  = useDashboardStore(s => s.getVisible)
   const visibleWidgets = getVisible()
@@ -127,7 +129,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <PageShell title="Dashboard" description="Overview and key performance indicators">
+    <PageShell title={t("nav.dashboard", "Dashboard")} description="Overview and key performance indicators">
       {/* Page header */}
       <Box sx={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", mb:2.5 }}>
         <Box>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from "react"
 import { useParams } from "react-router-dom"
 import { Box, Typography, Paper, Chip, Button, Divider } from "@mui/material"
@@ -13,8 +14,8 @@ import { MatterTimeline } from "../_components/MatterTimeline"
 import { MatterNotes }    from "../_components/MatterNotes"
 import { MatterCloseDialog } from "../_components/MatterCloseDialog"
 import { ActivityFormDrawer } from "../../time-log-entries/_components/ActivityFormDrawer"
-import { useStopwatchStore } from "@lib/store/stopwatchStore"
-import { formatDate } from "@lib/utils/formatDate"; import { formatCurrency } from "@lib/utils/formatCurrency"
+import { useStopwatchStore } from "@/lib/store/stopwatchStore"
+import { formatDate } from "@/lib/utils/formatDate"; import { formatCurrency } from "@/lib/utils/formatCurrency"
 import { toast } from "@/lib/toast"; import { logger } from "@/lib/logger"
 import { matterDetail as SD, matterTimelogs as STL, matterHearings as SH, matterTasks as ST, matterInvoices as SI } from "@/data/static"
 import type { GridParams } from "@/types/common.types"
@@ -24,6 +25,7 @@ function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
 }
 
 export default function MatterDetailPage() {
+  const { t } = useTranslation()
   const { matterId } = useParams(); const qc = useQueryClient()
   const startStopwatch = useStopwatchStore(s => s.start)
   const [logTimeOpen, setLogTimeOpen] = useState(false)
@@ -102,15 +104,15 @@ export default function MatterDetailPage() {
           ),
         },
         { label:"Time Logs", content:(
-          <DataGrid columns={[{field:"responsiblePerson",header:"Attorney",renderCell:(v)=>{ const u=v as {firstName:string;lastName:string}; return u?`${u.firstName} ${u.lastName}`:"—" }},{field:"activity",header:"Activity"},{field:"entryDate",header:"Date",renderCell:(v)=>v?new Date(String(v)).toLocaleDateString("en-GB"):"—"},{field:"totalHours",header:"Hours",align:"right",renderCell:(v)=>`${Number(v??0).toFixed(1)} hrs`},{field:"billing",header:"Amount",align:"right",renderCell:(v)=>formatCurrency(Number(v??0))},{field:"revenueStatus",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>}]}
+          <DataGrid columns={[{field:"responsiblePerson",header:"Attorney",renderCell:(v)=>{ const u=v as {firstName:string;lastName:string}; return u?`${u.firstName} ${u.lastName}`:"—" }},{field:"activity",header:"Activity"},{field:"entryDate",header:"Date",renderCell:(v)=>v?formatDate(String(v)):"—"},{field:"totalHours",header:"Hours",align:"right",renderCell:(v)=>`${Number(v??0).toFixed(1)} hrs`},{field:"billing",header:"Amount",align:"right",renderCell:(v)=>formatCurrency(Number(v??0))},{field:"revenueStatus",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>}]}
             queryKey={["matters","timelogs",matterId]} queryFn={(p)=>mkList(STL,"/api/activity/get/by/Matter",{matterId}) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>} />
         )},
         { label:"Hearings", content:(
-          <DataGrid columns={[{field:"hearingTitle",header:"Hearing"},{field:"hearingDate",header:"Date",renderCell:(v)=>v?new Date(String(v)).toLocaleDateString("en-GB"):"—"},{field:"hearingTime",header:"Time"},{field:"court",header:"Court"},{field:"room",header:"Room"},{field:"status",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>}]}
+          <DataGrid columns={[{field:"hearingTitle",header:"Hearing"},{field:"hearingDate",header:"Date",renderCell:(v)=>v?formatDate(String(v)):"—"},{field:"hearingTime",header:"Time"},{field:"court",header:"Court"},{field:"room",header:"Room"},{field:"status",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>}]}
             queryKey={["matters","hearings",matterId]} queryFn={(p)=>mkList(SH,"/api/hearing/get",{matterId}) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>} />
         )},
         { label:"Tasks", content:(
-          <DataGrid columns={[{field:"taskName",header:"Task"},{field:"priority",header:"Priority",renderCell:(v)=><Chip size="small" label={String(v??"")} color={String(v)==="High"?"error":"warning"} variant="outlined"/>},{field:"taskStatus",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>},{field:"assignedTo",header:"Assigned To",renderCell:(v)=>{ const u=v as {firstName:string;lastName:string}; return u?`${u.firstName} ${u.lastName}`:"—" }},{field:"taskDeadLine",header:"Due",renderCell:(v)=>v?new Date(String(v)).toLocaleDateString("en-GB"):"—"}]}
+          <DataGrid columns={[{field:"taskName",header:"Task"},{field:"priority",header:"Priority",renderCell:(v)=><Chip size="small" label={String(v??"")} color={String(v)==="High"?"error":"warning"} variant="outlined"/>},{field:"taskStatus",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>},{field:"assignedTo",header:"Assigned To",renderCell:(v)=>{ const u=v as {firstName:string;lastName:string}; return u?`${u.firstName} ${u.lastName}`:"—" }},{field:"taskDeadLine",header:"Due",renderCell:(v)=>v?formatDate(String(v)):"—"}]}
             queryKey={["matters","tasks",matterId]} queryFn={(p)=>mkList(ST,"/api/task/get/full/task",{eventType:"MATTER",eventTypeId:matterId}) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>} />
         )},
         { label:"Invoices", content:(

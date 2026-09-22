@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/utils/formatDate'
 import { useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Button, Box, Chip, FormControl, InputLabel, Select, MenuItem } from "@mui/material"
@@ -7,16 +9,16 @@ import DeleteIcon     from "@mui/icons-material/Delete"
 import SwapHorizIcon  from "@mui/icons-material/SwapHoriz"
 import { PageShell }   from "@/components/ui/PageShell"
 import { useEffect } from "react"
-import { DataGrid }    from "@components/data-grid/DataGrid"
-import { StatusBadge } from "@components/ui/StatusBadge"
+import { DataGrid }    from "@/components/data-grid/DataGrid"
+import { StatusBadge } from "@/components/ui/StatusBadge"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { SearchInput } from "@components/filters/SearchInput"
+import { SearchInput } from "@/components/filters/SearchInput"
 import { leadsApi }   from "@/api/leads"
 import { toast }      from "@/lib/toast"
-import { useAuthStore } from "@lib/store/authStore"
-import { PERMISSIONS }  from "@lib/auth/permissions"
+import { useAuthStore } from "@/lib/store/authStore"
+import { PERMISSIONS }  from "@/lib/auth/permissions"
 import type { GridParams } from "@/types/common.types"
-import type { FilterPanelProps } from "@components/data-grid/types"
+import type { FilterPanelProps } from "@/components/data-grid/types"
 import { LeadFormDrawer } from "./_components/LeadFormDrawer"
 
 const STATUSES = ["NEW","FOLLOW_UP","PROPOSAL","CONVERTED","CLOSED","WRITE_OFF"]
@@ -42,6 +44,7 @@ function LeadFilters({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function LeadsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const hasPermission = useAuthStore(s => (s as {hasPermission:(p:string)=>boolean}).hasPermission)
   const canCreate = hasPermission(PERMISSIONS.LEADS_CREATE)
@@ -73,7 +76,7 @@ export default function LeadsPage() {
 
   return (
     <PageShell
-      title="Leads"
+      title={t("nav.leads", "Leads")}
       description="Track prospective clients and conversion pipeline"
       action={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Lead</Button> : undefined}
     >
@@ -88,7 +91,7 @@ export default function LeadsPage() {
           { field:"currentStatus", header:"Status", renderCell:(v) => <StatusBadge status={String(v??"")} /> },
           { field:"practiceArea",  header:"Practice Area", renderCell:(v) => (v as Record<string,string>)?.name ?? "—" },
           { field:"lawyer",        header:"Attorney", renderCell:(v) => { const u = v as Record<string,string>; return u ? `${u.firstName} ${u.lastName}` : "—" } },
-          { field:"createdAt",     header:"Created", renderCell:(v) => v ? new Date(String(v)).toLocaleDateString("en-GB") : "—" },
+          { field:"createdAt",     header:"Created", renderCell:(v) => v ? formatDate(String(v)) : "—" },
           { field:"leadType",      header:"Type", renderCell:(v) => <Chip size="small" label={String(v??"")} variant="outlined" /> },
         ]}
         queryKey={["leads","list"]}

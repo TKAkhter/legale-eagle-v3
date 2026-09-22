@@ -23,7 +23,7 @@ import {
   Paper, Checkbox, Typography, Alert, Collapse, Button, Box,
 } from '@mui/material'
 import type { DataGridProps, TableDensity, ColumnDef } from './types'
-import type { GridParams } from '@/types/common.types'
+import type { GridParams } from "@/types/common.types"
 import { Pagination }             from './Pagination'
 import { SkeletonRows }           from './SkeletonRows'
 import { ColumnHeader }           from './ColumnHeader'
@@ -37,10 +37,10 @@ import { MobileCardList }         from './MobileCardList'
 import { DataGridToolbar }        from './DataGridToolbar'
 import { ContextMenu }            from './ContextMenu'
 import { InlineCellEditor }       from './InlineCellEditor'
-import { useUrlState }            from '@hooks/useUrlState'
-import { downloadBlob }           from '@lib/utils/downloadBlob'
-import { logger }                 from '@/lib/logger'
-import { toast }                  from '@/lib/toast'
+import { useUrlState }            from "@/hooks/useUrlState"
+import { downloadBlob }           from "@/lib/utils/downloadBlob"
+import { logger }                 from "@/lib/logger"
+import { toast }                  from "@/lib/toast"
 
 const DENSITY_PY: Record<TableDensity, number> = {
   compact: 0.25, normal: 0.75, comfortable: 1.5,

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { useState } from 'react'
@@ -7,7 +8,7 @@ import RemoveIcon from '@mui/icons-material/Remove'
 import SearchIcon from '@mui/icons-material/Search'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
-import { axiosClient } from '@lib/api/axios'
+import { axiosClient } from '@/lib/api/axios'
 
 interface CheckEntry { name: string; phone: string; email: string; partyOpposing: string }
 interface ConflictResult { name?: string; conflictStatus?: string; existingClient?: boolean; existingMatter?: string; existingLead?: boolean }
@@ -20,6 +21,7 @@ const inputSx: React.CSSProperties = {
 }
 
 export default function ConflictCheckPage() {
+  const { t } = useTranslation()
   const [entries, setEntries] = useState<CheckEntry[]>([EMPTY()])
   const [results, setResults] = useState<ConflictResult[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -43,7 +45,7 @@ export default function ConflictCheckPage() {
   const hasConflict = results?.some(r => r.conflictStatus === 'Conflicted')
 
   return (
-    <PageShell title="Conflict Check" description="Check for conflicts of interest">
+    <PageShell title={t("matters.checkConflict", "Conflict Check")} description="Check for conflicts of interest">
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Conflict Check</Typography>
         <Typography variant="body2" color="text.secondary">Check parties against existing clients and matters before opening a new matter.</Typography>

@@ -5,7 +5,7 @@ import { Box, Paper, Typography, Button, TextField, IconButton, Skeleton } from 
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@lib/api/axios'
+import { axiosClient } from '@/lib/api/axios'
 
 interface Props {
   title: string

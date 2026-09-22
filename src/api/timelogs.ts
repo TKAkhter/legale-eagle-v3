@@ -1,5 +1,5 @@
 import { env }         from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import type { GridParams, PageResponse } from "@/types/common.types"
 
 export const timelogsApi = {

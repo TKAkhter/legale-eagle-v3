@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Alert } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
-import { FormDrawer } from "@components/ui/FormDrawer"
-import { ControlledInput, ControlledSelect, FormSection } from "@components/forms"
+import { FormDrawer } from "@/components/ui/FormDrawer"
+import { ControlledInput, ControlledSelect, FormSection } from "@/components/forms"
 import { clientsApi } from "@/api/clients"
 
 const schema = z.object({

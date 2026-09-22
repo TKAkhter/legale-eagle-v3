@@ -1,15 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { Box, Button, Chip } from '@mui/material'
 import { PageShell }     from '@/components/ui/PageShell'
-import { DataGrid }      from '@components/data-grid/DataGrid'
-import { StatusBadge }   from '@components/ui/StatusBadge'
+import { DataGrid }      from '@/components/data-grid/DataGrid'
+import { StatusBadge }   from '@/components/ui/StatusBadge'
 import { env }           from '@/config/env'
-import { axiosClient }   from '@lib/api/axios'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import { formatDate }     from '@lib/utils/formatDate'
+import { axiosClient }   from '@/lib/api/axios'
+import { formatCurrency } from '@/lib/utils/formatCurrency'
+import { formatDate }     from '@/lib/utils/formatDate'
 import { lfaItems as staticLfa } from '@/data/static'
 import type { GridParams } from '@/types/common.types'
-import type { FilterPanelProps } from '@components/data-grid/types'
+import type { FilterPanelProps } from '@/components/data-grid/types'
 
 function LfaClientFilter({ onSearch, onReset, filters }: FilterPanelProps) {
   return (

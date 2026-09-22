@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useState } from "react"
 import { useParams } from "react-router-dom"
 import { Box, Typography, Paper, Avatar, Chip, Button } from "@mui/material"
@@ -8,7 +9,7 @@ import { PageShell } from "@/components/ui/PageShell"; import { StatusBadge } fr
 import { DetailSkeleton } from "@/components/ui/Skeletons"; import { Tabs } from "@/components/ui/Tabs"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { ClientFormDrawer } from "../_components/ClientFormDrawer"
-import { formatDate } from "@lib/utils/formatDate"; import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatDate } from "@/lib/utils/formatDate"; import { formatCurrency } from "@/lib/utils/formatCurrency"
 import { clientDetail as SD, clientMatters as SM, clientInvoices as SI } from "@/data/static"
 import { toast } from "@/lib/toast"; import { logger } from "@/lib/logger"
 import type { GridParams } from "@/types/common.types"
@@ -18,6 +19,7 @@ function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
 }
 
 export default function ClientDetailPage() {
+  const { t } = useTranslation()
   const { clientId } = useParams(); const qc = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
 
@@ -85,12 +87,12 @@ export default function ClientDetailPage() {
           </Box>
         )},
         { label:"Matters", content:(
-          <DataGrid columns={[{field:"title",header:"Title",sortKey:"title"},{field:"practiceArea",header:"Practice Area"},{field:"billingType",header:"Billing",renderCell:(v)=><Chip size="small" label={String(v??"")} variant="outlined"/>},{field:"status",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>},{field:"createdAt",header:"Opened",renderCell:(v)=>v?new Date(String(v)).toLocaleDateString("en-GB"):"—"}]}
+          <DataGrid columns={[{field:"title",header:"Title",sortKey:"title"},{field:"practiceArea",header:"Practice Area"},{field:"billingType",header:"Billing",renderCell:(v)=><Chip size="small" label={String(v??"")} variant="outlined"/>},{field:"status",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>},{field:"createdAt",header:"Opened",renderCell:(v)=>v?formatDate(String(v)):"—"}]}
             queryKey={["clients","matters",clientId]} queryFn={(p)=>fetchMatters(p) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>}
             detailPath={(row)=>`/matters/${(row as Record<string,string>).id}`} />
         )},
         { label:"Invoices", content:(
-          <DataGrid columns={[{field:"invoiceNo",header:"Invoice #"},{field:"taxableAmount",header:"Total",align:"right",renderCell:(v)=>formatCurrency(Number(v??0))},{field:"paidAmount",header:"Paid",align:"right",renderCell:(v)=>formatCurrency(Number(v??0))},{field:"balanceAmount",header:"Balance",align:"right",renderCell:(v)=><Typography variant="body2" sx={{color:Number(v)>0?"error.main":"success.main",fontWeight:500}}>{formatCurrency(Number(v??0))}</Typography>},{field:"invoiceStatus",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>},{field:"dueDate",header:"Due",renderCell:(v)=>v?new Date(String(v)).toLocaleDateString("en-GB"):"—"}]}
+          <DataGrid columns={[{field:"invoiceNo",header:"Invoice #"},{field:"taxableAmount",header:"Total",align:"right",renderCell:(v)=>formatCurrency(Number(v??0))},{field:"paidAmount",header:"Paid",align:"right",renderCell:(v)=>formatCurrency(Number(v??0))},{field:"balanceAmount",header:"Balance",align:"right",renderCell:(v)=><Typography variant="body2" sx={{color:Number(v)>0?"error.main":"success.main",fontWeight:500}}>{formatCurrency(Number(v??0))}</Typography>},{field:"invoiceStatus",header:"Status",renderCell:(v)=><StatusBadge status={String(v??"")}/>},{field:"dueDate",header:"Due",renderCell:(v)=>v?formatDate(String(v)):"—"}]}
             queryKey={["clients","invoices",clientId]} queryFn={(p)=>fetchInvoices(p) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>} />
         )},
       ]} />

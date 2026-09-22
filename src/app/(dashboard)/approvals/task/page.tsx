@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography } from '@mui/material'
@@ -5,10 +6,10 @@ import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { axiosClient } from '@lib/api/axios'
-import { formatDate } from '@lib/utils/formatDate'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { axiosClient } from '@/lib/api/axios'
+import { formatDate } from '@/lib/utils/formatDate'
 import type { GridParams } from '@/types/common.types'
 import { env } from '@/config/env'
 import { taskApprovals as staticTaskApprovals } from '@/data/static'
@@ -21,6 +22,7 @@ async function fetchTaskApprovals(_p: GridParams) {
 }
 
 export default function TaskApprovalPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   
 
@@ -33,7 +35,7 @@ export default function TaskApprovalPage() {
   }
 
   return (
-    <PageShell title="Task Approvals" description="Tasks pending your approval">
+    <PageShell title={t("nav.approvals-task", "Task Approvals")} description="Tasks pending your approval">
       <Typography variant="h5" sx={{ fontWeight:600, mb:2 }}>Task Approvals</Typography>
       <DataGrid
         columns={[

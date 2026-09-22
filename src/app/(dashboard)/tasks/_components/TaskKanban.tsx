@@ -11,9 +11,9 @@ import { useState } from "react"
 import { Box, Paper, Typography, Chip, Avatar, Button } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
 import { env } from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { toast } from "@/lib/toast"
-import { formatDate } from "@lib/utils/formatDate"
+import { formatDate } from "@/lib/utils/formatDate"
 
 type TaskStatus = "Pending" | "In_Progress" | "Completed"
 

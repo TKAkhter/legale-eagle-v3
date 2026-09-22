@@ -1,5 +1,5 @@
 import { env } from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { dashboard as staticDash, matters as staticMatters, billedAmountReport, collectionsReport, marginErosionReport } from "@/data/static"
 import type { GridParams, PageResponse } from "@/types/common.types"
 const STATIC_WIP=[{id:"w1",userName:"Sarah Johnson",matterTitle:"260303 — Building Dispute",activity:"Document Review",totalHours:3.5,totalAmount:3500,billingType:"Hourly",entryDate:"2026-07-01",revenueStatus:"DRAFT"},{id:"w2",userName:"Sarah Johnson",matterTitle:"260293 — Rental Dispute",activity:"Client Meeting",totalHours:2.0,totalAmount:2000,billingType:"Hourly",entryDate:"2026-07-02",revenueStatus:"DRAFT"},{id:"w3",userName:"Dory Abi Khalil",matterTitle:"260285 — Corporate Setup",activity:"Contract Drafting",totalHours:4.0,totalAmount:4800,billingType:"Hourly",entryDate:"2026-07-03",revenueStatus:"PRE_APPROVAL"},{id:"w4",userName:"Mashood Rafi",matterTitle:"260303 — Building Dispute",activity:"Court Attendance",totalHours:6.0,totalAmount:7200,billingType:"Hourly",entryDate:"2026-07-04",revenueStatus:"DRAFT"},{id:"w5",userName:"Ahmad AlKhalil",matterTitle:"260285 — Corporate Setup",activity:"Due Diligence",totalHours:5.0,totalAmount:6000,billingType:"Hourly",entryDate:"2026-07-05",revenueStatus:"APPROVED"}]

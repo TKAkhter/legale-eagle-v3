@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
@@ -7,12 +8,12 @@ import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { Can } from '@components/ui/Can'
-import { Modal } from '@components/ui/Modal'
-import { ControlledInput } from '@components/forms/ControlledInput'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { Can } from '@/components/ui/Can'
+import { Modal } from '@/components/ui/Modal'
+import { ControlledInput } from '@/components/forms/ControlledInput'
+import { PERMISSIONS } from '@/config/permissions'
+import { axiosClient } from '@/lib/api/axios'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -34,6 +35,7 @@ async function fetchGroups(_p: GridParams) {
 }
 
 export default function GroupsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [modalOpen,setModalOpen] = useState(false)
@@ -49,7 +51,7 @@ export default function GroupsPage() {
   }
 
   return (
-    <PageShell title="Groups & Roles" description="User groups and role assignments">
+    <PageShell title={t("nav.admin-groups", "Groups & Roles")} description="User groups and role assignments">
       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
         <Typography variant="h5" sx={{ fontWeight:600 }}>Groups & Roles</Typography>
         <Can do={PERMISSIONS.GROUPS_MANAGE}><Button variant="contained" startIcon={<AddIcon/>} onClick={()=>setModalOpen(true)}>New Group</Button></Can>

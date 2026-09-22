@@ -1,6 +1,6 @@
 import { TextField, InputAdornment } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
-import { useDebounce } from '@hooks/useDebounce'
+import { useDebounce } from "@/hooks/useDebounce"
 import { useEffect, useState } from 'react'
 interface Props { value?:string; onChange:(v:string)=>void; placeholder?:string; delay?:number }
 export function SearchInput({ value='', onChange, placeholder='Search...', delay=400 }: Props) {

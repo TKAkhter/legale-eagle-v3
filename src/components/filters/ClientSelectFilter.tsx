@@ -1,10 +1,10 @@
 import { Autocomplete, TextField } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { axiosClient } from '@lib/api/axios'
-import { QK } from '@lib/query/keys'
-import { useDebounce } from '@hooks/useDebounce'
+import { axiosClient } from "@/lib/api/axios"
+import { QK } from "@/lib/query/keys"
+import { useDebounce } from "@/hooks/useDebounce"
 import { useState } from 'react'
-import type { ClientMini } from '@/types/common.types'
+import type { ClientMini } from "@/types/common.types"
 interface Props { value?:string; onChange:(id?:string)=>void; label?:string }
 export function ClientSelectFilter({ value, onChange, label='Client' }: Props) {
   const [q, setQ] = useState('')

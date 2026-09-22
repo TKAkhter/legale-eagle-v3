@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from "@tanstack/react-query"
 import { Box, Paper, Typography, Chip } from "@mui/material"
 import { PageShell }      from "@/components/ui/PageShell"
 import { DataGrid }       from "@/components/data-grid/DataGrid"
-import { ApexChart }      from "@components/charts/ApexChart"
+import { ApexChart }      from "@/components/charts/ApexChart"
 import { reportsApi }     from "@/api/reports"
-import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatCurrency } from "@/lib/utils/formatCurrency"
 import type { GridParams } from "@/types/common.types"
 
 export default function MarginErosionPage() {
+  const { t } = useTranslation()
   const { data: summary } = useQuery({
     queryKey: ["reports","margin-erosion","summary"],
     queryFn: () => reportsApi.getMarginErosion({ page:0, pageSize:100, sortBy:"marginRate", sortDir:"asc", filters:{} }),
@@ -16,7 +18,7 @@ export default function MarginErosionPage() {
   const avgMargin = rows.length ? rows.reduce((s,r)=>s+Number(r.marginRate??0),0)/rows.length : 0
 
   return (
-    <PageShell title="Margin Erosion Report" description="Profitability and margin by matter">
+    <PageShell title={t("nav.reports-margin-erosion", "Margin Erosion Report")} description="Profitability and margin by matter">
       {rows.length > 0 && (
         <Box sx={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:2, mb:3 }}>
           <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>

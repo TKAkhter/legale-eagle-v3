@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography, Button, Avatar, Chip } from '@mui/material'
@@ -7,21 +8,21 @@ import BlockIcon from '@mui/icons-material/Block'
 import LockResetIcon from '@mui/icons-material/LockReset'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { Can } from '@components/ui/Can'
-import { SearchInput } from '@components/filters/SearchInput'
-import { DepartmentFilter } from '@components/filters/DepartmentFilter'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Can } from '@/components/ui/Can'
+import { SearchInput } from '@/components/filters/SearchInput'
+import { DepartmentFilter } from '@/components/filters/DepartmentFilter'
+import { PERMISSIONS } from '@/config/permissions'
+import { axiosClient } from '@/lib/api/axios'
 import { env } from '@/config/env'
 import { adminApi } from '@/api/admin'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { QK } from '@lib/query/keys'
+import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { QK } from '@/lib/query/keys'
 import { InviteUserDrawer } from './_components/InviteUserDrawer'
 import { EditUserDrawer } from './_components/EditUserDrawer'
 import { ResetPasswordDialog } from './_components/ResetPasswordDialog'
-import type { FilterPanelProps } from '@components/data-grid/types'
+import type { FilterPanelProps } from '@/components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
 
 async function fetchUsers(params: GridParams) {
@@ -49,6 +50,7 @@ function UsersFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function UsersPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [inviteOpen,    setInviteOpen]    = useState(false)
   const [editUserId,    setEditUserId]    = useState<string | null>(null)
@@ -63,7 +65,7 @@ export default function UsersPage() {
   }
 
   return (
-    <PageShell title="Users" description="Manage system users and their access">
+    <PageShell title={t("nav.admin-users", "Users")} description="Manage system users and their access">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Manage Users</Typography>
         <Can do={PERMISSIONS.USERS_CREATE}>

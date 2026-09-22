@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { formatDate } from '@/lib/utils/formatDate'
 import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Box, Button, Chip } from "@mui/material"
@@ -7,13 +9,14 @@ import { DataGrid }          from "@/components/data-grid/DataGrid"
 import { StatusBadge }       from "@/components/ui/StatusBadge"
 import { PageShell }         from "@/components/ui/PageShell"
 import { mattersApi }        from "@/api/matters"
-import { useAuthStore }      from "@lib/store/authStore"
+import { useAuthStore }      from "@/lib/store/authStore"
 import { MatterFormDrawer }  from "./_components/MatterFormDrawer"
 import { NewMatterWizard }   from "./_components/NewMatterWizard"
 import type { GridParams }   from "@/types/common.types"
 import { useQueryClient }    from "@tanstack/react-query"
 
 export default function MattersPage() {
+  const { t } = useTranslation()
   const [createOpen, setCreateOpen] = useState(false)
   const [editId,     setEditId]     = useState<string|undefined>()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -29,7 +32,7 @@ export default function MattersPage() {
 
   return (
     <PageShell
-      title="Matters"
+      title={t("nav.matters", "Matters")}
       description="All active and closed legal matters"
       action={canAdd && (
         <Button variant="contained" startIcon={<AddIcon />}
@@ -65,7 +68,7 @@ export default function MattersPage() {
             renderCell:(v) => <StatusBadge status={String(v??"")} />
           },
           { field:"openDate", header:"Opened", sortKey:"openDate",
-            renderCell:(v) => v ? new Date(String(v)).toLocaleDateString("en-GB") : "—"
+            renderCell:(v) => v ? formatDate(String(v)) : "—"
           },
         ]}
         queryKey={["matters","list"]}

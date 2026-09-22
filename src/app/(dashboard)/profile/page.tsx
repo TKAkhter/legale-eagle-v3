@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * Profile & Settings page.
  *
@@ -20,12 +21,12 @@ import CameraAltIcon from "@mui/icons-material/CameraAlt"
 import LockIcon      from "@mui/icons-material/Lock"
 import PersonIcon    from "@mui/icons-material/Person"
 import SaveIcon      from "@mui/icons-material/Save"
-import { useAuthStore }  from "@lib/store/authStore"
-import { useThemeStore } from "@lib/store/themeStore"
+import { useAuthStore }  from "@/lib/store/authStore"
+import { useThemeStore } from "@/lib/store/themeStore"
 import { authApi }       from "@/api/auth"
 import { toast }         from "@/lib/toast"
 import { PageShell }     from "@/components/ui/PageShell"
-import { ControlledInput } from "@components/forms/ControlledInput"
+import { ControlledInput } from "@/components/forms/ControlledInput"
 
 const pwSchema = z.object({
   oldPassword:     z.string().min(1, "Required"),
@@ -37,6 +38,7 @@ const pwSchema = z.object({
 type PwForm = z.infer<typeof pwSchema>
 
 export default function ProfilePage() {
+  const { t } = useTranslation()
   const user       = useAuthStore(s => (s as { user?: { firstName?: string; lastName?: string; email?: string; companyUserType?: string; department?: { name: string }; profilePic?: string } }).user)
   const colorMode  = useThemeStore(s => s.colorMode)
   const toggleMode = useThemeStore(s => s.toggleColorMode)
@@ -120,7 +122,7 @@ export default function ProfilePage() {
   const initials = `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase()
 
   return (
-    <PageShell title="Profile & Settings" description="Manage your account and preferences">
+    <PageShell title={t("settings.profile", "Profile & Settings")} description="Manage your account and preferences">
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3, maxWidth: 900 }}>
 
         {/* ── Account Information ── */}

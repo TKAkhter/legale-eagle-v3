@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { Box, Typography, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -5,18 +6,18 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { Can } from '@components/ui/Can'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatDate } from '@lib/utils/formatDate'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import { ClientSelectFilter } from '@components/filters/ClientSelectFilter'
-import { DateRangeFilter } from '@components/filters/DateRangeFilter'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Can } from '@/components/ui/Can'
+import { PERMISSIONS } from '@/config/permissions'
+import { axiosClient } from '@/lib/api/axios'
+import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { formatDate } from '@/lib/utils/formatDate'
+import { formatCurrency } from '@/lib/utils/formatCurrency'
+import { ClientSelectFilter } from '@/components/filters/ClientSelectFilter'
+import { DateRangeFilter } from '@/components/filters/DateRangeFilter'
 import { InvoiceFormDrawer } from './_components/InvoiceFormDrawer'
-import type { FilterPanelProps } from '@components/data-grid/types'
+import type { FilterPanelProps } from '@/components/data-grid/types'
 import type { GridParams, InvoiceStatus } from '@/types/common.types'
 import { billingApi } from '@/api/billing'
 import { env } from '@/config/env'
@@ -56,6 +57,7 @@ function InvoiceFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function BillingsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
@@ -69,7 +71,7 @@ export default function BillingsPage() {
 
 
   return (
-    <PageShell title="Billing" description="Invoices and payment records">
+    <PageShell title={t("nav.billing", "Billing")} description="Invoices and payment records">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Billing</Typography>
         <Can do={PERMISSIONS.BILLING_CREATE}>

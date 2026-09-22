@@ -1,4 +1,4 @@
-import { axiosClient } from '@lib/api/axios'
+import { axiosClient } from '@/lib/api/axios'
 
 /**
  * Register an OneDrive folder for a newly created entity.

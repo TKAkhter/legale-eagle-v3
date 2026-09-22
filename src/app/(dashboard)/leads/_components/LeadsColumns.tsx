@@ -1,7 +1,7 @@
 import { Chip } from '@mui/material'
-import type { ColumnDef } from '@components/data-grid/types'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { formatDate } from '@lib/utils/formatDate'
+import type { ColumnDef } from '@/components/data-grid/types'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { formatDate } from '@/lib/utils/formatDate'
 
 export function getLeadsColumns(): ColumnDef<Record<string, unknown>>[] {
   return [

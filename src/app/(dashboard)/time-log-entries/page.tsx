@@ -1,20 +1,21 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { Box, Typography, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useState } from 'react'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { Can } from '@components/ui/Can'
-import { PERMISSIONS } from '@config/permissions'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatDate } from '@lib/utils/formatDate'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import { UserSelectFilter } from '@components/filters/UserSelectFilter'
-import { MatterSelectFilter } from '@components/filters/MatterSelectFilter'
-import { ClientSelectFilter } from '@components/filters/ClientSelectFilter'
-import { DateRangeFilter } from '@components/filters/DateRangeFilter'
-import type { FilterPanelProps } from '@components/data-grid/types'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Can } from '@/components/ui/Can'
+import { PERMISSIONS } from '@/config/permissions'
+import { axiosClient } from '@/lib/api/axios'
+import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { formatDate } from '@/lib/utils/formatDate'
+import { formatCurrency } from '@/lib/utils/formatCurrency'
+import { UserSelectFilter } from '@/components/filters/UserSelectFilter'
+import { MatterSelectFilter } from '@/components/filters/MatterSelectFilter'
+import { ClientSelectFilter } from '@/components/filters/ClientSelectFilter'
+import { DateRangeFilter } from '@/components/filters/DateRangeFilter'
+import type { FilterPanelProps } from '@/components/data-grid/types'
 import { ActivityFormDrawer } from './_components/ActivityFormDrawer'
 import type { GridParams } from '@/types/common.types'
 import { timelogsApi } from '@/api/timelogs'
@@ -46,9 +47,10 @@ function TimeLogFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function TimeLogEntriesPage() {
+  const { t } = useTranslation()
   const [modalOpen, setModalOpen] = useState(false)
   return (
-    <PageShell title="Time Entries" description="Billable time log entries">
+    <PageShell title={t("nav.time-log-entries", "Time Entries")} description="Billable time log entries">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Time Log Entries</Typography>
         <Can do={PERMISSIONS.TIMELOGS_CREATE}>

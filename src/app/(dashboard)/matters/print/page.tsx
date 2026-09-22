@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -5,10 +6,11 @@ import { Box, Typography, Button, Divider, CircularProgress } from "@mui/materia
 import { env } from "@/config/env"
 import { mattersApi } from "@/api/matters"
 import { matterDetail as SD, matterTimelogs as STL, matterHearings as SH } from "@/data/static"
-import { formatDate } from "@lib/utils/formatDate"
-import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatDate } from "@/lib/utils/formatDate"
+import { formatCurrency } from "@/lib/utils/formatCurrency"
 
 export default function MatterPrintPage() {
+  const { t } = useTranslation()
   const [params] = useSearchParams()
   const matterId = params.get("matterId") ?? ""
 

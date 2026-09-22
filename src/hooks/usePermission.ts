@@ -1,5 +1,5 @@
-import { useAuthStore } from '@lib/store/authStore'
-import { hasPermission } from '@lib/auth/permissions'
+import { useAuthStore } from '@/lib/store/authStore'
+import { hasPermission } from '@/lib/auth/permissions'
 
 export function usePermission(permission: string): boolean {
   return useAuthStore((s) => hasPermission(s.permissions, permission))

@@ -17,7 +17,7 @@ import TimerIcon from "@mui/icons-material/Timer"
 import CheckIcon from "@mui/icons-material/Check"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { formatElapsed } from "@lib/store/stopwatchStore"
+import { formatElapsed } from "@/lib/store/stopwatchStore"
 import { toast } from "@/lib/toast"
 
 interface Props {

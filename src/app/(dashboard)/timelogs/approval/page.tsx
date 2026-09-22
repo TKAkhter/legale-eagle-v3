@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { Box, Typography, Button } from '@mui/material'
@@ -5,13 +6,13 @@ import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { formatDate } from '@lib/utils/formatDate'
-import { formatCurrency } from '@lib/utils/formatCurrency'
-import { makeReportFilterPanel } from '@components/filters/ReportFilterPanel'
+import { DataGrid } from '@/components/data-grid/DataGrid'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { axiosClient } from '@/lib/api/axios'
+import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { formatDate } from '@/lib/utils/formatDate'
+import { formatCurrency } from '@/lib/utils/formatCurrency'
+import { makeReportFilterPanel } from '@/components/filters/ReportFilterPanel'
 import type { GridParams } from '@/types/common.types'
 import { timelogsApi } from '@/api/timelogs'
 import { env } from '@/config/env'
@@ -29,6 +30,7 @@ async function fetchForApproval(params: GridParams) {
 }
 
 export default function TimelogsApprovalPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
 
   async function handleAction(row: Record<string,unknown>, approve: boolean) {
@@ -40,7 +42,7 @@ export default function TimelogsApprovalPage() {
   }
 
   return (
-    <PageShell title="Timelogs Approval (HOD)" description="Final approval of time entries before invoicing">
+    <PageShell title={t("nav.timelogs-approval", "Timelogs Approval")} description="Final approval of time entries before invoicing">
       <DataGrid
         columns={[
           { field:'activity', header:'Activity' },

@@ -1,12 +1,12 @@
 import { createStore, useStore } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { AuthUser, ApiMenuItem, PermissionSet } from '@/types/auth.types'
-import { hasPermission } from '@lib/auth/permissions'
+import { hasPermission } from '@/lib/auth/permissions'
 import {
   persistTokenToSession,
   clearPersistedToken,
   getPersistedToken,
-} from '@lib/auth/jwt'
+} from '@/lib/auth/jwt'
 
 /**
  * authStore.ts

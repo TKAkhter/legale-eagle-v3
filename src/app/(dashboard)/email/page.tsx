@@ -37,7 +37,7 @@ import ArrowBackIcon    from "@mui/icons-material/ArrowBack"
 import RefreshIcon      from "@mui/icons-material/Refresh"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { emailApi, type Email, type EmailFolder } from "@/api/email"
-import { formatDateTime, fromNow } from "@lib/utils/formatDate"
+import { formatDateTime, fromNow } from "@/lib/utils/formatDate"
 import { toast }   from "@/lib/toast"
 import { logger }  from "@/lib/logger"
 

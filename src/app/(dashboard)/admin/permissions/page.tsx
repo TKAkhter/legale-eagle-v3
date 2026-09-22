@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
@@ -5,7 +6,7 @@ import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, Ta
 import SaveIcon from '@mui/icons-material/Save'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@lib/api/axios'
+import { axiosClient } from '@/lib/api/axios'
 
 type Action = 'visible'|'add'|'edit'|'delete'
 const ACTIONS: Action[] = ['visible','add','edit','delete']
@@ -16,6 +17,7 @@ interface Group { id:string; name:string; permission:GroupPerm[] }
 interface MenuItem { id:string; menuName:string; parent?:string }
 
 export default function PermissionsPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [selectedGroup,setSelectedGroup] = useState<string|null>(null)
   const [localPerms,setLocalPerms] = useState<Record<string,Record<Action,boolean>>>({})
@@ -73,7 +75,7 @@ export default function PermissionsPage() {
   const topLevelMenus = menuItems.filter((m:MenuItem)=>!m.parent||m.parent==='0'||m.parent==='')
 
   return (
-    <PageShell title="Permissions Matrix" description="Manage group permissions and access control">
+    <PageShell title={t("nav.admin-permissions", "Permissions")} description="Manage group permissions and access control">
       <Box sx={{ display:'flex', justifyContent:'space-between', alignItems:'center', mb:2 }}>
         <Typography variant="h5" sx={{ fontWeight:600 }}>Permissions Matrix</Typography>
         {selectedGroup && (

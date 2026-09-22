@@ -10,7 +10,7 @@ import { Box, Typography, Chip } from "@mui/material"
 import CheckIcon from "@mui/icons-material/Check"
 import { RichTextEditor } from "@/components/ui/RichTextEditor"
 import { env } from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { logger } from "@/lib/logger"
 
 interface Props { matterId: string; initialNotes?: string }

@@ -1,6 +1,6 @@
 import { transformLead } from '@/transformers/lead.transformer'
 import { env }         from "@/config/env"
-import { axiosClient } from "@lib/api/axios"
+import { axiosClient } from "@/lib/api/axios"
 import { leads as staticLeads } from "@/data/static"
 import type { GridParams, PageResponse } from "@/types/common.types"
 
