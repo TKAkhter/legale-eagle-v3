@@ -8,7 +8,7 @@ import { hasPermission } from "@/lib/auth/permissions"
 interface Props<T> { items: RowMenuItem<T>[]; row: T }
 export function RowMenu<T>({ items, row }: Props<T>) {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
-  const permissions = useAuthStore((s) => s.permissions)
+  const permissions = useAuthStore((s) => s.accessScope)
   const visible = items.filter((item) =>
     (!item.permission || hasPermission(permissions, item.permission)) && !item.hidden?.(row)
   )

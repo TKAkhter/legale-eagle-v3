@@ -50,11 +50,6 @@ export const adminApi = {
     return res.data?.data ?? []
   },
 
-  async createGroup(name: string) {
-    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return { id: "g-new" } }
-    const res = await axiosClient.post("/api/group/add", { name })
-    return res.data?.data ?? res.data
-  },
 
   async saveGroupPermissions(groupId: string, permission: unknown[]) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
@@ -74,17 +69,9 @@ export const adminApi = {
     return res.data?.data ?? []
   },
 
-  async getDepartments() {
-    if (env.USE_STATIC_DATA) return staticLookups.departments
-    const res = await axiosClient.get("/api/util/list/department")
-    return res.data?.data ?? []
-  },
 
-  async getDesignations() {
-    if (env.USE_STATIC_DATA) return staticLookups.designations
-    const res = await axiosClient.get("/api/util/get/designation")
-    return res.data?.data ?? []
-  },
+
+
 
   async getNotifications() {
     if (env.USE_STATIC_DATA) return []
@@ -112,6 +99,48 @@ export const adminApi = {
     if (env.USE_STATIC_DATA) return { totalLeads:3, totalMatters:3, totalClients:2, totalInvoices:3, totalUsers:4, totalGroups:2 }
     const r = await axiosClient.get("/api/dashboard/get/setup")
     return r.data?.data ?? r.data ?? {}
+  },
+  async getPermissionsMatrix(): Promise<Record<string,unknown>[]> {
+    if (env.USE_STATIC_DATA) return []
+    const [groups, menu] = await Promise.all([
+      axiosClient.get("/api/group/get"),
+      axiosClient.get("/api/user/get/access/menu"),
+    ])
+    return groups.data?.data ?? []
+  },
+
+  async getDepartments(): Promise<Record<string,unknown>[]> {
+    if (env.USE_STATIC_DATA) return [
+      { id:"d1", name:"Corporate" }, { id:"d2", name:"Litigation" },
+      { id:"d3", name:"Family Law" }, { id:"d4", name:"Real Estate" },
+    ]
+    const r = await axiosClient.get("/api/util/list/department")
+    return r.data?.data ?? r.data ?? []
+  },
+
+  async getDesignations(): Promise<Record<string,unknown>[]> {
+    if (env.USE_STATIC_DATA) return [
+      { id:"des1", name:"Partner" }, { id:"des2", name:"Associate" },
+      { id:"des3", name:"Senior Associate" }, { id:"des4", name:"Paralegal" },
+    ]
+    const r = await axiosClient.get("/api/util/get/designation")
+    return r.data?.data ?? r.data ?? []
+  },
+
+  async resetUserPassword(userId: string, newPassword: string): Promise<void> {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)); return }
+    await axiosClient.post("/api/user/change/password/admin", { userId, newPassword })
+  },
+
+  async updateSettings(data: Record<string,unknown>): Promise<void> {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)); return }
+    await axiosClient.put("/api/company/update", data)
+  },
+
+  async createGroup(data: Record<string,unknown>): Promise<Record<string,unknown>> {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)); return { id:`g-${Date.now()}`, ...data } }
+    const r = await axiosClient.post("/api/group/add", data)
+    return r.data?.data ?? r.data
   },
 
 }

@@ -1,3 +1,4 @@
+import { adminApi } from '@/api/admin'
 import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'

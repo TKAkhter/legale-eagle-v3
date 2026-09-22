@@ -1,3 +1,4 @@
+import { transformTask, transformTaskPage } from '@/transformers/task.transformer'
 import { env }         from "@/config/env"
 import { axiosClient } from "@/lib/api/axios"
 import { tasks as staticTasks } from "@/data/static"
@@ -14,7 +15,7 @@ export const tasksApi = {
     }
     const res = await axiosClient.get("/api/task/get/all", { params: { pageNumber: p.page, pageSize: p.pageSize } })
     const d = res.data?.data ?? res.data
-    return { content: d.content ?? [], totalElements: d.totalElements ?? 0, totalPages: d.totalPages ?? 0, number: d.number ?? 0, size: d.size ?? p.pageSize, first: d.first ?? true, last: d.last ?? true, empty: d.empty ?? true }
+    return { content: transformTaskPage(d.content ?? [] as Record<string,unknown>[]) as unknown as Record<string,unknown>[], totalElements: d.totalElements ?? 0, totalPages: d.totalPages ?? 0, number: d.number ?? 0, size: d.size ?? p.pageSize, first: d.first ?? true, last: d.last ?? true, empty: d.empty ?? true }
   },
 
   async create(data: Record<string,unknown>) {

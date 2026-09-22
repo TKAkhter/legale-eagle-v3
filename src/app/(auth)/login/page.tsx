@@ -53,13 +53,12 @@ export default function LoginPage() {
           department: signinData.department as undefined,
         },
         accessToken: token,
-        accessScope: String(signinData.accessScope ?? ''),
+        accessScope: new Set<string>([String(signinData.accessScope ?? '')].filter(Boolean)),
         refreshToken: undefined,
       })
       // Resolve permissions from menu and store
       const { resolvePermissions } = await import("@lib/auth/permissions")
       const permissions = resolvePermissions(menu as import("@/types/auth.types").ApiMenuItem[], groups as import("@/types/auth.types").ApiUserGroup[])
-      useAuthStore.getState().setMenuItems(menu as import("@/types/auth.types").ApiMenuItem[], permissions)
       navigate("/dashboard", { replace: true })
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
