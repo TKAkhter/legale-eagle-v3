@@ -85,8 +85,9 @@ export function NotificationsPanel() {
     queryFn: async () => {
       logger.debug('NotificationsPanel', 'Polling notifications')
       if (env.USE_STATIC_DATA) return STATIC_NOTIFICATIONS
-      const r = await axiosClient.get('/api/notification/get')
-      return r.data?.data ?? r.data ?? []
+      const r = await axiosClient.get('/api/util/get/notification')
+      const raw = r.data?.data ?? r.data ?? []
+      return Array.isArray(raw) ? raw : []
     },
     refetchInterval: 30_000,     // poll every 30s
     staleTime:       25_000,
@@ -124,14 +125,14 @@ export function NotificationsPanel() {
 
   async function markAllRead() {
     if (!env.USE_STATIC_DATA) {
-      try { await axiosClient.post('/api/notification/read/all') } catch { /* ignore */ }
+      try { await axiosClient.delete('/api/util/dismiss/notifications') } catch { /* ignore */ }
     }
     qc.invalidateQueries({ queryKey: QK.notifications.list() })
   }
 
   async function markRead(id: string) {
     if (!env.USE_STATIC_DATA) {
-      try { await axiosClient.post(`/api/notification/read/${id}`) } catch { /* ignore */ }
+      try { await axiosClient.delete(`/api/util/dismiss/notification/${id}`) } catch { /* ignore */ }
     }
     qc.invalidateQueries({ queryKey: QK.notifications.list() })
   }

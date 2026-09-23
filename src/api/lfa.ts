@@ -81,13 +81,23 @@ export const lfaApi = {
     return res.data?.data ?? res.data
   },
 
+  async getActiveMatters(lfaId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [{ id: "m1", title: "260303 — Building Dispute" }]
+    }
+    const res = await axiosClient.get("/api/lfa/active/matter", { params: { lfaId } })
+    const d = res.data?.data ?? res.data
+    return d?.content ?? (Array.isArray(d) ? d : [])
+  },
+
   async getRates(lfaId: string) {
     if (env.USE_STATIC_DATA) {
       const row = (staticLfa as Record<string, unknown>[]).find(l => l.id === lfaId)
       return (row?.rates as unknown[]) ?? []
     }
     const res = await axiosClient.get("/api/lfa/get/item", { params: { lfaId } })
-    return res.data?.data ?? res.data ?? []
+    const { unwrapAxiosList } = await import("@lib/utils/unwrap")
+    return unwrapAxiosList(res.data)
   },
 
   async getDefaults(p: GridParams) {

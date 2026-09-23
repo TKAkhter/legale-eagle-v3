@@ -9,7 +9,7 @@ export default defineConfig({
             registerType: 'autoUpdate',
             includeAssets: ['icons/icon.svg'],
             manifest: { name: 'LegalEagle LMS', short_name: 'LegalEagle', theme_color: '#0F2744', background_color: '#0F2744', display: 'standalone', start_url: '/dashboard', icons: [{ src: '/icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }] },
-            workbox: { globPatterns: ['**/*.{js,css,html,svg}'], runtimeCaching: [{ urlPattern: /testapi\.alshamsilegallms\.com/, handler: 'NetworkOnly' }] },
+            workbox: { globPatterns: ['**/*.{js,css,html,svg}'], runtimeCaching: [{ urlPattern: /testapi\.legaleaglelms\.com|testapi\.alshamsilegallms\.com/, handler: 'NetworkOnly' }] },
         }),
     ],
     resolve: {

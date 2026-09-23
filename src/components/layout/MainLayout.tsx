@@ -1,25 +1,15 @@
 import { PageTransition } from '@/components/ui/PageTransition'
 /**
- * MainLayout.tsx — root layout for all authenticated dashboard pages.
+ * MainLayout — root layout for authenticated pages.
  *
- * Handles responsive sidebar behaviour:
- *
- *   Desktop (≥1024px):
- *     Hamburger → toggles sidebarCollapsed in themeStore
- *
- *   Tablet (600px–1023px):
- *     Hamburger → toggles sidebarCollapsed in themeStore
- *
- *   Mobile (<600px):
- *     Hamburger → opens/closes mobileOpen overlay drawer
- *
- * The sidebar reads sidebarCollapsed from themeStore and mobileOpen from here.
+ * Page gutter is consistent across breakpoints so titles and cards
+ * share the same inset from the screen edge.
  */
-import { useState }      from "react"
+import { useState, useEffect } from "react"
 import { Box, useMediaQuery } from "@mui/material"
 import { Outlet }        from "react-router-dom"
 import { Sidebar, SIDEBAR_W, COLLAPSED_W } from "./Sidebar"
-import { Toolbar }       from "./Toolbar"
+import { Toolbar, TOOLBAR_ROW_H, TOOLBAR_COMPACT_H } from "./Toolbar"
 import { QuickCreateFAB } from '@/components/ui/QuickCreateFAB'
 import { SessionTimeoutWarning } from './SessionTimeoutWarning'
 import { KeyboardShortcutsModal } from '@/components/ui/KeyboardShortcutsModal'
@@ -29,89 +19,102 @@ import { ToastContainer } from "@/components/ui/ToastContainer"
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
 import { useThemeStore } from "@lib/store/themeStore"
 import { logger }        from "@/lib/logger"
-
-const TOOLBAR_H = 56
+import { PAGE_GUTTER, DESKTOP_MEDIA_QUERY } from "@/config/spacing"
 
 export function MainLayout() {
   const collapsed       = useThemeStore(s => s.sidebarCollapsed)
   const toggleSidebar   = useThemeStore(s => s.toggleSidebar)
   const direction       = useThemeStore(s => s.direction)
 
-  // Mobile overlay drawer state (only used on mobile <600px)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const isDesktop = useMediaQuery("(min-width:1024px)")
-  const isTablet  = useMediaQuery("(min-width:600px) and (max-width:1023px)")
-  const isMobile  = useMediaQuery("(max-width:599px)")
+  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY)
+  const isCompact = useMediaQuery("(max-width:899px)")
 
-  /**
-   * Hamburger click — different behaviour per viewport:
-   *   Desktop/Tablet → toggle collapsed state (persistent sidebar)
-   *   Mobile         → toggle overlay drawer
-   */
+  // Close overlay when crossing into desktop so collapse state can't leak into drawer
+  useEffect(() => {
+    if (isDesktop && mobileOpen) setMobileOpen(false)
+  }, [isDesktop, mobileOpen])
+
+  /** < 1024: overlay drawer (labels always on). ≥ 1024: collapse/expand. */
   function handleHamburgerClick() {
-    if (isMobile) {
-      logger.debug("MainLayout", "Mobile hamburger — toggling drawer")
+    if (!isDesktop) {
+      logger.debug("MainLayout", "Overlay hamburger — toggling drawer")
       setMobileOpen(prev => !prev)
     } else {
-      logger.debug("MainLayout", `${isTablet ? "Tablet" : "Desktop"} hamburger — toggling sidebar`)
+      logger.debug("MainLayout", "Desktop hamburger — toggling sidebar")
       toggleSidebar()
     }
   }
 
-  // Calculate sidebar width for content margin offset
-  const sidebarWidth = (() => {
-    if (isMobile)  return 0                          // mobile: no persistent sidebar
-    if (isTablet)  return collapsed ? COLLAPSED_W : SIDEBAR_W
-    if (isDesktop) return collapsed ? COLLAPSED_W : SIDEBAR_W
-    return SIDEBAR_W
-  })()
+  const sidebarWidth = isDesktop
+    ? (collapsed ? COLLAPSED_W : SIDEBAR_W)
+    : 0
 
-  // Content margin — push content right of sidebar on desktop/tablet
   const contentMl = direction === "rtl" ? 0 : sidebarWidth
   const contentMr = direction === "rtl" ? sidebarWidth : 0
+  const toolbarH = isCompact ? TOOLBAR_COMPACT_H : TOOLBAR_ROW_H
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
-      {/* Sidebar — handles its own visibility per viewport */}
+    <Box
+      sx={{
+        display: "flex",
+        height: "100vh",
+        maxHeight: "100vh",
+        maxWidth: "100vw",
+        overflow: "hidden",
+        bgcolor: "background.default",
+      }}
+    >
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />
 
-      {/* Main content area */}
       <Box
         sx={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          minWidth: 0,           // prevents flexbox overflow
+          minWidth: 0,
+          maxWidth: "100%",
+          height: "100%",
+          overflow: "hidden",
           ml: `${contentMl}px`,
           mr: `${contentMr}px`,
-          // Smooth margin transition matches sidebar width transition
           transition: "margin 220ms cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        {/* Top toolbar */}
         <Toolbar
           sidebarWidth={sidebarWidth}
           onMobileMenuClick={handleHamburgerClick}
         />
 
-        {/* Spacer equal to toolbar height */}
-        <Box sx={{ height: TOOLBAR_H, flexShrink: 0 }} />
+        <Box sx={{ height: toolbarH, flexShrink: 0 }} />
 
-        {/* Page content */}
         <Box
           component="main"
           sx={{
             flex: 1,
-            p: { xs: 2, sm: 2.5, md: 3 },
-            // On mobile, content takes full width with comfortable padding
+            minHeight: 0,
+            px: PAGE_GUTTER,
+            py: PAGE_GUTTER,
             maxWidth: "100%",
+            minWidth: 0,
+            overflowX: "hidden",
+            overflowY: "auto",
+            boxSizing: "border-box",
+            // Soften page scrollbar; prefer content-driven scroll only when needed
+            scrollbarWidth: "thin",
+            scrollbarGutter: "stable",
+            "&::-webkit-scrollbar": { width: 8 },
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: "action.disabledBackground",
+              borderRadius: 4,
+            },
           }}
         >
-          <Box sx={{ maxWidth: 1400, mx: "auto" }}>
+          <Box sx={{ maxWidth: 1400, mx: "auto", width: "100%", minWidth: 0 }}>
             <ErrorBoundary>
               <PageTransition><Outlet /></PageTransition>
             </ErrorBoundary>
@@ -119,13 +122,11 @@ export function MainLayout() {
         </Box>
       </Box>
 
-      {/* Global command palette — Ctrl+K opens from anywhere */}
       <QuickCreateFAB />
       <SessionTimeoutWarning />
       <KeyboardShortcutsModal />
       <CommandPalette />
       <RouteProgress />
-      {/* Global toast notifications */}
       <ToastContainer />
     </Box>
   )

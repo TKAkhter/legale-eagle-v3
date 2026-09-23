@@ -209,7 +209,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
   // ── Mobile ──────────────────────────────────────────────────────────────────
   if (isMobile && rows.length > 0 && !isLoading) {
     return (
-      <Box>
+      <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
         <DataGridToolbar
           hasExport={hasExport && !!exportFn} hasFilters={hasFilters}
           filterOpen={filterOpen} activeFilterCount={activeFilterCount}
@@ -220,7 +220,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
         />
         {hasFilters && FilterPanel && (
           <Collapse in={filterOpen}>
-            <Paper variant="outlined" sx={{ p:2, mb:1, borderRadius:2 }}>
+            <Paper variant="outlined" sx={{ p:2, mb:1, borderRadius:2, overflowX: 'auto' }}>
               <FilterPanel onSearch={handleSearch} onReset={() => { setFilters({}); setState({ page:0 }) }} filters={filters} />
             </Paper>
           </Collapse>
@@ -244,8 +244,8 @@ export function DataGrid<TData extends Record<string, unknown>>({
 
   // ── Desktop ─────────────────────────────────────────────────────────────────
   return (
-    <Box>
-      <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', mb:1, gap:1 }}>
+    <Box sx={{ width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'hidden' }}>
+      <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', mb:1, gap:1, flexWrap: 'wrap', width: '100%' }}>
         <DataGridToolbar
           hasExport={hasExport && !!exportFn} hasFilters={hasFilters}
           filterOpen={filterOpen} activeFilterCount={activeFilterCount}
@@ -254,7 +254,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
           onExport={exportFn ? handleExport : undefined}
           onRefresh={() => refetch()}
         />
-        <Box sx={{ display:'flex', gap:0.5, alignItems:'center', ml:'auto' }}>
+        <Box sx={{ display:'flex', gap:0.5, alignItems:'center', ml:{ sm: 'auto' }, flexWrap: 'wrap' }}>
           {hasEmail && emailConfig && (
             <Button size="small" variant="outlined" onClick={() => setEmailOpen(true)} sx={{ fontSize:12 }}>
               Send by email
@@ -317,7 +317,18 @@ export function DataGrid<TData extends Record<string, unknown>>({
         </Box>
       )}
 
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius:2, position:'relative' }}>
+      <TableContainer
+        component={Paper}
+        variant="outlined"
+        sx={{
+          borderRadius: 2,
+          position: 'relative',
+          width: '100%',
+          maxWidth: '100%',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {isFetching && !isLoading && (
           <LinearProgress sx={{ position:'absolute', top:0, left:0, right:0, zIndex:2, borderTopLeftRadius:8, borderTopRightRadius:8 }} />
         )}

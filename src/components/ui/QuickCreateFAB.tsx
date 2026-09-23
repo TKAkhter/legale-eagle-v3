@@ -1,38 +1,127 @@
 /**
- * QuickCreateFAB — floating speed-dial for quick record creation.
+ * QuickCreateFAB — LMS "Create New +" menu parity (floating).
  */
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Box, Fab, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip } from "@mui/material"
+import {
+  Box, Fab, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Typography,
+} from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
-import PersonAddIcon from "@mui/icons-material/PersonAdd"
-import AssignmentIcon from "@mui/icons-material/Assignment"
-import TimerIcon from "@mui/icons-material/Timer"
+import GroupAddOutlinedIcon from "@mui/icons-material/GroupAddOutlined"
 import GavelIcon from "@mui/icons-material/Gavel"
+import EventRepeatIcon from "@mui/icons-material/EventRepeat"
+import FiberNewIcon from "@mui/icons-material/FiberNew"
+import MoneyOffOutlinedIcon from "@mui/icons-material/MoneyOffOutlined"
+import AddTaskRoundedIcon from "@mui/icons-material/AddTaskRounded"
+import AssignmentIndOutlinedIcon from "@mui/icons-material/AssignmentIndOutlined"
+import HeadsetMicOutlinedIcon from "@mui/icons-material/HeadsetMicOutlined"
 import { useTranslation } from "react-i18next"
+import { useAuthStore } from "@lib/store/authStore"
 
-const ACTIONS = [
-  { icon: <PersonAddIcon fontSize="small" />,  name: "New Lead",   tooltip: "Create a new lead",   path: "/leads?new=1" },
-  { icon: <GavelIcon fontSize="small" />,      name: "New Matter", tooltip: "Open a new matter",   path: "/matters?new=1" },
-  { icon: <AssignmentIcon fontSize="small" />, name: "New Task",   tooltip: "Create a new task",   path: "/tasks?new=1" },
-  { icon: <TimerIcon fontSize="small" />,      name: "Log Time",   tooltip: "Log a time entry",    path: "/time-log-entries?new=1" },
-]
+const TICKET_URL = "https://legaleagle.atlassian.net/servicedesk/customer/portal/2"
+const ICON_SX = { color: "primary.main" }
+
+type Action = {
+  key: string
+  label: string
+  icon: React.ReactNode
+  visible: boolean
+  onClick: () => void
+}
 
 export function QuickCreateFAB() {
   const { t } = useTranslation()
-  const [anchor, setAnchor] = useState<null | HTMLElement>(null)
   const navigate = useNavigate()
+  const hasPermission = useAuthStore(s => s.hasPermission)
+  const roles = useAuthStore(s => s.user?.roles ?? [])
+  const isSuperAdmin = roles.some(r => String(r).includes("SUPER_ADMIN"))
+
+  const [anchor, setAnchor] = useState<null | HTMLElement>(null)
   const open = Boolean(anchor)
+
+  const canLead = hasPermission("/leads") || hasPermission("/my-leads")
+  const canActivity = hasPermission("/activities") || hasPermission("/time-log-entries")
+
+  const actions = useMemo<Action[]>(() => [
+    {
+      key: "lead",
+      label: t("create.lead", "Lead"),
+      icon: <GroupAddOutlinedIcon fontSize="small" sx={ICON_SX} />,
+      visible: canLead,
+      onClick: () => navigate(hasPermission("/leads") ? "/leads?new=1" : "/my-leads?new=1"),
+    },
+    {
+      key: "hearing",
+      label: t("create.hearing", "Hearing"),
+      icon: <GavelIcon fontSize="small" sx={ICON_SX} />,
+      visible: true,
+      onClick: () => navigate("/team/upcoming-hearings?new=1"),
+    },
+    {
+      key: "continue-hearing",
+      label: t("create.continueHearing", "Continue Hearing"),
+      icon: <EventRepeatIcon fontSize="small" sx={ICON_SX} />,
+      visible: true,
+      onClick: () => navigate("/team/hearing-calendar"),
+    },
+    {
+      key: "timelog",
+      label: t("create.timeLog", "New Time Log Entry"),
+      icon: <FiberNewIcon fontSize="small" sx={ICON_SX} />,
+      visible: canActivity,
+      onClick: () => navigate("/time-log-entries?new=1&category=Matter"),
+    },
+    {
+      key: "disbursement",
+      label: t("create.disbursement", "New Disbursement"),
+      icon: <MoneyOffOutlinedIcon fontSize="small" sx={ICON_SX} />,
+      visible: canActivity,
+      onClick: () => navigate("/time-log-entries?new=1&category=Expense"),
+    },
+    {
+      key: "task",
+      label: t("create.task", "Task"),
+      icon: <AddTaskRoundedIcon fontSize="small" sx={ICON_SX} />,
+      visible: true,
+      onClick: () => navigate("/tasks?new=1"),
+    },
+    {
+      key: "template",
+      label: t("create.assignTemplate", "Assign Task Template"),
+      icon: <AssignmentIndOutlinedIcon fontSize="small" sx={ICON_SX} />,
+      visible: true,
+      onClick: () => navigate("/tasks?assignTemplate=1"),
+    },
+    {
+      key: "ticket",
+      label: t("create.raiseTicket", "Raise Ticket"),
+      icon: <HeadsetMicOutlinedIcon fontSize="small" sx={ICON_SX} />,
+      visible: true,
+      onClick: () => window.open(TICKET_URL, "_blank", "noopener,noreferrer"),
+    },
+  ], [canLead, canActivity, hasPermission, navigate, t])
+
+  const visible = actions.filter(a => a.visible)
+
+  if (isSuperAdmin) return null
 
   return (
     <Box sx={{ position: "fixed", bottom: { xs: 16, sm: 24 }, right: { xs: 16, sm: 24 }, zIndex: 1200 }}>
-      <Tooltip title={t("layout.quickCreateHint", "Quick create — Lead, Matter, Task, or Time Log")} placement="left">
+      <Tooltip title={t("layout.createNew", "Create New +")} placement="left">
         <Fab
           color="primary"
-          aria-label={t("layout.quickCreate", "Quick create")}
+          aria-label={t("layout.createNew", "Create New +")}
           onClick={(e) => setAnchor(e.currentTarget)}
+          sx={{ borderRadius: "28px", px: { sm: 2 }, width: { sm: "auto" }, minWidth: 56, gap: 0.75 }}
+          variant="extended"
         >
-          <AddIcon />
+          <AddIcon sx={{ mr: { xs: 0, sm: 0.5 } }} />
+          <Typography
+            component="span"
+            sx={{ display: { xs: "none", sm: "inline" }, fontWeight: 600, fontSize: 13, pr: 0.5 }}
+          >
+            {t("layout.createNew", "Create New +")}
+          </Typography>
         </Fab>
       </Tooltip>
       <Menu
@@ -41,15 +130,15 @@ export function QuickCreateFAB() {
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
         transformOrigin={{ vertical: "bottom", horizontal: "center" }}
+        slotProps={{ paper: { sx: { py: 1, minWidth: 240 } } }}
       >
-        {ACTIONS.map(action => (
+        {visible.map(action => (
           <MenuItem
-            key={action.name}
-            title={action.tooltip}
-            onClick={() => { setAnchor(null); navigate(action.path) }}
+            key={action.key}
+            onClick={() => { setAnchor(null); action.onClick() }}
           >
-            <ListItemIcon>{action.icon}</ListItemIcon>
-            <ListItemText primary={action.name} secondary={action.tooltip} />
+            <ListItemIcon sx={{ minWidth: 40 }}>{action.icon}</ListItemIcon>
+            <ListItemText primary={action.label} />
           </MenuItem>
         ))}
       </Menu>

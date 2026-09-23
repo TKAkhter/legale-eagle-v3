@@ -232,7 +232,8 @@ export function StopwatchWidget() {
             borderColor: "divider",
             borderRadius: 1.5,
             mr: 0.5,
-            maxWidth: 360,
+            maxWidth: { xs: 160, sm: 220, md: 360 },
+            minWidth: 0,
           }}
         >
           <Box sx={{ minWidth: 0, pr: 0.5 }}>
@@ -273,7 +274,7 @@ export function StopwatchWidget() {
           {extraTimers.length > 0 && (
             <Badge
               badgeContent={extraTimers.length}
-              color="secondary"
+              color="primary"
               onClick={(e) => setPopoverAnchor(e.currentTarget as HTMLElement)}
               sx={{ cursor: "pointer", ml: 0.5 }}
             >

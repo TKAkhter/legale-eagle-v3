@@ -117,14 +117,14 @@ export default function ClientDetailPage() {
             {!!c.zohoClientId && <Chip size="small" label="Zoho" color="info" variant="outlined" />}
           </Box>
         </Box>
-        <Box sx={{ display: "flex", gap: 3 }}>
+        <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 3 }, flexWrap: "wrap", width: "100%", justifyContent: { xs: "flex-start", sm: "flex-end" } }}>
           {([
             ["Open Matters", String(c.openMatter)],
             ["Closed", String(c.closeMatter)],
             ["LFAs", String(c.lfaCount)],
             ["Total Billed", formatCurrency(Number(revenue.billed ?? c.totalInvoiceAmount ?? 0))],
           ] as [string, string][]).map(([label, value]) => (
-            <Box key={label} sx={{ textAlign: "center" }}>
+            <Box key={label} sx={{ textAlign: "center", minWidth: 72 }}>
               <Typography variant="caption" color="text.secondary">{label}</Typography>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>{value}</Typography>
             </Box>
@@ -203,9 +203,27 @@ export default function ClientDetailPage() {
             <DataGrid
               columns={[
                 { field: "activity", header: "Activity" },
-                { field: "totalHours", header: "Hours", align: "right" },
+                {
+                  field: "totalHours",
+                  header: "Hours",
+                  align: "right",
+                  renderCell: (_v, row) => {
+                    const r = row as Record<string, unknown>
+                    if (r.totalHours != null) return Number(r.totalHours).toFixed(2)
+                    const h = Number(r.hours ?? 0)
+                    const m = Number(r.minutes ?? 0)
+                    return h || m ? `${h}:${String(m).padStart(2, "0")}h` : "0"
+                  },
+                },
                 { field: "billing", header: "Amount", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-                { field: "entryDate", header: "Date", renderCell: v => v ? formatDate(String(v)) : "—" },
+                {
+                  field: "entryDate",
+                  header: "Date",
+                  renderCell: (v, row) => {
+                    const d = v ?? (row as Record<string, unknown>).createdAt
+                    return d ? formatDate(String(d)) : "—"
+                  },
+                },
               ]}
               queryKey={["clients", "timelogs", clientId]}
               queryFn={(p: GridParams) => clientsApi.getTimelogs(String(clientId), p)}
@@ -217,9 +235,8 @@ export default function ClientDetailPage() {
           content: (
             <DataGrid
               columns={[
-                { field: "type", header: "Type" },
-                { field: "title", header: "Title" },
-                { field: "action", header: "Action" },
+                { field: "logType", header: "Type", renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).type ?? "—") },
+                { field: "logDec", header: "Title", renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).logTitle ?? (row as Record<string, unknown>).title ?? "—") },
                 { field: "createdBy", header: "Created By" },
                 { field: "createdAt", header: "Created At", renderCell: v => v ? formatDate(String(v)) : "—" },
               ]}
@@ -233,13 +250,26 @@ export default function ClientDetailPage() {
           content: (
             <DataGrid
               columns={[
-                { field: "lfaNo", header: "LFA No" },
-                { field: "lfaType", header: "Type" },
-                { field: "status", header: "Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
+                {
+                  field: "agreementNo",
+                  header: "LFA No",
+                  renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).lfaNo ?? "—"),
+                },
+                {
+                  field: "billingType",
+                  header: "Type",
+                  renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).lfaType ?? "—"),
+                },
+                {
+                  field: "lfaStatus",
+                  header: "Status",
+                  renderCell: (v, row) => <StatusBadge status={String(v ?? (row as Record<string, unknown>).status ?? "")} />,
+                },
                 { field: "createdAt", header: "Created", renderCell: v => v ? formatDate(String(v)) : "—" },
               ]}
               queryKey={["clients", "lfas", clientId]}
               queryFn={(p: GridParams) => clientsApi.getLfas(String(clientId), p)}
+              detailPath={row => `/lfa/${String((row as { id?: string }).id ?? "")}`}
             />
           ),
         },
@@ -263,11 +293,34 @@ export default function ClientDetailPage() {
           content: (
             <DataGrid
               columns={[
-                { field: "invoiceNo", header: "Invoice #" },
-                { field: "taxableAmount", header: "Total", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
+                {
+                  field: "taxInvoiceNo",
+                  header: "Invoice #",
+                  renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).invoiceNo ?? "—"),
+                },
+                {
+                  field: "dueAmount",
+                  header: "Total",
+                  align: "right",
+                  renderCell: (v, row) => formatCurrency(Number(v ?? (row as Record<string, unknown>).taxableAmount ?? 0)),
+                },
                 { field: "paidAmount", header: "Paid", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-                { field: "balanceAmount", header: "Balance", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-                { field: "invoiceStatus", header: "Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
+                {
+                  field: "balanceAmount",
+                  header: "Balance",
+                  align: "right",
+                  renderCell: (v, row) => {
+                    const r = row as Record<string, unknown>
+                    const due = Number(r.dueAmount ?? r.taxableAmount ?? 0)
+                    const paid = Number(r.paidAmount ?? 0)
+                    return formatCurrency(Number(v ?? (due - paid)))
+                  },
+                },
+                {
+                  field: "paymentStaus",
+                  header: "Status",
+                  renderCell: (v, row) => <StatusBadge status={String(v ?? (row as Record<string, unknown>).invoiceStatus ?? "")} />,
+                },
                 { field: "dueDate", header: "Due", renderCell: v => v ? formatDate(String(v)) : "—" },
               ]}
               queryKey={["clients", "invoices", clientId]}

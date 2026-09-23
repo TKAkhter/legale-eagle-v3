@@ -1,27 +1,33 @@
 /**
- * GlobalSearch — matches old LMS navbar search.
- * POST /api/util/global/search with { searchKey }, groups Matter + Client results.
+ * GlobalSearch — LMS navbar search parity.
+ * POST /api/util/global/search { searchKey } → Matter + Client groups.
  */
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Autocomplete, Box, CircularProgress, TextField, Typography, lighten, darken,
 } from "@mui/material"
-import SearchIcon from "@mui/icons-material/Search"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { axiosClient } from "@lib/api/axios"
 import { env } from "@/config/env"
 import { matters as staticMatters, clients as staticClients } from "@/data/static"
+import { authApi } from "@/api/auth"
 
 interface SearchOption {
   type: "Matter" | "Client"
   idWithType: string
-  label: string
-  matterId?: string
-  clientId?: string
   title?: string
   companyName?: string
   firstName?: string
   clientType?: string
+  matterId?: string
+  clientId?: string
+}
+
+function optionLabel(option: SearchOption): string {
+  if (option.type === "Matter") return option.title || "Matter"
+  if (option.clientType === "COMPANY") return option.companyName || "Client"
+  return option.firstName || option.companyName || "Client"
 }
 
 async function fetchGlobalSearch(searchKey: string): Promise<SearchOption[]> {
@@ -31,24 +37,25 @@ async function fetchGlobalSearch(searchKey: string): Promise<SearchOption[]> {
     const q = searchKey.toLowerCase()
     const matters = (staticMatters as { id?: string; matterId?: string; title?: string }[])
       .filter(m => (m.title ?? "").toLowerCase().includes(q))
-      .slice(0, 8)
+      .slice(0, 12)
       .map(m => ({
         type: "Matter" as const,
         idWithType: `M-${m.matterId ?? m.id}`,
-        label: m.title ?? "Matter",
-        matterId: m.matterId ?? m.id,
+        matterId: String(m.matterId ?? m.id),
         title: m.title,
       }))
-    const clients = (staticClients as { id?: string; companyName?: string; firstName?: string; lastName?: string }[])
+    const clients = (staticClients as {
+      id?: string; companyName?: string; firstName?: string; lastName?: string; clientType?: string
+    }[])
       .filter(c => `${c.companyName ?? ""} ${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase().includes(q))
-      .slice(0, 8)
+      .slice(0, 12)
       .map(c => ({
         type: "Client" as const,
         idWithType: `C-${c.id}`,
-        label: c.companyName || `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "Client",
-        clientId: c.id,
+        clientId: String(c.id),
         companyName: c.companyName,
         firstName: c.firstName,
+        clientType: c.clientType,
       }))
     return [...matters, ...clients]
   }
@@ -60,34 +67,39 @@ async function fetchGlobalSearch(searchKey: string): Promise<SearchOption[]> {
 
   const matters: SearchOption[] = matterResults.map((item: Record<string, string>) => ({
     ...item,
-    type: "Matter" as const,
+    type: "Matter",
     idWithType: `M-${item.matterId}`,
-    label: item.title || "Matter",
+    matterId: item.matterId,
+    title: item.title,
   }))
 
-  const clients: SearchOption[] = clientResults.map((item: Record<string, string>) => {
-    const label = item.clientType === "COMPANY"
-      ? (item.companyName || "Client")
-      : (item.firstName || item.companyName || "Client")
-    return {
-      ...item,
-      type: "Client" as const,
-      idWithType: `C-${item.clientId ?? item.id}`,
-      label,
-    }
-  })
+  const clients: SearchOption[] = clientResults.map((item: Record<string, string>) => ({
+    ...item,
+    type: "Client",
+    idWithType: `C-${item.clientId ?? item.id}`,
+    clientId: item.clientId ?? item.id,
+    companyName: item.companyName,
+    firstName: item.firstName,
+    clientType: item.clientType,
+  }))
 
   return [...matters, ...clients]
 }
 
-export function GlobalSearch() {
+export function GlobalSearch({ fullWidth = false }: { fullWidth?: boolean }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [options, setOptions] = useState<SearchOption[]>([])
   const [loading, setLoading] = useState(false)
   const [inputValue, setInputValue] = useState("")
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const grouped = useMemo(() => options, [options])
+  useEffect(() => {
+    if (env.USE_STATIC_DATA) return
+    void authApi.checkSession()
+    const id = window.setInterval(() => { void authApi.checkSession() }, 600_000)
+    return () => clearInterval(id)
+  }, [])
 
   function scheduleSearch(value: string) {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -107,12 +119,11 @@ export function GlobalSearch() {
 
   function handleSelect(option: SearchOption | null) {
     if (!option) return
-    if (option.type === "Client") {
-      const id = option.clientId ?? option.idWithType.slice(2)
-      navigate(`/clients/${id}`)
+    const raw = option.idWithType?.slice(2) ?? ""
+    if (option.type === "Client" || option.idWithType?.startsWith("C")) {
+      navigate(`/clients/${option.clientId ?? raw}`)
     } else {
-      const id = option.matterId ?? option.idWithType.slice(2)
-      navigate(`/matters/${id}`)
+      navigate(`/matters/${option.matterId ?? raw}`)
     }
     setInputValue("")
     setOptions([])
@@ -121,16 +132,23 @@ export function GlobalSearch() {
   return (
     <Autocomplete
       size="small"
-      sx={{ width: { xs: 160, sm: 260, md: 300 }, flexShrink: 0 }}
-      options={grouped}
+      sx={{
+        width: fullWidth ? "100%" : { xs: "100%", sm: 260, md: 300 },
+        maxWidth: "100%",
+        minWidth: 0,
+        flexShrink: 1,
+      }}
+      options={options}
       loading={loading}
       inputValue={inputValue}
       value={null}
+      clearOnBlur={false}
+      blurOnSelect
       filterOptions={(x) => x}
       groupBy={(o) => o.type}
-      getOptionLabel={(o) => o.label}
+      getOptionLabel={optionLabel}
       isOptionEqualToValue={(a, b) => a.idWithType === b.idWithType}
-      noOptionsText={inputValue ? "No options" : "Type to search"}
+      noOptionsText={inputValue.trim() ? t("common.noOptions", "No Options") : t("common.typeToSearch", "Type to search")}
       onChange={(_, value) => handleSelect(value)}
       onInputChange={(_, value, reason) => {
         if (reason === "reset") return
@@ -140,31 +158,26 @@ export function GlobalSearch() {
       renderInput={(params) => (
         <TextField
           {...params}
-          placeholder="Search"
+          label={t("common.search", "Search")}
           variant="outlined"
           slotProps={{
+            ...params.slotProps,
             input: {
-              ...params.slotProps?.input,
-              startAdornment: (
-                <>
-                  <SearchIcon sx={{ fontSize: 18, color: "text.disabled", ml: 0.5, mr: 0.5 }} />
-                  {(params.slotProps?.input as { startAdornment?: React.ReactNode } | undefined)?.startAdornment}
-                </>
-              ),
+              ...params.slotProps.input,
               endAdornment: (
                 <>
-                  {loading ? <CircularProgress color="inherit" size={14} /> : null}
-                  {(params.slotProps?.input as { endAdornment?: React.ReactNode } | undefined)?.endAdornment}
+                  {loading ? <CircularProgress color="inherit" size={14} sx={{ mr: 1 }} /> : null}
+                  {params.slotProps.input.endAdornment}
                 </>
               ),
             },
           }}
           sx={{
             "& .MuiOutlinedInput-root": {
-              bgcolor: "background.default",
+              bgcolor: "background.paper",
               borderRadius: 1.5,
               fontSize: 13,
-              height: 36,
+              height: 40,
             },
           }}
         />
@@ -190,11 +203,14 @@ export function GlobalSearch() {
           <Box component="ul" sx={{ p: 0, m: 0 }}>{params.children}</Box>
         </li>
       )}
-      renderOption={(props, option) => (
-        <Box component="li" {...props} key={option.idWithType}>
-          <Typography variant="body2">{option.label}</Typography>
-        </Box>
-      )}
+      renderOption={(props, option) => {
+        const { key: _k, ...rest } = props as { key?: React.Key } & Record<string, unknown>
+        return (
+          <Box component="li" key={option.idWithType} {...rest}>
+            <Typography variant="body2">{optionLabel(option)}</Typography>
+          </Box>
+        )
+      }}
     />
   )
 }

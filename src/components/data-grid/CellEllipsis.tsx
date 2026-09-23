@@ -2,8 +2,7 @@ import { Tooltip, Typography } from "@mui/material"
 import type { ReactNode } from "react"
 
 /**
- * Shows up to 2 lines of text, then ellipsis.
- * Full text appears in a tooltip on hover.
+ * Single-line ellipsis; full text in tooltip on hover.
  */
 export function CellEllipsis({ children, title }: { children: ReactNode; title?: string }) {
   const text = title
@@ -16,14 +15,12 @@ export function CellEllipsis({ children, title }: { children: ReactNode; title?:
       component="span"
       variant="body2"
       sx={{
-        display: "-webkit-box",
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: "vertical",
+        display: "block",
         overflow: "hidden",
         textOverflow: "ellipsis",
-        wordBreak: "break-word",
-        lineHeight: 1.35,
+        whiteSpace: "nowrap",
         maxWidth: "100%",
+        lineHeight: 1.4,
       }}
     >
       {children}
@@ -34,7 +31,7 @@ export function CellEllipsis({ children, title }: { children: ReactNode; title?:
 
   return (
     <Tooltip title={text} placement="top" enterDelay={400} arrow>
-      <span style={{ display: "block", maxWidth: "100%" }}>{content}</span>
+      <span style={{ display: "block", maxWidth: "100%", minWidth: 0 }}>{content}</span>
     </Tooltip>
   )
 }

@@ -1,52 +1,38 @@
-import { PageShell } from '@/components/ui/PageShell'
-import { env } from '@/config/env'
-import { adminApi } from '@/api/admin'
-import { Box, Typography, Avatar } from '@mui/material'
-import { DataGrid } from '@components/data-grid/DataGrid'
-import { StatusBadge } from '@components/ui/StatusBadge'
-import { SearchInput } from '@components/filters/SearchInput'
-import { DepartmentFilter } from '@components/filters/DepartmentFilter'
-import { axiosClient } from '@lib/api/axios'
-import { buildQueryParams } from '@lib/utils/buildQueryParams'
-import { useState } from 'react'
-import type { FilterPanelProps } from '@components/data-grid/types'
-import type { GridParams } from '@/types/common.types'
+import { PageShell } from "@/components/ui/PageShell"
+import { DataGrid } from "@components/data-grid/DataGrid"
+import { teamsApi } from "@/api/teams"
+import { Button, Typography } from "@mui/material"
+import { useNavigate } from "react-router-dom"
+import type { GridParams } from "@/types/common.types"
 
-async function fetchTeam(params: GridParams) {
-  if (env.USE_STATIC_DATA) return adminApi.getUsers(params.filters ?? {})
-  const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
-  const f = params.filters ?? {}
-  const r = await axiosClient.get('/api/user/get', { params: { ...qp, searchText: f.searchText ?? '', departmentId: f.departmentId ?? '' } })
-  return r.data?.data ?? r.data
-}
-
-function TeamFilter({ onSearch, onReset, filters }: FilterPanelProps) {
-  const [f, setF] = useState<Record<string, unknown>>(filters)
+export default function MyTeamsPage() {
+  const navigate = useNavigate()
   return (
-    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-      <SearchInput value={String(f.searchText ?? '')} onChange={v => { setF(p => ({ ...p, searchText: v })); onSearch({ ...f, searchText: v }) }} placeholder="Search team member..." />
-      <DepartmentFilter value={String(f.departmentId ?? '')} onChange={v => { setF(p => ({ ...p, departmentId: v })); onSearch({ ...f, departmentId: v }) }} />
-    </Box>
-  )
-}
-
-export default function TeamPage() {
-  return (
-    <PageShell title="Team" description="Attorneys and support staff">
+    <PageShell title="My Teams" description="Organisation teams you belong to">
       <DataGrid
         columns={[
-          { field: 'firstName', header: 'Name', renderCell: (_, row) => {
-            const r = row as Record<string, string>
-            return <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Avatar src={r.profilePic} sx={{ width: 28, height: 28, fontSize: 12 }}>{r.firstName?.[0]}</Avatar><span>{r.firstName} {r.lastName}</span></Box>
-          }},
-          { field: 'email', header: 'Email' },
-          { field: 'designation', header: 'Designation', renderCell: (v) => (v as Record<string, string>)?.name ?? '—' },
-          { field: 'department', header: 'Department', renderCell: (v) => (v as Record<string, string>)?.name ?? '—' },
-          { field: 'companyUserType', header: 'Role' },
-          { field: 'active', header: 'Status', renderCell: (v) => <StatusBadge status={v ? 'active' : 'inactive'} /> },
+          { field: "name", header: "Team" },
+          {
+            field: "hod",
+            header: "HOD",
+            renderCell: (v) => {
+              const h = v as { firstName?: string; lastName?: string } | null
+              return h ? `${h.firstName ?? ""} ${h.lastName ?? ""}`.trim() || "—" : "—"
+            },
+          },
+          {
+            field: "id",
+            header: "",
+            renderCell: (_, row) => (
+              <Button size="small" variant="contained" onClick={() => navigate(`/team/${String((row as { id: string }).id)}`)}>
+                Details
+              </Button>
+            ),
+          },
         ]}
-        queryKey={['team', 'list']} queryFn={fetchTeam}
-        FilterPanel={TeamFilter} hasFilters syncWithUrl
+        queryKey={["teams", "my"]}
+        queryFn={(p: GridParams) => teamsApi.getMyTeams(p)}
+        emptyState={<Typography color="text.secondary">No teams found.</Typography>}
       />
     </PageShell>
   )

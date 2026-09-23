@@ -14,13 +14,19 @@ const FONT   = (dir: Direction) => dir === "rtl"
 
 const COMPONENTS = {
   MuiButton: {
-    defaultProps: { disableElevation: true },
+    defaultProps: { disableElevation: true, color: "primary" as const },
     styleOverrides: { root: { textTransform: "none" as const, fontWeight: 500, borderRadius: 6 } },
+  },
+  MuiFab: {
+    defaultProps: { color: "primary" as const },
   },
   MuiTextField:  { defaultProps: { size: "small" as const } },
   MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 6 } } },
   MuiChip:       { styleOverrides: { root: { borderRadius: 5, fontWeight: 500 } } },
   MuiTab:        { styleOverrides: { root: { textTransform: "none" as const, fontWeight: 500 } } },
+  MuiLinearProgress: {
+    defaultProps: { color: "primary" as const },
+  },
   MuiCssBaseline: {
     styleOverrides: `
       *, *::before, *::after { box-sizing: border-box; }

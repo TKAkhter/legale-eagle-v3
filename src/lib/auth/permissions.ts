@@ -40,6 +40,8 @@ function normalise(s: string): string {
 
 const MENU_NAME_TO_RESOURCE: Record<string, string> = {
   dashboard:           'dashboard',
+  departmentanalytics: 'dashboard',
+  analytics:           'dashboard',
   leads:               'leads',
   myleads:             'my_leads',
   clients:             'clients',
@@ -84,12 +86,28 @@ const MENU_NAME_TO_RESOURCE: Record<string, string> = {
   budgetcards:         'budgeting',
   ratecards:           'budgeting',
   manageusers:         'users',
-  accounts:            'users',
+  accounts:            'bank_accounts',
+  bankaccounts:        'bank_accounts',
+  vendors:             'vendors',
+  myleaves:            'leaves',
+  leaves:              'leaves',
+  leaveapplications:   'leaves',
+  payrolls:            'payroll',
+  payroll:             'payroll',
+  teamtemplates:       'team',
+  requestmatters:      'matters',
+  requestmatter:       'matters',
+  internalleads:       'leads',
   groups:              'groups',
   locations:           'locations',
   settings:            'settings',
   raisedtickets:       'tickets',
   referralcommission:  'lfa',
+  retainerbilling:     'billing',
+  retainerhistory:     'billing',
+  retainerstatements:  'billing',
+  creditnotes:         'billing',
+  writeoff:            'billing',
 }
 
 function resourceForMenuItem(item: ApiMenuItem): string | undefined {
@@ -115,6 +133,7 @@ function mapActionsFromPermission(resource: string, perm: ApiSubmenuPermission):
     if (resource === 'settings')  actions.push('settings:manage')
     if (resource === 'budgeting') actions.push('budgeting:manage')
     if (resource === 'onedrive')  actions.push('onedrive:manage')
+    if (resource === 'leaves')    actions.push('leaves:approve')
     if (resource === 'locations') actions.push('locations:manage')
     if (resource === 'team')      actions.push('team:manage')
     if (resource === 'users')     actions.push('users:block')

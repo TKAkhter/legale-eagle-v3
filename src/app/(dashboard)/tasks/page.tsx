@@ -19,6 +19,7 @@ import type { GridParams } from '@/types/common.types'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import { tasksApi } from '@/api/tasks'
 import { TaskFormDrawer } from './_components/TaskFormDrawer'
+import { AssignTemplateDrawer } from './_components/AssignTemplateDrawer'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/lib/toast'
 
@@ -59,6 +60,7 @@ export default function TasksPage() {
   const [view, setView] = useState<'list' | 'board'>('list')
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [templateOpen, setTemplateOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const [editId, setEditId] = useState<string | undefined>()
   const [deleteId, setDeleteId] = useState<string>()
@@ -66,7 +68,13 @@ export default function TasksPage() {
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
+      setEditId(undefined)
       setDrawerOpen(true)
+      setSearchParams({}, { replace: true })
+      return
+    }
+    if (searchParams.get("assignTemplate") === "1") {
+      setTemplateOpen(true)
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, setSearchParams])
@@ -92,6 +100,9 @@ export default function TasksPage() {
             <ToggleButton value="board"><ViewKanbanIcon fontSize="small" /></ToggleButton>
           </ToggleButtonGroup>
           <Can do={PERMISSIONS.TASKS_CREATE}>
+            <Button variant="outlined" onClick={() => setTemplateOpen(true)}>
+              Assign Template
+            </Button>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>
               New Task
             </Button>
@@ -154,6 +165,14 @@ export default function TasksPage() {
           setDrawerOpen(false)
           setGridKey(k => k + 1)
           toast.success(editId ? 'Task updated' : 'Task created')
+        }}
+      />
+      <AssignTemplateDrawer
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ['tasks'] })
+          setGridKey(k => k + 1)
         }}
       />
       <ConfirmDialog

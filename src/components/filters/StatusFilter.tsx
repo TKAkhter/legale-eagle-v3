@@ -36,7 +36,7 @@ export function StatusFilter({
   sx,
 }: SingleProps) {
   return (
-    <FormControl size="small" sx={{ minWidth: 140, ...sx }}>
+    <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 140 }, maxWidth: '100%', ...sx }}>
       <InputLabel>{label}</InputLabel>
       <Select label={label} value={value} onChange={e => onChange(e.target.value)}>
         {includeAll && <MenuItem value="All">All</MenuItem>}
@@ -63,7 +63,7 @@ export function StatusMultiFilter({
   openImpliesReopen = false,
 }: MultiProps) {
   return (
-    <FormControl size="small" sx={{ minWidth: 180, ...sx }} fullWidth>
+    <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 }, maxWidth: '100%', ...sx }} fullWidth>
       <InputLabel>{label}</InputLabel>
       <Select
         multiple

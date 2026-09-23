@@ -32,8 +32,14 @@ export interface AuthUser {
   accessScope: string
   token: string
   refreshToken?: string
+  /** Backend roles e.g. ROLE_ADMIN, ROLE_SUB_ADMIN, ROLE_SUPER_ADMIN */
+  roles?: string[]
   hod?: boolean
   active?: boolean
+  /** Assigned practice areas (from GET /user/get/by/id) */
+  practiceAreas?: { id: string; name: string }[]
+  practiceAreaIds?: string[]
+  accessPermission?: string
   // Extra permissions flags from backend Users entity
   leadSourceEntry?: boolean
   practiceAreaEntry?: boolean

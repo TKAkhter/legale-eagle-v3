@@ -81,18 +81,94 @@ export const dashboardApi = {
   },
 
   async recentActivities() {
-    if (env.USE_STATIC_DATA) return []
+    if (env.USE_STATIC_DATA) {
+      return {
+        clientRecentActivity: [
+          { client: { clientId: "c1", clientType: "COMPANY", companyName: "Al Rashid Holdings", firstName: "", email: [{ emailId: "m@holdings.ae" }] } },
+        ],
+        matterRecentActivity: [
+          { matter: { matterId: "m1", title: "260303", description: "Building dispute", matterType: "Long_Matter", clientMini: { clientType: "COMPANY", companyName: "Al Rashid Holdings" } } },
+        ],
+      }
+    }
     const r = await axiosClient.get("/api/activity/get/recent/activity")
     const payload = r.data?.data ?? r.data ?? {}
-    const clientActs = Array.isArray(payload.clientRecentActivity) ? payload.clientRecentActivity : []
-    const matterActs = Array.isArray(payload.matterRecentActivity) ? payload.matterRecentActivity : []
-    return [...clientActs, ...matterActs]
+    return {
+      clientRecentActivity: Array.isArray(payload.clientRecentActivity) ? payload.clientRecentActivity : [],
+      matterRecentActivity: Array.isArray(payload.matterRecentActivity) ? payload.matterRecentActivity : [],
+    }
   },
 
   async favouriteClients() {
-    if (env.USE_STATIC_DATA) return []
-    const r = await axiosClient.get("/api/fav/client/my")
-    return unwrapAxiosList(r.data)
+    if (env.USE_STATIC_DATA) {
+      return [
+        {
+          id: "c1", clientId: "c1", companyName: "Al Rashid Holdings", firstName: "Mohammed",
+          openMatter: 2, lastActivityDate: "2026-08-01", clientType: "COMPANY", favourite: true,
+        },
+        {
+          id: "c2", clientId: "c2", companyName: "", firstName: "Emily", lastName: "Harper",
+          openMatter: 1, lastActivityDate: "2026-07-20", clientType: "PERSON", favourite: true,
+        },
+      ]
+    }
+    // Prefer dedicated fav list; fall back to mini list flagged favourite
+    try {
+      const r = await axiosClient.get("/api/fav/client/my")
+      const list = unwrapAxiosList(r.data) as Record<string, unknown>[]
+      if (list.length) {
+        return list.map(c => ({
+          ...c,
+          id: String(c.clientId ?? c.id ?? ""),
+          clientId: String(c.clientId ?? c.id ?? ""),
+          favourite: true,
+        }))
+      }
+    } catch { /* fall through */ }
+
+    try {
+      const r = await axiosClient.get("/api/client/mini/list")
+      const list = unwrapAxiosList(r.data) as Record<string, unknown>[]
+      return list
+        .filter(c => Boolean(c.favourite ?? c.isFavourite ?? c.fav))
+        .map(c => ({
+          ...c,
+          id: String(c.id ?? c.clientId ?? ""),
+          clientId: String(c.clientId ?? c.id ?? ""),
+        }))
+    } catch {
+      return []
+    }
+  },
+
+  async favClientGroupName() {
+    if (env.USE_STATIC_DATA) return "Demo Favourites"
+    try {
+      const r = await axiosClient.get("/api/fav/client/list/group")
+      const data = r.data?.data ?? r.data
+      const groups = Array.isArray(data) ? data : []
+      // Without uuid wiring, return first group name if present
+      const first = groups[0] as { name?: string } | undefined
+      return first?.name ? String(first.name) : null
+    } catch {
+      return null
+    }
+  },
+
+  async favClientMatters(clientId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "m1", title: "260303", billingType: "Hourly", status: "OPEN", description: "Building dispute", lastActivityDate: "2026-08-01" },
+      ]
+    }
+    const r = await axiosClient.get("/api/matter/mini/by/client", { params: { clientId } })
+    const list = unwrapAxiosList(r.data) as Record<string, unknown>[]
+    return list.filter(m => String(m.status ?? "").toUpperCase() !== "CLOSE")
+  },
+
+  async unfavouriteClient(clientId: string) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 200)); return }
+    await axiosClient.post("/api/fav/client/mark", { clientId, makeFav: false })
   },
 
   async timeLogStats(fromDate: string, toDate: string, responsiblePersonId?: string) {
@@ -104,7 +180,8 @@ export const dashboardApi = {
         totalNonBillableHours: 8,
         totalRevenueAllocatedHours: 30,
         totalPurgedHours: 0,
-        totalDiscountedHours: 0,
+        totalDiscountedHours: 1,
+        nonBillableNonMatterHours: 2,
       }]
     }
     const r = await axiosClient.get("/api/report/activity/statistics/by-person", {
@@ -125,20 +202,60 @@ export const dashboardApi = {
     if (env.USE_STATIC_DATA) {
       return [
         { roleId: "1", roleName: "Handling Work", count: 3, roles: [] },
+        {
+          roleId: "2", roleName: "Assisting", count: 4,
+          roles: [
+            { roleId: "2a", roleName: "Junior Associate", count: 2 },
+            { roleId: "2b", roleName: "Paralegal", count: 2 },
+          ],
+        },
         { roleId: null, roleName: "Solo", count: 5, roles: null },
-        { roleId: null, roleName: "Total", count: 8, roles: null },
+        { roleId: null, roleName: "Total", count: 12, roles: null },
       ]
     }
-    const r = await axiosClient.get("/api/dashboard/my-role-summary")
+    const r = await axiosClient.get("/api/dashboard/my-role-summary", {
+      params: { assistingCombined: true },
+    })
     const data = r.data?.data ?? r.data
     return Array.isArray(data) ? data : []
   },
 
-  async mattersPerRole(roleId: string, roleName: string) {
-    if (env.USE_STATIC_DATA) return []
+  async mattersPerRole(roleId: string, roleName: string, page = 0, size = 20) {
+    if (env.USE_STATIC_DATA) {
+      return {
+        content: [
+          {
+            matterId: "m1", title: "260303", practiceArea: { name: "Litigation" },
+            clientMini: { companyName: "Al Rashid Holdings", clientType: "COMPANY" },
+            teamMembers: [{ firstName: "Sarah", lastName: "Johnson", role: "Handling Work" }],
+            status: "OPEN", matterSubject: "Dispute", description: "Building dispute scope",
+            createdAt: "2026-07-09",
+          },
+        ],
+        totalElements: 1,
+      }
+    }
     const r = await axiosClient.get("/api/matter/details/per-role", {
-      params: { roleId: roleId || "", roleName: roleName || "", pageNumber: 0, pageSize: 20 },
+      params: { roleId: roleId || "", roleName: roleName || "", page, size, pageNumber: page, pageSize: size },
     })
-    return unwrapAxiosList(r.data)
+    const data = r.data?.data ?? r.data
+    if (Array.isArray(data)) return { content: data, totalElements: data.length }
+    return {
+      content: unwrapAxiosList(r.data),
+      totalElements: Number(data?.totalElements ?? data?.total ?? 0),
+    }
+  },
+
+  async monthlyMattersPerRole() {
+    if (env.USE_STATIC_DATA) {
+      return {
+        "Handling Work": [1, 2, 2, 3, 2, 4, 3, 3, 2, 2, 1, 2],
+        Supervisor: [0, 1, 1, 1, 2, 1, 1, 2, 1, 1, 0, 1],
+        Assisting: [1, 1, 2, 1, 2, 2, 2, 1, 2, 1, 1, 1],
+        Solo: [2, 2, 3, 2, 3, 2, 3, 2, 2, 3, 2, 2],
+      }
+    }
+    const r = await axiosClient.get("/api/analysis/monthly/matters/per-role")
+    return r.data?.stats ?? r.data?.data?.stats ?? r.data?.data ?? r.data ?? {}
   },
 }

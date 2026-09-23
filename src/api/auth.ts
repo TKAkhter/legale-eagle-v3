@@ -46,24 +46,59 @@ export const authApi = {
     if (env.USE_STATIC_DATA) return
     await axiosClient.get("/api/user/check/session").catch(() => {})
   },
-  async updateProfile(data: { firstName: string; lastName: string }): Promise<void> {
-    /** Update user display name */
-    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)); return }
-    await axiosClient.put("/api/user/update", data)
+  /** Load full profile (LMS: GET /user/get/by/id) */
+  async getProfile(userId: string): Promise<Record<string, unknown>> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return { ...staticAuth.user }
+    }
+    const res = await axiosClient.get("/api/user/get/by/id", { params: { userId } })
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
   },
 
-  async uploadAvatar(file: File): Promise<string> {
-    /** Upload avatar image, returns the new URL */
+  /**
+   * Save profile (LMS: POST /user/edit?userId=).
+   * Email/phone are sent for parity but UI keeps them disabled.
+   */
+  async updateProfile(
+    userId: string,
+    data: {
+      firstName: string
+      lastName: string
+      email?: string
+      phone?: string
+      accessPermission?: string
+      companyUserType?: string
+      practiceAreaIds?: string[]
+    },
+  ): Promise<Record<string, unknown>> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 400))
+      return { ...staticAuth.user, ...data }
+    }
+    const res = await axiosClient.post("/api/user/edit", data, { params: { userId } })
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+  },
+
+  async uploadAvatar(file: File, userId?: string): Promise<string> {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 600))
       return URL.createObjectURL(file)
     }
     const form = new FormData()
     form.append("file", file)
-    const r = await axiosClient.post("/api/user/avatar", form, {
-      headers: { "Content-Type": "multipart/form-data" }
-    })
-    return r.data?.data?.url ?? r.data?.url ?? ""
+    // Prefer LMS avatar endpoint; fall back to /api/user/avatar
+    try {
+      const r = await axiosClient.post("/api/user/edit/avatar", form, {
+        params: userId ? { userId } : undefined,
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      return String(r.data?.data?.profilePic ?? r.data?.data?.url ?? r.data?.url ?? "")
+    } catch {
+      const r = await axiosClient.post("/api/user/avatar", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      return String(r.data?.data?.url ?? r.data?.url ?? "")
+    }
   },
-
 }

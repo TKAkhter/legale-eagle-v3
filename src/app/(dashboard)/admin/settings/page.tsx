@@ -1,261 +1,144 @@
 /**
- * Settings page — tabbed settings panel.
- *
- * Tabs:
- *   0. My Profile    — view profile (redirect to /profile for editing)
- *   1. Company       — edit company settings (name, currency, tax, etc.)
- *   2. Appearance    — dark mode + language toggles
- *   3. Practice Areas, Lead Sources, Departments, Designations — LookupManagers
- *   4. System Info   — env flags for debugging
- *
- * Static data mode: company form submits locally (no API call).
- * Real mode: saves to /api/company/update.
+ * Settings hub — searchable Masters + Settings tiles (LMS SettingsContent parity).
  */
-import { useState, useEffect } from "react"
+import { useMemo, useState } from "react"
+import { Link as RouterLink } from "react-router-dom"
 import {
-  Box, Typography, Paper, Divider, Switch, FormControlLabel,
-  Tabs as MuiTabs, Tab, TextField, Button,
-  CircularProgress, Chip, Avatar, Alert,
+  Box, Paper, Typography, TextField, InputAdornment, IconButton,
 } from "@mui/material"
-import { useForm, Controller } from "react-hook-form"
-import { useThemeStore }  from "@lib/store/themeStore"
-import { useAuthStore }   from "@lib/store/authStore"
-import { env }            from "@/config/env"
-import { logger }         from "@/lib/logger"
-import { toast }          from "@/lib/toast"
-import { PageShell }      from "@/components/ui/PageShell"
-import { LookupManager }  from "./_components/LookupManager"
-import { adminApi }       from "@/api/admin"
+import SearchIcon from "@mui/icons-material/Search"
+import ClearIcon from "@mui/icons-material/Clear"
+import AppsOutlinedIcon from "@mui/icons-material/AppsOutlined"
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined"
+import ChevronRightIcon from "@mui/icons-material/ChevronRight"
+import { PageShell } from "@/components/ui/PageShell"
+import { SECTION_GAP } from "@/config/spacing"
+import {
+  LOOKUP_MASTERS, SETTINGS_TILES, masterHref, type MasterConfig,
+} from "./_components/settingsRegistry"
 
-interface CompanyForm {
-  companyName: string
-  address:     string
-  phone:       string
-  email:       string
-  currency:    string
-  tax:         number
-  taxName:     string
-  invoicePrefix:string
-  dueDate:     number
-  timeZone:    string
+function matches(m: MasterConfig, q: string) {
+  if (!q.trim()) return true
+  const hay = `${m.title} ${m.description} ${m.keywords ?? ""}`.toLowerCase()
+  return hay.includes(q.trim().toLowerCase())
 }
 
-function CompanyTab() {
-  const [saving, setSaving] = useState(false)
-  const [companyId, setCompanyId] = useState("")
-  const [loading, setLoading] = useState(true)
+function SectionCard({
+  title, icon, items,
+}: {
+  title: string
+  icon: React.ReactNode
+  items: MasterConfig[]
+}) {
+  if (items.length === 0) return null
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+      <Box sx={{ px: 2.5, py: 1.75, borderBottom: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", gap: 1 }}>
+        {icon}
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: 14 }}>{title}</Typography>
+      </Box>
+      <Box
+        sx={{
+          p: 2,
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+          gap: 1.5,
+        }}
+      >
+        {items.map(item => (
+          <Box
+            key={item.key}
+            component={RouterLink}
+            to={masterHref(item)}
+            sx={{
+              textDecoration: "none",
+              color: "inherit",
+              p: 1.75,
+              borderRadius: 1.5,
+              border: "1px solid",
+              borderColor: "divider",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 1,
+              transition: "border-color 150ms, background-color 150ms",
+              "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>{item.title}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4 }}>
+                {item.description}
+              </Typography>
+            </Box>
+            <ChevronRightIcon sx={{ fontSize: 18, color: "text.disabled", mt: 0.25, flexShrink: 0 }} />
+          </Box>
+        ))}
+      </Box>
+    </Paper>
+  )
+}
 
-  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<CompanyForm>({
-    defaultValues: {
-      companyName: "",
-      address: "",
-      phone: "",
-      email: "",
-      currency: "AED",
-      tax: 5,
-      taxName: "VAT",
-      invoicePrefix: "INV",
-      dueDate: 30,
-      timeZone: "GMT+04:00",
-    },
-  })
+export default function SettingsHubPage() {
+  const [query, setQuery] = useState("")
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const info = await adminApi.getCompanyInfo() as Record<string, unknown>
-        if (cancelled) return
-        setCompanyId(String(info.id ?? info.companyId ?? ""))
-        reset({
-          companyName: String(info.companyName ?? ""),
-          address: String(info.address ?? ""),
-          phone: String(info.phone ?? ""),
-          email: String(info.email ?? ""),
-          currency: String(info.currency ?? "AED"),
-          tax: Number(info.tax ?? 5),
-          taxName: String(info.taxName ?? "VAT"),
-          invoicePrefix: String(info.invoicePrefix ?? "INV"),
-          dueDate: Number(info.dueDate ?? 30),
-          timeZone: String(info.timeZone ?? "GMT+04:00"),
-        })
-      } catch {
-        toast.error("Failed to load company info")
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [reset])
+  const masters = useMemo(() => {
+    const fromLookup = LOOKUP_MASTERS.filter(m => m.section === "masters")
+    const workingDays = SETTINGS_TILES.filter(m => m.key === "working-days")
+    return [...fromLookup, ...workingDays].filter(m => matches(m, query))
+  }, [query])
 
-  async function onSubmit(data: CompanyForm) {
-    setSaving(true)
-    logger.info("SettingsPage", "Saving company settings", data)
-    try {
-      await adminApi.updateCompany(companyId, data as unknown as Record<string, unknown>)
-      toast.success("Company settings saved")
-    } catch (e) {
-      logger.error("SettingsPage", "Failed to save company settings", e)
-      toast.error("Failed to save settings")
-    } finally {
-      setSaving(false)
-    }
-  }
+  const settings = useMemo(
+    () => SETTINGS_TILES.filter(m => m.section === "settings" && matches(m, query)),
+    [query],
+  )
 
-  if (loading) return <CircularProgress size={28} />
+  const empty = masters.length === 0 && settings.length === 0
 
-  const field = (name: keyof CompanyForm, label: string, opts?: { type?: string; required?: boolean }) => (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field: f }) => (
+  return (
+    <PageShell title="Settings" description="Firm masters and configuration">
+      <Box sx={{ display: "flex", flexDirection: "column", gap: SECTION_GAP, width: "100%" }}>
         <TextField
-          {...f}
-          label={label}
           size="small"
           fullWidth
-          type={opts?.type ?? "text"}
-          required={opts?.required}
-          value={f.value ?? ""}
+          placeholder="Search settings..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: "text.disabled" }} />
+                </InputAdornment>
+              ),
+              endAdornment: query ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setQuery("")} aria-label="Clear search">
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            },
+          }}
+          sx={{ maxWidth: 420 }}
         />
-      )}
-    />
-  )
 
-  return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2, mb: 2.5 }}>
-        {field("companyName", "Company Name", { required: true })}
-        {field("email", "Email", { type: "email" })}
-        {field("phone", "Phone")}
-        {field("address", "Address")}
-        {field("currency", "Currency")}
-        {field("timeZone", "Time Zone")}
+        {empty ? (
+          <Typography color="text.secondary">No settings match “{query}”.</Typography>
+        ) : (
+          <>
+            <SectionCard
+              title="Masters"
+              icon={<AppsOutlinedIcon sx={{ fontSize: 18, color: "text.secondary" }} />}
+              items={masters}
+            />
+            <SectionCard
+              title="Settings"
+              icon={<SettingsOutlinedIcon sx={{ fontSize: 18, color: "text.secondary" }} />}
+              items={settings}
+            />
+          </>
+        )}
       </Box>
-      <Divider sx={{ mb: 2 }} />
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>Billing Settings</Typography>
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr 1fr" }, gap: 2, mb: 2.5 }}>
-        {field("invoicePrefix", "Invoice Prefix")}
-        {field("taxName", "Tax Name")}
-        {field("tax", "Tax Rate (%)", { type: "number" })}
-        {field("dueDate", "Payment Due (days)", { type: "number" })}
-      </Box>
-      <Button
-        type="submit"
-        variant="contained"
-        disabled={saving || !isDirty}
-        startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
-      >
-        {saving ? "Saving…" : "Save Changes"}
-      </Button>
-    </Box>
-  )
-}
-
-export default function SettingsPage() {
-  const [tab, setTab] = useState(0)
-  const colorMode      = useThemeStore(s => s.colorMode)
-  const toggleColorMode= useThemeStore(s => s.toggleColorMode)
-  const toggleLanguage = useThemeStore(s => s.toggleLanguage)
-  const language       = useThemeStore(s => s.language)
-  const user           = useAuthStore(s => s.user) as Record<string,unknown> | null
-
-  const TABS = [
-    "My Profile", "Company", "Appearance",
-    "Practice Areas", "Lead Sources", "Departments", "Designations", "Session Rates",
-    "System Info",
-  ]
-
-  return (
-    <PageShell title="Settings" description="Manage firm-wide settings and preferences">
-      <MuiTabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}
-        variant="scrollable"
-        scrollButtons="auto"
-      >
-        {TABS.map(t => <Tab key={t} label={t} sx={{ textTransform: "none", fontWeight: 500 }} />)}
-      </MuiTabs>
-
-      {/* My Profile */}
-      {tab === 0 && (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-            <Avatar sx={{ width: 56, height: 56, bgcolor: "primary.main", fontSize: 20 }}>
-              {String(user?.firstName ?? "")[0]}{String(user?.lastName ?? "")[0]}
-            </Avatar>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {String(user?.firstName ?? "")} {String(user?.lastName ?? "")}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">{String(user?.email ?? "")}</Typography>
-              <Chip size="small" label={String(user?.companyUserType ?? "ATTORNEY")} sx={{ mt: 0.5 }} />
-            </Box>
-          </Box>
-          <Alert severity="info">
-            To edit your profile or change your password, go to the{" "}
-            <strong>Profile & Settings</strong> page from the top-right menu.
-          </Alert>
-        </Paper>
-      )}
-
-      {/* Company */}
-      {tab === 1 && (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Company Settings</Typography>
-          <CompanyTab />
-        </Paper>
-      )}
-
-      {/* Appearance */}
-      {tab === 2 && (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Appearance</Typography>
-          <FormControlLabel
-            control={<Switch checked={colorMode === "dark"} onChange={toggleColorMode} />}
-            label="Dark mode"
-          />
-          <Divider sx={{ my: 2 }} />
-          <FormControlLabel
-            control={<Switch checked={language === "ar"} onChange={toggleLanguage} />}
-            label="Arabic / العربية (RTL)"
-          />
-        </Paper>
-      )}
-
-      {/* Lookup managers */}
-      {tab === 3 && <LookupManager title="Practice Areas" getUrl="/api/practicearea/get?fetchtype=all" addUrl="/api/practicearea/add" deleteUrl="/api/practicearea/change/status" nameField="name" queryKey="practiceAreas" statusChange />}
-      {tab === 4 && <LookupManager title="Lead Sources" getUrl="/api/util/get/source/master?status=Active" addUrl="/api/util/add/source/master" deleteUrl="/api/util/source/master/status/change" nameField="name" queryKey="leadSources" statusChange />}
-      {tab === 5 && <LookupManager title="Departments" getUrl="/api/util/list/department" addUrl="/api/util/add/department" deleteUrl="/api/util/department/change/status" nameField="name" queryKey="departments" statusChange />}
-      {tab === 6 && <LookupManager title="Designations" getUrl="/api/util/get/designation" addUrl="/api/util/add/designation" deleteUrl="/api/util/designation/change/status" nameField="name" queryKey="designations" statusChange />}
-      {tab === 7 && <LookupManager title="Session Rates" getUrl="/api/util/get/session/type" addUrl="/api/util/add/session/type" deleteUrl="/api/util/session/type/change/status" nameField="typeName" queryKey="sessionRates" statusChange />}
-
-      {/* System Info */}
-      {tab === 8 && (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>System Info</Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
-            {[
-              ["API URL",           import.meta.env["VITE_API_BASE_URL"] || "(not set)"],
-              ["Environment",       import.meta.env["VITE_APP_ENV"] || "development"],
-              ["Data Mode",         env.USE_STATIC_DATA ? "Static (no backend)" : "Live API"],
-              ["Dynamic Nav",       env.DYNAMIC_NAV ? "On (API-driven)" : "Off (static)"],
-              ["Logs",              env.ENABLE_LOGS ? "Enabled" : "Disabled"],
-              ["Microsoft SSO",     env.FORCE_MS_SSO ? "Forced" : "Optional"],
-              ["User Registration", env.ENABLE_REGISTER ? "Enabled" : "Disabled"],
-              ["Azure Client ID",   env.AZURE_CLIENT_ID || "(not set)"],
-            ].map(([label, value]) => (
-              <Box key={label} sx={{ display: "flex", gap: 2, alignItems: "baseline" }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 160, color: "text.secondary", flexShrink: 0 }}>
-                  {label}
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: 13 }}>{value}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      )}
     </PageShell>
   )
 }

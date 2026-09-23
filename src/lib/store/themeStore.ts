@@ -45,10 +45,19 @@ export const useThemeStore = create<ThemeState>()(
 
       setLanguage: (language) => {
         const direction: Direction = language === "ar" ? "rtl" : "ltr"
-        document.documentElement.dir  = direction
-        document.documentElement.lang = language
+        try {
+          document.documentElement.dir = direction
+          document.documentElement.lang = language
+          localStorage.setItem("le-lang", language)
+        } catch {
+          /* ignore DOM/storage errors during SSR or restricted contexts */
+        }
         set({ language, direction })
-        _onLanguageChange?.(language)
+        try {
+          _onLanguageChange?.(language)
+        } catch {
+          /* i18n failures should not break the UI click handler */
+        }
       },
 
       toggleLanguage: () => {

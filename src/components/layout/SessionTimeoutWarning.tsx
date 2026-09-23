@@ -26,12 +26,14 @@ export function SessionTimeoutWarning() {
   const clearAuth = useAuthStore(s => s.clearAuth)
   const navigate  = useNavigate()
 
-  // Get token issue time from store (we track when setAuth was last called)
-  const authTime  = useAuthStore(s => (s as {_authTime?:number})._authTime ?? Date.now())
+  // Stable snapshot — never call Date.now() inside a zustand selector
+  const authTime  = useAuthStore(s => (s as { _authTime?: number })._authTime) ?? 0
+  const sessionStart = authTime || undefined
 
   const check = useCallback(() => {
     if (env.USE_STATIC_DATA) return  // no real session in static mode
-    const elapsed   = Date.now() - authTime
+    const start = sessionStart ?? Date.now()
+    const elapsed   = Date.now() - start
     const remaining = SESSION_TTL_MS - elapsed
     if (remaining <= 0) {
       // Session already expired — force logout
@@ -45,7 +47,7 @@ export function SessionTimeoutWarning() {
     } else {
       setShow(false)
     }
-  }, [authTime, dismissed, clearAuth, navigate])
+  }, [sessionStart, dismissed, clearAuth, navigate])
 
   useEffect(() => {
     check()
@@ -55,7 +57,13 @@ export function SessionTimeoutWarning() {
 
   async function handleStayLoggedIn() {
     try {
-      await axiosClient.post('/api/auth/refresh')
+      const { accessToken, refreshToken, accessScope, user } = useAuthStore.getState()
+      await axiosClient.post('/api/auth/refresh/token', {
+        token: accessToken,
+        refreshToken,
+        userId: user?.id,
+        accessScope,
+      })
       setShow(false)
       setDismissed(false)
     } catch {

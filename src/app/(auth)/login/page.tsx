@@ -38,6 +38,11 @@ export default function LoginPage() {
     try {
       const signinData = await authApi.signin(username, password)
       const token = String(signinData.token ?? '')
+      const roles = Array.isArray(signinData.role)
+        ? (signinData.role as { roleName?: string; name?: string }[]).map(r => String(r.roleName ?? r.name ?? r))
+        : Array.isArray(signinData.roles)
+          ? (signinData.roles as string[]).map(String)
+          : []
       const [menu, groups] = await Promise.all([
         authApi.getMenu(token),
         authApi.getGroups(token),
@@ -51,12 +56,13 @@ export default function LoginPage() {
           accessScope: String(signinData.accessScope ?? ''),
           token, active: true, hod: false, backEntry: false,
           department: signinData.department as undefined,
+          roles,
         },
         accessToken: token,
         accessScope: String(signinData.accessScope ?? ''),
         refreshToken: undefined,
       })
-      // Resolve permissions from menu and store
+      // Resolve permissions from menu and store (persisted for DynamicSidebarNav)
       const { resolvePermissions } = await import("@lib/auth/permissions")
       const permissions = resolvePermissions(menu as import("@/types/auth.types").ApiMenuItem[], groups as import("@/types/auth.types").ApiUserGroup[])
       useAuthStore.getState().setMenuItems(menu as import("@/types/auth.types").ApiMenuItem[], permissions)

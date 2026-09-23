@@ -104,10 +104,10 @@ export default function LeadDetailPage() {
         </Box>
       )}
     >
-      <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 2, display: "flex", gap: 2.5, alignItems: "center", flexWrap: "wrap" }}>
-        <Avatar sx={{ width: 56, height: 56, bgcolor: "secondary.main", fontSize: 22 }}>{name[0]?.toUpperCase() ?? "L"}</Avatar>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{name}</Typography>
+      <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 2, display: "flex", gap: 2.5, alignItems: "center", flexWrap: "wrap", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+        <Avatar sx={{ width: 56, height: 56, bgcolor: "secondary.main", fontSize: 22, flexShrink: 0 }}>{name[0]?.toUpperCase() ?? "L"}</Avatar>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, wordBreak: "break-word" }}>{name}</Typography>
           <Box sx={{ display: "flex", gap: 1, mt: 0.75, flexWrap: "wrap" }}>
             <StatusBadge status={l.status} />
             <Chip size="small" label={String(l.leadType ?? "")} variant="outlined" />
@@ -115,7 +115,7 @@ export default function LeadDetailPage() {
             {!!l.conflictCheckStatus && <Chip size="small" label={`Conflict: ${l.conflictCheckStatus}`} variant="outlined" />}
           </Box>
         </Box>
-        <Typography variant="caption" color="text.disabled">Created {formatDate(l.createdAt)}</Typography>
+        <Typography variant="caption" color="text.disabled" sx={{ width: { xs: "100%", sm: "auto" } }}>Created {formatDate(l.createdAt)}</Typography>
       </Paper>
 
       <Tabs tabs={[
@@ -188,7 +188,7 @@ export default function LeadDetailPage() {
                   <Box sx={{ flex: 1, pb: 2 }}>
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>{String(f.followUpContent ?? f.content ?? "—")}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {fromNow(String(f.createdAt ?? f.followUpTime ?? ""))}{f.createdBy ? ` · ${String(f.createdBy)}` : ""}
+                      {fromNow(String(f.followUpTime ?? f.createdAt ?? ""))}{f.createdBy ? ` · ${String(f.createdBy)}` : ""}
                     </Typography>
                   </Box>
                 </Box>
@@ -202,9 +202,27 @@ export default function LeadDetailPage() {
             <DataGrid
               columns={[
                 { field: "activity", header: "Activity" },
-                { field: "totalHours", header: "Hours", align: "right" },
+                {
+                  field: "totalHours",
+                  header: "Hours",
+                  align: "right",
+                  renderCell: (_v, row) => {
+                    const r = row as Record<string, unknown>
+                    if (r.totalHours != null) return Number(r.totalHours).toFixed(2)
+                    const h = Number(r.hours ?? 0)
+                    const m = Number(r.minutes ?? 0)
+                    return h || m ? `${h}:${String(m).padStart(2, "0")}h` : "0"
+                  },
+                },
                 { field: "billing", header: "Amount", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-                { field: "entryDate", header: "Date", renderCell: v => v ? formatDate(String(v)) : "—" },
+                {
+                  field: "entryDate",
+                  header: "Date",
+                  renderCell: (v, row) => {
+                    const d = v ?? (row as Record<string, unknown>).createdAt
+                    return d ? formatDate(String(d)) : "—"
+                  },
+                },
               ]}
               queryKey={["leads", "timelogs", leadId]}
               queryFn={(p: GridParams) => leadsApi.getTimelogs(String(leadId), p)}

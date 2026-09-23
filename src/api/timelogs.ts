@@ -171,6 +171,7 @@ export const timelogsApi = {
     const f = p.filters ?? {}
     const res = await axiosClient.post("/api/report/activity/filter/m/v3", {}, {
       params: {
+        activityType: "",
         pageNumber: p.page,
         pageSize: p.pageSize,
         sortBy: p.sortBy ?? "entryDate",
@@ -178,6 +179,10 @@ export const timelogsApi = {
         userId: f.userId ?? "",
         matterId: f.matterId ?? "",
         clientId: f.clientId ?? "",
+        lfaId: "",
+        billable: "",
+        sessionType: false,
+        departmentId: "",
         fromDate: f.fromDate ?? "",
         toDate: f.toDate ?? "",
       },

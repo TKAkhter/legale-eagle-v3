@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { StopwatchWidget } from './StopwatchWidget'
 /**
- * Toolbar.tsx
- *
- * FIX: Uses buildToolbarTheme so the header background switches in dark mode.
- * Previously the toolbar used a static white background — now it reads colorMode.
+ * Toolbar — wraps into two rows on tablet/mobile so content never exceeds viewport width.
+ * Row 1: menu + search
+ * Row 2: stopwatch + notifications + theme/lang + avatar
+ * Desktop (≥900px): single row
  */
 import { useState } from "react"
 import {
@@ -15,15 +15,21 @@ import MenuIcon     from "@mui/icons-material/Menu"
 import MenuOpenIcon  from "@mui/icons-material/MenuOpen"
 import DarkModeIcon        from "@mui/icons-material/DarkMode"
 import LightModeIcon       from "@mui/icons-material/LightMode"
-import TranslateIcon       from "@mui/icons-material/Translate"
 import LogoutIcon          from "@mui/icons-material/Logout"
 import AccountCircleIcon   from "@mui/icons-material/AccountCircle"
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined"
 import { useNavigate }     from "react-router-dom"
 import { buildToolbarTheme } from "@/config/theme"
 import { useThemeStore }   from "@lib/store/themeStore"
 import { useAuthStore }    from "@lib/store/authStore"
 import { GlobalSearch }    from "./GlobalSearch"
 import { NotificationsPanel } from "./NotificationsPanel"
+import { LanguageSwitcher } from "./LanguageSwitcher"
+import { PAGE_GUTTER, DESKTOP_MEDIA_QUERY } from "@/config/spacing"
+
+/** Single-row height; two-row height on compact viewports */
+export const TOOLBAR_ROW_H = 56
+export const TOOLBAR_COMPACT_H = 104
 
 interface Props {
   sidebarWidth: number
@@ -35,12 +41,11 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
   const colorMode  = useThemeStore((s) => s.colorMode)
   const direction  = useThemeStore((s) => s.direction)
   const toggleMode = useThemeStore((s) => s.toggleColorMode)
-  const toggleLang = useThemeStore((s) => s.toggleLanguage)
   const logout     = useAuthStore((s) => s.clearAuth)
   const user       = useAuthStore((s) => s.user)
   const { t } = useTranslation()
-  const isDesktop   = useMediaQuery("(min-width:1024px)")
-  const isMobile    = useMediaQuery("(max-width:599px)")
+  const isDesktop   = useMediaQuery(DESKTOP_MEDIA_QUERY)
+  const isCompact   = useMediaQuery("(max-width:899px)")
   const collapsed   = useThemeStore(s => s.sidebarCollapsed)
   const toolbarTheme  = buildToolbarTheme(colorMode, direction)
 
@@ -48,10 +53,54 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.toUpperCase()
 
   function handleLogout() {
-    // clearAuthToken removed()
     logout()
     navigate("/login")
   }
+
+  const actions = (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+      <StopwatchWidget />
+      <NotificationsPanel />
+
+      <Tooltip title={colorMode === "dark" ? t("settings.lightMode", "Light mode") : t("settings.darkMode", "Dark mode")}>
+        <IconButton size="small" onClick={toggleMode}>
+          {colorMode === "dark" ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+        </IconButton>
+      </Tooltip>
+
+      <LanguageSwitcher compact />
+
+      <IconButton size="small" onClick={e => setAnchor(e.currentTarget)}>
+        <Avatar sx={{ width: 30, height: 30, fontSize: 12, bgcolor: "primary.main" }}>
+          {user?.profilePic
+            ? <img src={user.profilePic} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : initials}
+        </Avatar>
+      </IconButton>
+
+      <Menu
+        anchorEl={anchor}
+        open={!!anchor}
+        onClose={() => setAnchor(null)}
+        slotProps={{ paper: { sx: { mt: 1, minWidth: 180, maxWidth: "calc(100vw - 24px)" } } }}
+      >
+        <Box sx={{ px: 2, py: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{user?.firstName} {user?.lastName}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>{user?.email}</Typography>
+        </Box>
+        <Divider />
+        <MenuItem onClick={() => { setAnchor(null); navigate("/profile") }}>
+          <AccountCircleIcon fontSize="small" sx={{ mr: 1.5 }} /> Profile
+        </MenuItem>
+        <MenuItem onClick={() => { setAnchor(null); navigate("/admin/settings") }}>
+          <SettingsOutlinedIcon fontSize="small" sx={{ mr: 1.5 }} /> Settings
+        </MenuItem>
+        <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
+          <LogoutIcon fontSize="small" sx={{ mr: 1.5 }} /> Sign Out
+        </MenuItem>
+      </Menu>
+    </Box>
+  )
 
   return (
     <ThemeProvider theme={toolbarTheme}>
@@ -62,71 +111,91 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
           left:   direction === "rtl" ? 0 : isDesktop ? sidebarWidth : 0,
           right:  direction === "rtl" ? isDesktop ? sidebarWidth : 0 : 0,
           width:  "auto",
+          maxWidth: "100%",
           bgcolor: "background.paper",
           color: "text.primary",
           borderBottom: "1px solid",
           borderColor: "divider",
-          zIndex: 1201,  // above sidebar (1100) + MUI default (1200)
+          zIndex: 1201,
           transition: "left .2s, right .2s",
+          overflow: "hidden",
         }}
       >
-        <Box sx={{ height: 56, display:"flex", alignItems:"center", px: 2, gap: 1 }}>
-          {/* Mobile menu toggle */}
-          {/* Hamburger — all viewports
-               Desktop: toggles sidebar collapsed/expanded
-               Tablet:  toggles sidebar collapsed/expanded
-               Mobile:  opens/closes overlay drawer */}
-          <IconButton
-            size="small"
-            onClick={onMobileMenuClick}
-            edge="start"
-            aria-label="Toggle navigation"
-            sx={{ mr: 0.5 }}
+        {isCompact ? (
+          <Box sx={{ display: "flex", flexDirection: "column", width: "100%", maxWidth: "100%" }}>
+            <Box
+              sx={{
+                minHeight: TOOLBAR_ROW_H,
+                display: "flex",
+                alignItems: "center",
+                px: PAGE_GUTTER,
+                gap: 1,
+                width: "100%",
+                maxWidth: "100%",
+                boxSizing: "border-box",
+              }}
+            >
+              <IconButton
+                size="small"
+                onClick={onMobileMenuClick}
+                aria-label="Toggle navigation"
+                sx={{ flexShrink: 0 }}
+              >
+                {!isDesktop ? <MenuIcon /> : (!collapsed ? <MenuOpenIcon /> : <MenuIcon />)}
+              </IconButton>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <GlobalSearch fullWidth />
+              </Box>
+            </Box>
+            <Box
+              sx={{
+                minHeight: 48,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                px: PAGE_GUTTER,
+                pb: 0.75,
+                gap: 0.5,
+                width: "100%",
+                maxWidth: "100%",
+                boxSizing: "border-box",
+                borderTop: "1px solid",
+                borderColor: "divider",
+                overflowX: "auto",
+              }}
+            >
+              {actions}
+            </Box>
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              height: TOOLBAR_ROW_H,
+              display: "flex",
+              alignItems: "center",
+              px: PAGE_GUTTER,
+              gap: 1,
+              width: "100%",
+              maxWidth: "100%",
+              boxSizing: "border-box",
+            }}
           >
-            <Box sx={{ display:'flex', transition:'transform 220ms', transform: (!isMobile && !collapsed) ? 'rotate(0deg)' : 'rotate(0deg)' }}>
-              {!isMobile && !collapsed ? <MenuOpenIcon /> : <MenuIcon />}
-            </Box>
-          </IconButton>
-
-          <GlobalSearch />
-          <Box sx={{ flex: 1 }} />
-
-          <StopwatchWidget />
-          <NotificationsPanel />
-
-          <Tooltip title={colorMode === "dark" ? t("settings.lightMode", "Light mode") : t("settings.darkMode",  "Dark mode")}>
-            <IconButton size="small" onClick={toggleMode}>
-              {colorMode === "dark" ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+            <IconButton
+              size="small"
+              onClick={onMobileMenuClick}
+              aria-label="Toggle navigation"
+              sx={{ flexShrink: 0 }}
+            >
+              {!isDesktop ? <MenuIcon /> : (!collapsed ? <MenuOpenIcon /> : <MenuIcon />)}
             </IconButton>
-          </Tooltip>
 
-          <Tooltip title="Toggle language">
-            <IconButton size="small" onClick={toggleLang}>
-              <TranslateIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          <IconButton size="small" onClick={e => setAnchor(e.currentTarget)}>
-            <Avatar sx={{ width:30, height:30, fontSize:12, bgcolor:"primary.main" }}>
-              {user?.profilePic ? <img src={user.profilePic} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} /> : initials}
-            </Avatar>
-          </IconButton>
-
-          <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}
-            slotProps={{ paper: { sx: { mt: 1, minWidth: 180 } } }}>
-            <Box sx={{ px: 2, py: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{user?.firstName} {user?.lastName}</Typography>
-              <Typography variant="caption" color="text.secondary">{user?.email}</Typography>
+            <Box sx={{ flex: 1, minWidth: 0, maxWidth: 360 }}>
+              <GlobalSearch fullWidth />
             </Box>
-            <Divider />
-            <MenuItem onClick={() => { setAnchor(null); navigate("/profile") }}>
-              <AccountCircleIcon fontSize="small" sx={{ mr: 1.5 }} /> Profile & Settings
-            </MenuItem>
-            <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
-              <LogoutIcon fontSize="small" sx={{ mr: 1.5 }} /> Sign Out
-            </MenuItem>
-          </Menu>
-        </Box>
+            <Box sx={{ flex: 1 }} />
+            {actions}
+          </Box>
+        )}
       </AppBar>
     </ThemeProvider>
   )

@@ -17,6 +17,8 @@ import { Tabs } from "@/components/ui/Tabs"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { HearingFormDrawer } from "../_components/HearingFormDrawer"
+import { ContinueHearingDrawer } from "../_components/ContinueHearingDrawer"
+import { CloseHearingDrawer } from "../_components/CloseHearingDrawer"
 import { MatterTimeline } from "../_components/MatterTimeline"
 import { MatterOverview } from "../_components/MatterOverview"
 import { MatterNotesPanel } from "../_components/MatterNotesPanel"
@@ -52,6 +54,8 @@ export default function MatterDetailPage() {
   const canEdit = useAuthStore(s => s.hasPermission)("/matters")
   const [logTimeOpen, setLogTimeOpen] = useState(false)
   const [hearingOpen, setHearingOpen] = useState(false)
+  const [continueHearing, setContinueHearing] = useState<Record<string, unknown> | null>(null)
+  const [closeHearingId, setCloseHearingId] = useState<string | null>(null)
   const [closeOpen, setCloseOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -84,9 +88,22 @@ export default function MatterDetailPage() {
   const status = String(m.status ?? "")
   const isOpen = status === "OPEN" || status === "RE_OPEN"
   const atty = m.responsibleAttorney as { firstName?: string; lastName?: string } | null
-  const cl = m.client as { companyName?: string; firstName?: string } | null
+  const cl = (m.client ?? m.clientMini) as { companyName?: string; firstName?: string } | null
   const pa = (m.practiceArea as { name?: string })?.name ?? ""
   const id = String(m.matterId ?? matterId ?? "")
+
+  function activityHours(row: Record<string, unknown>): string {
+    if (row.totalHours != null && row.totalHours !== "") return Number(row.totalHours).toFixed(1)
+    const h = Number(row.hours ?? 0)
+    const min = Number(row.minutes ?? 0)
+    if (h || min) return `${h}:${String(min).padStart(2, "0")}h`
+    return "0.0"
+  }
+
+  function personOrName(value: unknown): string {
+    if (typeof value === "string" && value) return value
+    return personName(value)
+  }
 
   async function handleStartTimer() {
     const activeMatterId = id
@@ -223,7 +240,7 @@ export default function MatterDetailPage() {
         </Box>
       </Paper>
 
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, mb: 3 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
         {[
           { l: "Time Logs", v: String(m.totalTimelogs ?? timelogsTimeline.data?.totalElements ?? STL.length) },
           { l: "Invoices", v: String(m.totalInvoices ?? invoicesTimeline.data?.totalElements ?? SI.length) },
@@ -264,10 +281,26 @@ export default function MatterDetailPage() {
               columns={[
                 { field: "billable", header: "Billable", renderCell: v => v ? "Yes" : "No" },
                 { field: "billingType", header: "Billing Type" },
-                { field: "totalHours", header: "Hours", align: "right", renderCell: v => `${Number(v ?? 0).toFixed(1)}` },
+                {
+                  field: "totalHours",
+                  header: "Hours",
+                  align: "right",
+                  renderCell: (_v, row) => activityHours(row as Record<string, unknown>),
+                },
                 { field: "billing", header: "Amount", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-                { field: "responsiblePerson", header: "Responsible Person", renderCell: v => personName(v) },
-                { field: "entryDate", header: "Created Date", renderCell: v => v ? formatDate(String(v)) : "—" },
+                {
+                  field: "responsiblePersonName",
+                  header: "Responsible Person",
+                  renderCell: (v, row) => personOrName(v ?? (row as Record<string, unknown>).responsiblePerson),
+                },
+                {
+                  field: "entryDate",
+                  header: "Created Date",
+                  renderCell: (v, row) => {
+                    const d = v ?? (row as Record<string, unknown>).createdAt
+                    return d ? formatDate(String(d)) : "—"
+                  },
+                },
                 { field: "note", header: "Note", renderCell: v => String(v ?? "—") },
                 { field: "revenueStatus", header: "Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
               ]}
@@ -281,14 +314,9 @@ export default function MatterDetailPage() {
           content: (
             <DataGrid
               columns={[
-                { field: "type", header: "Type" },
-                { field: "title", header: "Title" },
-                { field: "action", header: "Action" },
-                { field: "hours", header: "Hours/Units" },
-                { field: "fieldChanged", header: "Field Changed" },
-                { field: "fromValue", header: "From" },
-                { field: "toValue", header: "To" },
-                { field: "createdBy", header: "Created By" },
+                { field: "logType", header: "Type", renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).type ?? "—") },
+                { field: "logTitle", header: "Title", renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).logDec ?? (row as Record<string, unknown>).title ?? "—") },
+                { field: "createdBy", header: "Created By", renderCell: v => personOrName(v) },
                 { field: "createdAt", header: "Created At", renderCell: v => v ? formatDate(String(v)) : "—" },
               ]}
               queryKey={["matters", "logs", matterId]}
@@ -301,11 +329,14 @@ export default function MatterDetailPage() {
           content: (
             <DataGrid
               columns={[
-                { field: "date", header: "Date", renderCell: v => v ? formatDate(String(v)) : "—" },
+                { field: "date", header: "Date", renderCell: (v, row) => {
+                  const d = v ?? (row as Record<string, unknown>).receivedDate ?? (row as Record<string, unknown>).createdAt
+                  return d ? formatDate(String(d)) : "—"
+                }},
                 { field: "subject", header: "Subject" },
-                { field: "from", header: "From" },
-                { field: "to", header: "To" },
-                { field: "cc", header: "CC", renderCell: v => String(v ?? "—") },
+                { field: "from", header: "From", renderCell: v => Array.isArray(v) ? v.join(", ") : String(v ?? "—") },
+                { field: "to", header: "To", renderCell: v => Array.isArray(v) ? v.join(", ") : String(v ?? "—") },
+                { field: "cc", header: "CC", renderCell: v => Array.isArray(v) ? v.join(", ") : String(v ?? "—") },
               ]}
               queryKey={["matters", "mails", matterId]}
               queryFn={(p: GridParams) => mattersApi.getMails(id, p)}
@@ -340,12 +371,33 @@ export default function MatterDetailPage() {
                 { field: "nextHearingDate", header: "Next Hearing", renderCell: v => v ? formatDate(String(v)) : "—" },
                 { field: "responsibleLawyer", header: "Responsible Lawyer", renderCell: v => personName(v) },
                 { field: "attendantLawyer", header: "Attendant Lawyer", renderCell: v => personName(v) },
-                { field: "location", header: "Location", renderCell: v => String(v ?? "—") },
+                { field: "location", header: "Location", renderCell: v => {
+                  if (typeof v === "string") return v || "—"
+                  const loc = v as { name?: string; locationName?: string } | null
+                  return loc?.name ?? loc?.locationName ?? "—"
+                }},
                 { field: "note", header: "Note", renderCell: v => String(v ?? "—") },
                 { field: "status", header: "Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
               ]}
               queryKey={["matters", "hearings", matterId]}
               queryFn={(p: GridParams) => mattersApi.getHearings(id, p)}
+              rowMenuItems={row => {
+                const r = row as Record<string, unknown>
+                const hid = String(r.id ?? "")
+                const closed = String(r.status ?? "").toUpperCase().includes("CLOSE")
+                return [
+                  {
+                    label: "Continue",
+                    hidden: () => closed,
+                    onClick: () => setContinueHearing(r),
+                  },
+                  {
+                    label: "Close",
+                    hidden: () => closed || !hid,
+                    onClick: () => setCloseHearingId(hid),
+                  },
+                ]
+              }}
             />
           ),
         },
@@ -385,12 +437,39 @@ export default function MatterDetailPage() {
           content: (
             <DataGrid
               columns={[
-                { field: "invoiceNo", header: "Tax Invoice No" },
-                { field: "billingType", header: "Billing Type", renderCell: v => String(v ?? "—") },
-                { field: "taxableAmount", header: "Amount Due", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
+                {
+                  field: "taxInvoiceNo",
+                  header: "Tax Invoice No",
+                  renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).invoiceNo ?? "—"),
+                },
+                {
+                  field: "invoiceBillingType",
+                  header: "Billing Type",
+                  renderCell: (v, row) => String(v ?? (row as Record<string, unknown>).billingType ?? "—"),
+                },
+                {
+                  field: "dueAmount",
+                  header: "Amount Due",
+                  align: "right",
+                  renderCell: (v, row) => formatCurrency(Number(v ?? (row as Record<string, unknown>).taxableAmount ?? 0)),
+                },
                 { field: "paidAmount", header: "Paid", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-                { field: "balanceAmount", header: "Balance", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-                { field: "invoiceStatus", header: "Payment Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
+                {
+                  field: "balanceAmount",
+                  header: "Balance",
+                  align: "right",
+                  renderCell: (v, row) => {
+                    const r = row as Record<string, unknown>
+                    const due = Number(r.dueAmount ?? r.taxableAmount ?? 0)
+                    const paid = Number(r.paidAmount ?? 0)
+                    return formatCurrency(Number(v ?? (due - paid)))
+                  },
+                },
+                {
+                  field: "paymentStaus",
+                  header: "Payment Status",
+                  renderCell: (v, row) => <StatusBadge status={String(v ?? (row as Record<string, unknown>).invoiceStatus ?? "")} />,
+                },
                 { field: "issueDate", header: "Created Date", renderCell: v => v ? formatDate(String(v)) : "—" },
                 { field: "dueDate", header: "Due Date", renderCell: v => v ? formatDate(String(v)) : "—" },
               ]}
@@ -432,6 +511,28 @@ export default function MatterDetailPage() {
           setHearingOpen(false)
           qc.invalidateQueries({ queryKey: ["matters", "hearings", matterId] })
           toast.success("Hearing scheduled")
+        }}
+      />
+      <ContinueHearingDrawer
+        open={!!continueHearing}
+        onClose={() => setContinueHearing(null)}
+        matterId={id}
+        hearing={continueHearing}
+        onSuccess={() => {
+          setContinueHearing(null)
+          qc.invalidateQueries({ queryKey: ["matters", "hearings", matterId] })
+          toast.success("Hearing continued")
+        }}
+      />
+      <CloseHearingDrawer
+        open={!!closeHearingId}
+        onClose={() => setCloseHearingId(null)}
+        matterId={id}
+        hearingId={closeHearingId ?? ""}
+        onSuccess={() => {
+          setCloseHearingId(null)
+          qc.invalidateQueries({ queryKey: ["matters", "hearings", matterId] })
+          toast.success("Hearing closed")
         }}
       />
       <MatterCloseDialog

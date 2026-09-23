@@ -3,7 +3,16 @@
 @tailwind components;
 @tailwind utilities;
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; }
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  max-width: 100vw;
+  overflow: hidden;
+}
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
+}
 
 /* NProgress top bar — match primary theme color */
 #nprogress .bar {

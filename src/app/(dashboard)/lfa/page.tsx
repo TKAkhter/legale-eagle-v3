@@ -262,8 +262,7 @@ export default function LfaPage() {
                   toast.info("LFA isn't approved yet — edit it instead.")
                   return
                 }
-                toast.info("Full amend wizard is a follow-on; opening LFA detail.")
-                navigate(`/lfa/${id}`)
+                navigate(`/lfa/${id}/amend`)
               },
             },
             {
@@ -274,8 +273,7 @@ export default function LfaPage() {
                   toast.info("LFA isn't approved yet — edit it instead.")
                   return
                 }
-                toast.info("Partial amend wizard is a follow-on; opening LFA detail.")
-                navigate(`/lfa/${id}`)
+                navigate(`/lfa/${id}/partial-amend`)
               },
             },
             {

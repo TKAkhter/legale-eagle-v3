@@ -144,23 +144,22 @@ export default function LeadsPage() {
       <DataGrid
         key={gridKey}
         columns={[
-          { field: "name", header: "Name", renderCell: v => String(v || "—") },
-          { field: "email", header: "Contact", renderCell: (_, row) => {
+          { field: "name", header: "Name", minWidth: 200, width: 220 },
+          { field: "email", header: "Contact", minWidth: 200, width: 220, renderCell: (_, row) => {
             const r = row as { email?: string; phone?: string }
             return [r.email, r.phone].filter(Boolean).join(" · ") || "—"
           }},
-          { field: "status", header: "Lead Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
-          { field: "lastStatusUpdatedDate", header: "Last Status Update", renderCell: v => v ? formatDate(String(v)) : "—" },
-          { field: "leadSource", header: "Lead Source", renderCell: v => String(v || "—") },
-          { field: "practiceArea", header: "Practice Area", renderCell: v => String(v || "—") },
-          { field: "dispute", header: "Dispute", renderCell: v => String(v || "—") },
-          { field: "followUp", header: "Follow Up", renderCell: v => String(v || "—") },
-          { field: "conflictCheckStatus", header: "Conflict", renderCell: v => <Chip size="small" label={String(v || "—")} variant="outlined" /> },
-          { field: "attorneyName", header: "Allotted Lawyer", renderCell: v => String(v || "—") },
-          { field: "createdBy", header: "Created By", renderCell: v => String(v || "—") },
-          { field: "partyOpposing", header: "Party Opposing", renderCell: v => String(v || "—") },
-          { field: "createdAt", header: "Created Date", renderCell: v => v ? formatDate(String(v)) : "—" },
-          { field: "leadType", header: "Type", renderCell: v => <Chip size="small" label={String(v ?? "")} variant="outlined" /> },
+          { field: "status", header: "Lead Status", minWidth: 140, width: 150, renderCell: v => <StatusBadge status={String(v ?? "")} /> },
+          { field: "lastStatusUpdatedDate", header: "Last Status Update", minWidth: 160, width: 170, renderCell: v => v ? formatDate(String(v)) : "—" },
+          { field: "leadSource", header: "Lead Source", minWidth: 140, width: 160 },
+          { field: "practiceArea", header: "Department/ Practice Area", minWidth: 180, width: 200 },
+          { field: "dispute", header: "Dispute", minWidth: 200, width: 240 },
+          { field: "followUp", header: "Follow Up", minWidth: 160, width: 180 },
+          { field: "conflictCheckStatus", header: "Conflict", minWidth: 120, width: 130, renderCell: v => <Chip size="small" label={String(v || "—")} variant="outlined" /> },
+          { field: "attorneyName", header: "Allotted Lawyer", minWidth: 160, width: 180 },
+          { field: "createdBy", header: "Created By", minWidth: 140, width: 160 },
+          { field: "partyOpposing", header: "Party Opposing", minWidth: 160, width: 180 },
+          { field: "createdAt", header: "Created Date", minWidth: 140, width: 150, renderCell: v => v ? formatDate(String(v)) : "—" },
         ]}
         queryKey={["leads", "list"]}
         queryFn={(p: GridParams) => leadsApi.getAll({

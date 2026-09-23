@@ -17,7 +17,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             // Never cache API calls — always go to network
-            urlPattern: /testapi\.alshamsilegallms\.com|\/api\//,
+            urlPattern: /testapi\.legaleaglelms\.com|testapi\.alshamsilegallms\.com|\/api\//,
             handler:    'NetworkOnly',
           },
           {
@@ -58,7 +58,7 @@ export default defineConfig({
     // Proxy API calls to avoid CORS in development
     proxy: {
       '/api': {
-        target: 'https://testapi.alshamsilegallms.com',
+        target: 'https://testapi.legaleaglelms.com',
         changeOrigin: true,
         secure: true,
       },

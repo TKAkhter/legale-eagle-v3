@@ -81,7 +81,7 @@ export function MatterOverview({ matter, matterId }: Props) {
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>Matter Info</Typography>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 1 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1 }}>
           <InfoRow label="Client" value={client?.companyName || client?.firstName || "—"} />
           <InfoRow label="Title" value={String(matter.title ?? "—")} />
           <InfoRow label="Location" value={String(matter.location ?? "—")} />

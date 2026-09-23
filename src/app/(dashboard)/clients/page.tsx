@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Box, Button, Chip, IconButton, Tooltip } from "@mui/material"
+import { Box, Button, IconButton, Tooltip } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
 import EditIcon from "@mui/icons-material/Edit"
 import StarIcon from "@mui/icons-material/Star"
@@ -110,6 +110,8 @@ export default function ClientsPage() {
           {
             field: "favourite",
             header: "",
+            width: 52,
+            minWidth: 52,
             renderCell: (_, row) => {
               const r = row as Record<string, unknown>
               const id = String(r.id ?? "")
@@ -130,27 +132,31 @@ export default function ClientsPage() {
               )
             },
           },
-          { field: "clientExternalId", header: "Client ID", renderCell: v => String(v || "—") },
+          { field: "clientExternalId", header: "Client ID", minWidth: 120, width: 130 },
           {
             field: "name",
             header: "Name",
+            minWidth: 220,
+            width: 240,
             renderCell: (v, row) => {
               const r = row as Record<string, unknown>
               const isCompany = r.clientType === "COMPANY"
               return (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  {isCompany ? <BusinessIcon sx={{ fontSize: 16, color: "text.disabled" }} /> : <PersonIcon sx={{ fontSize: 16, color: "text.disabled" }} />}
-                  {String(v || "—")}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                  {isCompany ? <BusinessIcon sx={{ fontSize: 16, color: "text.disabled", flexShrink: 0 }} /> : <PersonIcon sx={{ fontSize: 16, color: "text.disabled", flexShrink: 0 }} />}
+                  <Box sx={{ minWidth: 0 }}>{String(v || "—")}</Box>
                 </Box>
               )
             },
           },
-          { field: "lfaCount", header: "LFA Count", align: "right" },
-          { field: "openMatter", header: "Open Matter", align: "right" },
-          { field: "closeMatter", header: "Close Matter", align: "right" },
+          { field: "lfaCount", header: "LFA Count", minWidth: 110, width: 120, align: "right" },
+          { field: "openMatter", header: "Open Matter", minWidth: 120, width: 130, align: "right" },
+          { field: "closeMatter", header: "Close Matter", minWidth: 120, width: 130, align: "right" },
           {
             field: "phones",
             header: "Phone",
+            minWidth: 160,
+            width: 180,
             renderCell: v => {
               const list = Array.isArray(v) ? v.map(String) : []
               return list.length ? list.join(", ") : "—"
@@ -159,28 +165,29 @@ export default function ClientsPage() {
           {
             field: "emails",
             header: "Email",
+            minWidth: 200,
+            width: 220,
             renderCell: v => {
               const list = Array.isArray(v) ? v.map(String) : []
               return list.length ? list.join(", ") : "—"
             },
           },
-          { field: "address", header: "Address", renderCell: v => String(v || "—") },
+          { field: "address", header: "Address", minWidth: 220, width: 260, renderCell: v => String(v || "—") },
           {
             field: "nationality",
             header: "Nationality",
+            minWidth: 140,
+            width: 160,
             renderCell: v => {
               const list = Array.isArray(v) ? v.map(String) : []
-              if (!list.length) return "—"
-              return (
-                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                  {list.map(item => <Chip key={item} size="small" label={item} variant="outlined" />)}
-                </Box>
-              )
+              return list.length ? list.join(", ") : "—"
             },
           },
           {
             field: "status",
             header: "Status",
+            minWidth: 110,
+            width: 120,
             renderCell: v => <StatusBadge status={String(v) === "CLOSE" ? "inactive" : "active"} />,
           },
         ]}

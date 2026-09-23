@@ -1,16 +1,19 @@
 /**
  * Dashboard — AdminTab parity with old LMS widgets under each tab.
  */
-import { useMemo, useState } from "react"
-import { Link as RouterLink } from "react-router-dom"
+import { useEffect, useMemo, useState } from "react"
+import { Link as RouterLink, useNavigate } from "react-router-dom"
 import {
-  Badge, Box, Card, CardActionArea, CardContent, Chip, CircularProgress, Paper,
-  Tab, Tabs, Typography, Stack,
+  Badge, Box, Chip, CircularProgress, IconButton, List, ListItemButton, ListItemText,
+  Paper, Tab, Tabs, Typography,
 } from "@mui/material"
-import { useQuery } from "@tanstack/react-query"
+import StarIcon from "@mui/icons-material/Star"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PageShell } from "@/components/ui/PageShell"
 import { dashboardApi } from "@/api/dashboard"
 import { formatDate } from "@lib/utils/formatDate"
+import { toast } from "@/lib/toast"
+import { CellEllipsis } from "@/components/data-grid/CellEllipsis"
 import { SummaryCard, StatsGrid } from "./_components/SummaryCard"
 import { MattersGraph } from "./_components/MattersGraph"
 import {
@@ -82,58 +85,261 @@ function TasksPanel({ data }: { data?: { dueTask?: number; upcomingTask?: number
 }
 
 function RecentActivitiesPanel() {
-  const { data = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["dashboard", "recent-activities"],
     queryFn: () => dashboardApi.recentActivities(),
     staleTime: 60_000,
   })
   if (isLoading) return <PanelLoader label="Loading recent activity…" />
-  if (!data.length) return <Typography color="text.secondary">No recent activity</Typography>
+
+  const clients = (data?.clientRecentActivity ?? []) as Record<string, unknown>[]
+  const matters = (data?.matterRecentActivity ?? []) as Record<string, unknown>[]
+
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 2 }}>
-      {(data as Record<string, unknown>[]).slice(0, 25).map((item, i) => {
-        const client = item.client as { firstName?: string; companyName?: string } | undefined
-        const matter = item.matter as { title?: string } | undefined
-        const label = matter?.title || client?.companyName || client?.firstName
-          || String(item.activityName ?? item.description ?? "Activity")
-        return (
-          <Box key={i} sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{label}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {String(item.addedByName ?? item.userName ?? "")}
-              {item.createdAt ? ` · ${formatDate(String(item.createdAt))}` : ""}
-            </Typography>
-          </Box>
-        )
-      })}
-    </Paper>
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 2, p: 2, height: 400, display: "flex", flexDirection: "column" }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Clients</Typography>
+        <Box sx={{ flex: 1, overflow: "auto" }}>
+          {!clients.length ? (
+            <Typography color="text.secondary">No recent client activity</Typography>
+          ) : clients.map((item, i) => {
+            const c = (item.client ?? item) as Record<string, unknown>
+            const name = c.clientType === "COMPANY"
+              ? String(c.companyName ?? "Client")
+              : String(c.firstName ?? c.companyName ?? "Client")
+            const emailArr = c.email as { emailId?: string }[] | undefined
+            const email = Array.isArray(emailArr) ? emailArr[0]?.emailId : String(c.emailId ?? "")
+            const id = String(c.clientId ?? c.id ?? i)
+            return (
+              <Box
+                key={i}
+                component={RouterLink}
+                to={`/clients/${id}`}
+                sx={{
+                  display: "flex", alignItems: "center", gap: 1.5, py: 1.25,
+                  borderBottom: "1px solid", borderColor: "divider", textDecoration: "none", color: "inherit",
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
+                <Box sx={{
+                  width: 36, height: 36, borderRadius: "50%", bgcolor: "primary.main", color: "white",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0,
+                }}>
+                  {name.charAt(0).toUpperCase()}
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}><CellEllipsis title={name}>{name}</CellEllipsis></Typography>
+                  <Typography variant="caption" color="text.secondary"><CellEllipsis title={email}>{email || "—"}</CellEllipsis></Typography>
+                </Box>
+              </Box>
+            )
+          })}
+        </Box>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, p: 2, height: 400, display: "flex", flexDirection: "column" }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Matters</Typography>
+        <Box sx={{ flex: 1, overflow: "auto" }}>
+          {!matters.length ? (
+            <Typography color="text.secondary">No recent matter activity</Typography>
+          ) : matters.map((item, i) => {
+            const m = (item.matter ?? item) as Record<string, unknown>
+            const mini = m.clientMini as { clientType?: string; firstName?: string; companyName?: string } | undefined
+            const clientName = mini?.clientType === "PERSON" ? mini.firstName : (mini?.companyName ?? mini?.firstName ?? "")
+            const title = `${String(m.title ?? "Matter")}${clientName ? ` (${clientName})` : ""}`
+            const desc = String(m.description ?? "")
+            const id = String(m.matterId ?? m.id ?? i)
+            return (
+              <Box
+                key={i}
+                component={RouterLink}
+                to={`/matters/${id}`}
+                sx={{
+                  display: "flex", alignItems: "center", gap: 1.5, py: 1.25,
+                  borderBottom: "1px solid", borderColor: "divider", textDecoration: "none", color: "inherit",
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
+                <Box sx={{
+                  width: 36, height: 36, borderRadius: "50%", bgcolor: "primary.main", color: "white",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, flexShrink: 0,
+                }}>
+                  {String(m.title ?? "M").charAt(0).toUpperCase()}
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}><CellEllipsis title={title}>{title}</CellEllipsis></Typography>
+                  <Typography variant="caption" color="text.secondary"><CellEllipsis title={desc}>{desc || "—"}</CellEllipsis></Typography>
+                </Box>
+              </Box>
+            )
+          })}
+        </Box>
+      </Paper>
+    </Box>
   )
 }
 
 function FavouriteClientsPanel() {
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
   const { data = [], isLoading } = useQuery({
     queryKey: ["dashboard", "fav-clients"],
     queryFn: () => dashboardApi.favouriteClients(),
     staleTime: 60_000,
   })
+
+  const groupQuery = useQuery({
+    queryKey: ["dashboard", "fav-group"],
+    queryFn: () => dashboardApi.favClientGroupName(),
+    staleTime: 5 * 60_000,
+  })
+
+  const clients = data as Record<string, unknown>[]
+
+  // Auto-select first client like LMS FavouriteClientWidget
+  useEffect(() => {
+    if (!selectedId && clients.length) {
+      const first = String(clients[0].clientId ?? clients[0].id ?? "")
+      if (first) setSelectedId(first)
+    }
+  }, [clients, selectedId])
+
+  const mattersQuery = useQuery({
+    queryKey: ["dashboard", "fav-client-matters", selectedId],
+    queryFn: () => dashboardApi.favClientMatters(selectedId!),
+    enabled: !!selectedId,
+  })
+
   if (isLoading) return <PanelLoader label="Loading favourite clients…" />
-  if (!data.length) return <Typography color="text.secondary">No favourite clients yet</Typography>
+  if (!clients.length) {
+    return (
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+        <Typography color="text.secondary">No favourite clients yet. Star a client from the Clients list to see them here.</Typography>
+      </Paper>
+    )
+  }
+
+  async function unfav(clientId: string) {
+    try {
+      await dashboardApi.unfavouriteClient(clientId)
+      toast.success("The client has been removed from your list of preferred clients.")
+      if (selectedId === clientId) setSelectedId(null)
+      qc.invalidateQueries({ queryKey: ["dashboard", "fav-clients"] })
+      qc.invalidateQueries({ queryKey: ["clients", "favourites"] })
+    } catch {
+      toast.error("Failed to update favourite")
+    }
+  }
+
+  const heading = groupQuery.data
+    ? `Favourite Clients of group ${groupQuery.data}`
+    : "Favourite Clients"
+
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
-      {(data as Record<string, unknown>[]).map((c) => {
-        const id = String(c.clientId ?? c.id ?? "")
-        const name = String(c.clientName ?? c.companyName ?? c.firstName ?? "Client")
-        return (
-          <Card key={id} variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardActionArea component={RouterLink} to={`/clients/${id}`}>
-              <CardContent>
-                <Typography sx={{ fontWeight: 600 }}>{name}</Typography>
-                {c.status != null && <Chip size="small" label={String(c.status)} sx={{ mt: 1 }} />}
-              </CardContent>
-            </CardActionArea>
-          </Card>
-        )
-      })}
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", height: { md: 400 }, display: "flex", flexDirection: "column" }}>
+        <Box sx={{ px: 2.5, py: 1.75, borderBottom: "1px solid", borderColor: "divider" }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{heading}</Typography>
+        </Box>
+        <List dense disablePadding sx={{ overflow: "auto", flex: 1 }}>
+          {clients.map((c) => {
+            const id = String(c.clientId ?? c.id ?? "")
+            const isCompany = String(c.clientType ?? "") === "COMPANY" || Boolean(c.companyName)
+            const name = isCompany
+              ? String(c.companyName || c.clientName || "Client")
+              : String([c.firstName, c.middleName, c.lastName].filter(Boolean).join(" ") || c.companyName || "Client")
+            const open = c.openMatter ?? c.openMatters ?? c.openMatterCount
+            const last = c.lastActivityDate ?? c.lastActivity
+            const selected = selectedId === id
+            return (
+              <ListItemButton
+                key={id}
+                selected={selected}
+                onClick={() => setSelectedId(id)}
+                onDoubleClick={() => navigate(`/clients/${id}`)}
+                divider
+                sx={{ borderRadius: 1, mx: 0.5 }}
+              >
+                <ListItemText
+                  primary={<Typography variant="body2" sx={{ fontWeight: 600 }}><CellEllipsis title={name}>{name}</CellEllipsis></Typography>}
+                  secondary={
+                    <Box component="span" sx={{ display: "block" }}>
+                      {open != null && (
+                        <Typography variant="caption" color="text.secondary" component="span" sx={{ display: "block" }}>
+                          Open Matter: {String(open)}
+                        </Typography>
+                      )}
+                      {last != null && String(last) !== "" && (
+                        <Typography variant="caption" color="text.secondary" component="span" sx={{ display: "block" }}>
+                          Last Activity Date: {formatDate(String(last))}
+                        </Typography>
+                      )}
+                    </Box>
+                  }
+                />
+                <IconButton
+                  size="small"
+                  edge="end"
+                  onClick={(e) => { e.stopPropagation(); unfav(id) }}
+                  aria-label="Unfavourite"
+                >
+                  <StarIcon fontSize="small" color="warning" />
+                </IconButton>
+              </ListItemButton>
+            )
+          })}
+        </List>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", height: { md: 400 }, display: "flex", flexDirection: "column" }}>
+        <Box sx={{ px: 2.5, py: 1.75, borderBottom: "1px solid", borderColor: "divider" }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Open Matters</Typography>
+        </Box>
+        {!selectedId ? (
+          <Box sx={{ p: 3 }}><Typography color="text.secondary">Select a client to view open matters</Typography></Box>
+        ) : mattersQuery.isLoading ? (
+          <PanelLoader label="Loading matters…" />
+        ) : !(mattersQuery.data as unknown[])?.length ? (
+          <Box sx={{ p: 3 }}><Typography color="text.secondary">No open matters</Typography></Box>
+        ) : (
+          <List dense disablePadding sx={{ overflow: "auto", flex: 1 }}>
+            {(mattersQuery.data as Record<string, unknown>[]).map((m) => {
+              const id = String(m.id ?? m.matterId ?? "")
+              const title = String(m.title ?? "Matter")
+              const billing = String(m.billingType ?? "")
+              const status = String(m.status ?? "")
+              const desc = String(m.description ?? m.matterSubject ?? "")
+              const last = m.lastActivityDate
+              return (
+                <ListItemButton key={id} component={RouterLink} to={`/matters/${id}`} divider alignItems="flex-start">
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
+                          <CellEllipsis title={`${title}${billing ? ` · ${billing}` : ""}`}>{title}{billing ? ` · ${billing}` : ""}</CellEllipsis>
+                        </Typography>
+                        {status && <Chip size="small" label={status} variant="outlined" color={status === "OPEN" ? "success" : "default"} />}
+                      </Box>
+                    }
+                    secondary={
+                      <Box component="span" sx={{ display: "block" }}>
+                        {desc && <Typography variant="caption" color="text.secondary" component="span" sx={{ display: "block" }}><CellEllipsis title={desc}>{desc}</CellEllipsis></Typography>}
+                        {last != null && String(last) !== "" && (
+                          <Typography variant="caption" color="text.secondary" component="span">
+                            Last Activity: {formatDate(String(last))}
+                          </Typography>
+                        )}
+                      </Box>
+                    }
+                  />
+                </ListItemButton>
+              )
+            })}
+          </List>
+        )}
+      </Paper>
     </Box>
   )
 }
@@ -224,18 +430,13 @@ export default function DashboardPage() {
           {active?.name === "Leads" && <LeadsPanel data={leadCount.data} />}
           {active?.name === "Matters" && <MattersPanel data={matterCount.data} />}
           {(active?.name === "hearings" || active?.name === "Hearing") && (
-            <Box>
-              <StatsGrid>
-                <SummaryCard count={hearingSeries.data?.today?.length ?? 0} label="Today" to="/team/upcoming-hearings" />
-                <SummaryCard count={hearingSeries.data?.tomorrow?.length ?? 0} label="Tomorrow" to="/team/upcoming-hearings" color="info.main" />
-                <SummaryCard count={hearingBadge} label="Total" to="/team/hearing-calendar" />
-              </StatsGrid>
-              <HearingsWidget series={hearingSeries.data} />
-            </Box>
+            <HearingsWidget series={hearingSeries.data} />
           )}
           {active?.name === "Tasks" && <TasksPanel data={taskCount.data} />}
           {active?.name === "Recent Activities" && <RecentActivitiesPanel />}
-          {active?.name === "Favourite Clients" && <FavouriteClientsPanel />}
+          {active?.name === "Favourite Clients" || active?.id === "clients" || active?.label === "Favourite Clients" ? (
+            <FavouriteClientsPanel />
+          ) : null}
           {active?.name === "Matter Roles" && <MatterRolesPanel onCount={setRoleCount} />}
           {active?.name === "Time Logs" && <TimeLogsWidget />}
         </>

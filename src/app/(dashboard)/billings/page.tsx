@@ -109,22 +109,51 @@ export default function BillingsPage() {
         columns={[
           { field: 'invoiceNo', header: 'Invoice #' },
           { field: 'taxInvoiceNo', header: 'Tax Inv #', renderCell: v => String(v || '—') },
-          { field: 'client', header: 'Client', renderCell: (v) => { const c = v as Record<string,string>; return c?.companyName ?? c?.firstName ?? '—' } },
-          { field: 'department', header: 'Department', renderCell: v => String(v || '—') },
-          { field: 'billingType', header: 'Billing Type', renderCell: v => String(v || '—') },
+          {
+            field: 'client',
+            header: 'Client',
+            renderCell: (v, row) => {
+              const c = (v ?? (row as Record<string, unknown>).clientMini) as Record<string, string> | null
+              return c?.companyName ?? c?.firstName ?? '—'
+            },
+          },
+          { field: 'department', header: 'Department', renderCell: (v, row) => String(v || (row as Record<string, unknown>).departmentName || '—') },
+          {
+            field: 'billingType',
+            header: 'Billing Type',
+            renderCell: (v, row) => String(v || (row as Record<string, unknown>).invoiceBillingType || '—'),
+          },
           { field: 'lfaNo', header: 'LFA #', renderCell: v => String(v || '—') },
           { field: 'matter', header: 'Matter', renderCell: (v) => (v as Record<string,string>)?.title ?? '—' },
           { field: 'issueDate', header: 'Created', renderCell: (v) => formatDate(String(v ?? '')) },
           { field: 'dueDate', header: 'Due', renderCell: (v) => formatDate(String(v ?? '')) },
-          { field: 'amount', header: 'Actual Amt', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
+          {
+            field: 'amount',
+            header: 'Actual Amt',
+            align: 'right',
+            renderCell: (v, row) => formatCurrency(Number(v ?? (row as Record<string, unknown>).actualAmount ?? 0)),
+          },
           { field: 'discountAmount', header: 'Discount', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
           { field: 'vatAmount', header: 'Tax', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
           { field: 'writeOffAmount', header: 'Write-off', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
           { field: 'creditNoteAmount', header: 'Credit Note', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
-          { field: 'taxableAmount', header: 'Amount Due', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
+          {
+            field: 'taxableAmount',
+            header: 'Amount Due',
+            align: 'right',
+            renderCell: (v, row) => formatCurrency(Number(v ?? (row as Record<string, unknown>).dueAmount ?? 0)),
+          },
           { field: 'paidAmount', header: 'Paid', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
-          { field: 'invoiceStatus', header: 'Status', renderCell: (v) => <StatusBadge status={String(v ?? '')} /> },
-          { field: 'createdBy', header: 'Created By', renderCell: v => String(v || '—') },
+          {
+            field: 'invoiceStatus',
+            header: 'Status',
+            renderCell: (v, row) => <StatusBadge status={String(v ?? (row as Record<string, unknown>).paymentStaus ?? '')} />,
+          },
+          {
+            field: 'createdBy',
+            header: 'Created By',
+            renderCell: (v, row) => String(v || (row as Record<string, unknown>).createdByName || '—'),
+          },
         ]}
         queryKey={['invoices', 'list']}
         queryFn={(p: GridParams) => billingApi.getAll(p)}

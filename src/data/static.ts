@@ -40,6 +40,11 @@ export const auth = {
     departmentActivitiesReviewAndApproval: false,
     manageClientCredit: false,
     matterStopWorking: false,
+    practiceAreaIds: ["pa1", "pa4"],
+    practiceAreas: [
+      { id: "pa1", name: "Corporate" },
+      { id: "pa4", name: "Litigation" },
+    ],
     department: {
       id:      "6465b87ac708244ad0cccdf3",
       name:    "Business Support",

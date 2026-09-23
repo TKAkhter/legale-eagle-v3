@@ -67,31 +67,26 @@ export default function MattersPage() {
     >
       <DataGrid
         columns={[
-          { field: "title", header: "Title" },
-          { field: "clientName", header: "Client", renderCell: v => text(v) },
-          { field: "matterSubject", header: "Matter Subject", renderCell: v => text(v) },
-          { field: "description", header: "Matter Scope", renderCell: v => text(v) },
-          { field: "practiceArea", header: "Practice Area", renderCell: v => text(v) },
+          { field: "title", header: "Title", minWidth: 160, width: 180 },
+          { field: "clientName", header: "Client", minWidth: 180, width: 200, renderCell: v => text(v) },
+          { field: "matterSubject", header: "Matter Subject", minWidth: 180, width: 200, renderCell: v => text(v) },
+          { field: "description", header: "Matter Scope", minWidth: 200, width: 240, renderCell: v => text(v) },
+          { field: "practiceArea", header: "Practice Area", minWidth: 150, width: 170, renderCell: v => text(v) },
           {
-            field: "billingType", header: "Billing Type",
+            field: "billingType", header: "Billing Type", minWidth: 130, width: 140,
             renderCell: v => v ? <Chip size="small" label={String(v)} variant="outlined" /> : "—",
           },
-          { field: "attorneyName", header: "Attorney", renderCell: v => text(v) },
+          { field: "attorneyName", header: "Attorney", minWidth: 160, width: 180, renderCell: v => text(v) },
           {
-            field: "opposingParties", header: "Opposing Party",
+            field: "opposingParties", header: "Opposing Party", minWidth: 180, width: 200,
             renderCell: v => {
               const names = Array.isArray(v) ? v.map(String).filter(Boolean) : []
-              if (!names.length) return "—"
-              return (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {names.map(name => <Chip key={name} size="small" label={name} variant="outlined" />)}
-                </Box>
-              )
+              return names.length ? names.join(", ") : "—"
             },
           },
-          { field: "status", header: "Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
-          { field: "closeDate", header: "Close Date", renderCell: v => v ? formatDate(String(v)) : "—" },
-          { field: "createdAt", header: "Created At", renderCell: v => v ? formatDate(String(v)) : "—" },
+          { field: "status", header: "Status", minWidth: 110, width: 120, renderCell: v => <StatusBadge status={String(v ?? "")} /> },
+          { field: "closeDate", header: "Close Date", minWidth: 130, width: 140, renderCell: v => v ? formatDate(String(v)) : "—" },
+          { field: "createdAt", header: "Created At", minWidth: 130, width: 140, renderCell: v => v ? formatDate(String(v)) : "—" },
         ]}
         queryKey={["matters", "list"]}
         queryFn={(p) => mattersApi.getAll(p as GridParams)}

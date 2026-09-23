@@ -4,6 +4,8 @@ import { ApexChart } from "@components/charts/ApexChart"
 import { dashboardApi } from "@/api/dashboard"
 import { PanelLoader } from "@/components/ui/PanelLoader"
 
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"]
+
 export function MattersGraph() {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard", "monthly-matters"],
@@ -16,7 +18,9 @@ export function MattersGraph() {
   const open = (data?.open ?? []) as number[]
   const closed = (data?.closed ?? data?.close ?? []) as number[]
   const total = (data?.total ?? []) as number[]
-  const categories = open.map((_, i) => `M${i + 1}`)
+  const categories = open.length >= 12
+    ? MONTHS
+    : open.map((_, i) => MONTHS[i] ?? `M${i + 1}`)
 
   return (
     <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, mt: 1 }}>
@@ -33,7 +37,7 @@ export function MattersGraph() {
             { name: "Total", type: "line", data: total },
           ]}
           options={{
-            chart: { toolbar: { show: false }, stacked: false },
+            chart: { toolbar: { show: false }, stacked: false, zoom: { enabled: false } },
             stroke: { width: [0, 0, 3] },
             colors: ["#2196f3", "#4caf50", "#a8324e"],
             xaxis: { categories },

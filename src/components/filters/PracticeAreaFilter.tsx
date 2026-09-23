@@ -34,7 +34,7 @@ export function PracticeAreaFilter({
   const names = data.map(a => a.name ?? "").filter(Boolean)
 
   return (
-    <FormControl size="small" sx={{ minWidth: 180, ...sx }} fullWidth>
+    <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 }, maxWidth: '100%', ...sx }} fullWidth>
       <InputLabel>{label}</InputLabel>
       <Select label={label} value={value} onChange={e => onChange(e.target.value)}>
         {includeEmpty && <MenuItem value=""><em>All</em></MenuItem>}

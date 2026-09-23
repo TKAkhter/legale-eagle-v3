@@ -114,7 +114,7 @@ export function LeadFollowupsWidget() {
                     <Button
                       size="small"
                       variant="contained"
-                      color="secondary"
+                      color="primary"
                       disabled={!row.followUpId || completeMutation.isPending}
                       onClick={() => setConfirmId(row.followUpId)}
                     >
@@ -166,7 +166,7 @@ export function TaskDeadlinesWidget() {
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-      <Box sx={{ px: 2, pt: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <Box sx={{ px: 2, pt: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Deadline Tasks</Typography>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ minHeight: 36, "& .MuiTab-root": { minHeight: 36, textTransform: "none" } }}>
           <Tab label={`Today (${today.length})`} />
@@ -176,14 +176,26 @@ export function TaskDeadlinesWidget() {
       {!list.length ? (
         <Box sx={{ p: 3 }}><Typography color="text.secondary">No tasks</Typography></Box>
       ) : (
-        <List dense disablePadding>
-          {list.slice(0, 12).map((row, i) => {
+        <List dense disablePadding sx={{ maxHeight: 360, overflow: "auto" }}>
+          {list.map((row, i) => {
             const id = String(row.taskId ?? row.id ?? i)
+            const title = String(row.taskName ?? row.title ?? "Task")
+            const deadline = row.taskDeadLine ?? row.deadline ?? row.dueDate
+            const client = String(row.clientName ?? (row.client as { companyName?: string; firstName?: string })?.companyName
+              ?? (row.client as { firstName?: string })?.firstName ?? "")
+            const matter = String(row.matterTitle ?? (row.matter as { title?: string })?.title ?? "")
+            const scope = String(row.scope ?? row.description ?? "")
+            const secondary = [
+              deadline ? `Deadline: ${formatDate(String(deadline))}` : "",
+              client ? `Client: ${client}` : "",
+              matter ? `Matter: ${matter}` : "",
+              scope ? `Scope: ${scope}` : "",
+            ].filter(Boolean).join(" · ")
             return (
               <ListItemButton key={id} component={RouterLink} to={`/tasks/${id}`} divider>
                 <ListItemText
-                  primary={<Typography variant="body2" sx={{ fontWeight: 600 }}>{String(row.taskName ?? row.title ?? "Task")}</Typography>}
-                  secondary={String(row.matterTitle ?? row.clientName ?? "")}
+                  primary={<Typography variant="body2" sx={{ fontWeight: 600 }}><CellEllipsis title={title}>{title}</CellEllipsis></Typography>}
+                  secondary={<CellEllipsis title={secondary}>{secondary || "—"}</CellEllipsis>}
                 />
               </ListItemButton>
             )
@@ -216,20 +228,45 @@ export function HearingsWidget({
       {!list.length ? (
         <Box sx={{ p: 3 }}><Typography color="text.secondary">No hearings</Typography></Box>
       ) : (
-        <List dense disablePadding>
-          {list.slice(0, 15).map((row, i) => (
-            <ListItemButton
-              key={i}
-              component={RouterLink}
-              to={row.matterId ? `/matters/${String(row.matterId)}` : "/team/upcoming-hearings"}
-              divider
-            >
-              <ListItemText
-                primary={<Typography variant="body2" sx={{ fontWeight: 600 }}>{String(row.title ?? row.matterTitle ?? "Hearing")}</Typography>}
-                secondary={[row.hearingDate ?? row.date, row.location ?? row.courtLocation].filter(Boolean).map(String).join(" · ")}
-              />
-            </ListItemButton>
-          ))}
+        <List dense disablePadding sx={{ maxHeight: 420, overflow: "auto" }}>
+          {list.map((row, i) => {
+            const title = String(row.hearingTitle ?? row.title ?? row.matterTitle ?? "Hearing")
+            const matter = String(row.matterTitle ?? (row.matter as { title?: string })?.title ?? "")
+            const client = String(row.clientName ?? "")
+            const note = String(row.note ?? row.summary ?? row.description ?? "")
+            const next = row.nextHearingDate
+            const chamber = [row.chamberNo, row.court, row.room, row.location ?? row.courtLocation].filter(Boolean).map(String).join(" · ")
+            const when = [row.hearingDate ?? row.date, row.hearingTime ?? row.time].filter(Boolean).map(String).join(" ")
+            const secondary = [
+              when,
+              matter && `Matter: ${matter}`,
+              client && `Client: ${client}`,
+              chamber,
+              next && `Next: ${formatDate(String(next))}`,
+              note,
+            ].filter(Boolean).join(" · ")
+            return (
+              <ListItemButton
+                key={i}
+                component={RouterLink}
+                to={row.matterId ? `/matters/${String(row.matterId)}` : "/team/upcoming-hearings"}
+                divider
+                alignItems="flex-start"
+              >
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
+                        <CellEllipsis title={title}>{title}</CellEllipsis>
+                      </Typography>
+                      {row.status != null && <Chip size="small" label={String(row.status)} variant="outlined" />}
+                    </Box>
+                  }
+                  secondary={<CellEllipsis title={secondary}>{secondary || "—"}</CellEllipsis>}
+                />
+              </ListItemButton>
+            )
+          })}
         </List>
       )}
     </Paper>

@@ -1,60 +1,94 @@
 /**
  * Sidebar.tsx
  *
- * Responsive sidebar navigation with three behaviours:
- *
- *   Desktop (≥1024px):
- *     - Persistent sidebar, always visible
- *     - Hamburger (in Toolbar) → toggles collapsed/expanded
- *     - Hover over collapsed → temporarily expands
- *     - Hover out → returns to collapsed
- *
- *   Tablet (600px–1023px):
- *     - Starts collapsed by default
- *     - Hamburger → toggles between collapsed and full width
- *     - No hover expand (touch devices)
- *
- *   Mobile (<600px):
- *     - Hidden by default
- *     - Hamburger → opens as overlay drawer
- *     - Tapping outside or nav item → closes drawer
- *
- * Nav content:
- *   VITE_DYNAMIC_NAV=true  → items filtered by API menu response (what user has access to)
- *   VITE_DYNAMIC_NAV=false → items from static navigationConfig (shows everything)
+ * Desktop (≥1024px): persistent sidebar; hamburger collapses to icons; hover expands.
+ * Tablet + Mobile (<1024px): temporary overlay drawer — always shows labels
+ *   (never icon-only; collapsed store state only applies on desktop).
  */
 import { useState } from "react"
 import { Box, Drawer, ThemeProvider, useMediaQuery } from "@mui/material"
 import { useThemeStore }  from "@lib/store/themeStore"
 import { buildSidebarTheme } from "@/config/theme"
+import { DESKTOP_MEDIA_QUERY, DESKTOP_MIN_WIDTH } from "@/config/spacing"
 import { SidebarNav }    from "./SidebarNav"
 import { SidebarHeader } from "./SidebarHeader"
 import { logger }        from "@/lib/logger"
 
-// Sidebar widths
-export const SIDEBAR_W   = 260   // expanded width
-export const COLLAPSED_W = 60    // icon-only collapsed width
+export const SIDEBAR_W   = 260
+export const COLLAPSED_W = 60
 
 interface Props {
-  /** Mobile drawer open state — controlled by Toolbar hamburger */
   mobileOpen:    boolean
-  /** Called when mobile drawer should close (backdrop tap, nav click) */
   onMobileClose: () => void
+}
+
+function SidebarInner({
+  collapsed,
+  onNavClick,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  collapsed: boolean
+  onNavClick?: () => void
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
+}) {
+  const direction = useThemeStore(s => s.direction)
+  const sideTheme = buildSidebarTheme(direction)
+
+  return (
+    <ThemeProvider theme={sideTheme}>
+      <Box
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        sx={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "background.default",
+          overflow: "hidden",
+          transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+        }}
+      >
+        <SidebarHeader collapsed={collapsed} />
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: "auto",
+            overflowX: "hidden",
+            py: 0.5,
+            // Avoid always-visible scrollbar (screenshot); show only on hover
+            scrollbarWidth: "thin",
+            scrollbarColor: "transparent transparent",
+            "&:hover": { scrollbarColor: "rgba(255,255,255,0.25) transparent" },
+            "&::-webkit-scrollbar": { width: 4 },
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: "transparent",
+              borderRadius: 4,
+            },
+            "&:hover::-webkit-scrollbar-thumb": {
+              backgroundColor: "rgba(255,255,255,0.25)",
+            },
+          }}
+        >
+          <SidebarNav collapsed={collapsed} onNavClick={onNavClick} />
+        </Box>
+      </Box>
+    </ThemeProvider>
+  )
 }
 
 export function Sidebar({ mobileOpen, onMobileClose }: Props) {
   const collapsed  = useThemeStore(s => s.sidebarCollapsed)
   const direction  = useThemeStore(s => s.direction)
-  const sideTheme  = buildSidebarTheme(direction)
 
-  // Hover expand — desktop only (isDesktop prevents hover on touch devices)
-  const [hovered, setHovered]  = useState(false)
-  const isDesktop  = useMediaQuery("(min-width:1024px)")
-  const isTablet   = useMediaQuery("(min-width:600px) and (max-width:1023px)")
+  const [hovered, setHovered] = useState(false)
+  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY)
 
-  // On desktop: hover expands collapsed sidebar temporarily
-  const effectiveCollapsed = collapsed && !(isDesktop && hovered)
-  const width = effectiveCollapsed ? COLLAPSED_W : SIDEBAR_W
+  // Icon-only collapse is desktop-only. Overlay drawers always show text.
+  const desktopCollapsed = isDesktop && collapsed && !hovered
+  const desktopWidth = desktopCollapsed ? COLLAPSED_W : SIDEBAR_W
 
   function handleMouseEnter() {
     if (isDesktop && collapsed) {
@@ -70,87 +104,59 @@ export function Sidebar({ mobileOpen, onMobileClose }: Props) {
     }
   }
 
-  // Inner content — shared between mobile drawer and desktop persistent nav
-  const inner = (
-    <ThemeProvider theme={sideTheme}>
-      <Box
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        sx={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          // buildSidebarTheme provides dark navy background
-          bgcolor: "background.default",
-          overflow: "hidden",
-          // Smooth width transition for hover expand / collapse toggle
-          transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-        }}
-      >
-        <SidebarHeader collapsed={effectiveCollapsed} />
-        <Box sx={{ flex: 1, overflow: "hidden auto", py: 0.5 }}>
-          <SidebarNav collapsed={effectiveCollapsed} onNavClick={onMobileClose} />
-        </Box>
-      </Box>
-    </ThemeProvider>
-  )
+  const belowDesktop = `@media (max-width:${DESKTOP_MIN_WIDTH - 1}px)`
+  const atDesktop = `@media (min-width:${DESKTOP_MIN_WIDTH}px)`
 
   return (
     <>
-      {/* ── Mobile: full-screen overlay drawer ─────────────────────────── */}
+      {/* Mobile + tablet: overlay drawer with full labels */}
       <Drawer
         variant="temporary"
         open={mobileOpen}
         onClose={onMobileClose}
-        ModalProps={{ keepMounted: true }}  // keeps DOM for performance
+        ModalProps={{ keepMounted: true }}
         sx={{
-          display: { xs: "block", sm: "none" },
+          display: "block",
+          [atDesktop]: { display: "none" },
+          zIndex: 1400,
+          "& .MuiBackdrop-root": { zIndex: 1399 },
           "& .MuiDrawer-paper": {
             width: SIDEBAR_W,
+            maxWidth: "min(100vw, 300px)",
             border: "none",
             bgcolor: "transparent",
+            zIndex: 1400,
           },
         }}
       >
-        {inner}
+        {/* Always expanded — never pass store collapsed into overlay */}
+        <SidebarInner collapsed={false} onNavClick={onMobileClose} />
       </Drawer>
 
-      {/* ── Tablet: persistent but starts collapsed ─────────────────────── */}
-      {isTablet && (
-        <Box
-          component="nav"
-          sx={{
-            position: "fixed",
-            top: 0, bottom: 0,
-            left: direction === "rtl" ? "auto" : 0,
-            right: direction === "rtl" ? 0 : "auto",
-            zIndex: 1200,
-            width: effectiveCollapsed ? COLLAPSED_W : SIDEBAR_W,
-            transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
-            display: { xs: "none", sm: "flex", lg: "none" },
-          }}
-        >
-          {inner}
-        </Box>
-      )}
-
-      {/* ── Desktop: persistent sidebar ─────────────────────────────────── */}
+      {/* Desktop: persistent sidebar */}
       <Box
         component="nav"
         sx={{
-          display: { xs: "none", lg: "flex" },
+          display: "none",
+          [atDesktop]: { display: "flex" },
           flexShrink: 0,
           position: "fixed",
-          top: 0, bottom: 0,
+          top: 0,
+          bottom: 0,
           left: direction === "rtl" ? "auto" : 0,
           right: direction === "rtl" ? 0 : "auto",
           zIndex: 1300,
-          width,
+          width: desktopWidth,
           transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+          // Safety: if this nav somehow renders below desktop, never icon-only
+          [belowDesktop]: { width: SIDEBAR_W },
         }}
       >
-        {inner}
+        <SidebarInner
+          collapsed={desktopCollapsed}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        />
       </Box>
     </>
   )

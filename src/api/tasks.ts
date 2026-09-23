@@ -66,8 +66,9 @@ export const tasksApi = {
 
     const res = await axiosClient.get("/api/task/get/individual/task/v2", {
       params: {
-        eventType,
-        taskStatus,
+        eventType: eventType || "ALL",
+        // Old LMS sends concrete statuses; "All" should be empty so BE does not filter.
+        taskStatus: taskStatus === "All" ? "" : taskStatus,
         pageNumber: p.page,
         pageSize: p.pageSize,
         sortBy: p.sortBy ?? "taskDeadLine",
@@ -119,5 +120,49 @@ export const tasksApi = {
       },
     })
     return unwrapPage(res.data?.data ?? res.data, p)
+  },
+
+  async getTemplateParents() {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "tpl1", taskUUId: "tpl1", templateTitle: "Matter Kickoff Template", taskCreatedByName: "Admin" },
+        { id: "tpl2", taskUUId: "tpl2", templateTitle: "Litigation Checklist", taskCreatedByName: "Sarah Johnson" },
+      ]
+    }
+    const res = await axiosClient.get("/api/task/get/template/parent")
+    const d = res.data?.data ?? res.data
+    return Array.isArray(d) ? d : []
+  },
+
+  async getTemplateFull(taskUUId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "tt1", title: "Conflict check", priority: "1", order: 0 },
+        { id: "tt2", title: "Open matter checklist", priority: "0", order: 1 },
+        { id: "tt3", title: "Send engagement letter", priority: "2", order: 2 },
+      ]
+    }
+    const res = await axiosClient.get("/api/task/get/template/full", { params: { taskUUId } })
+    const d = res.data?.data ?? res.data
+    return Array.isArray(d) ? d : []
+  },
+
+  async createTemplate(data: { templateTitle: string; taskList: { title: string; priority: string; order: number }[] }) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return { taskUUId: "tpl-new" }
+    }
+    const res = await axiosClient.post("/api/task/add/template", data)
+    return res.data?.data ?? res.data
+  },
+
+  async updateTemplateTask(taskId: string, data: Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return }
+    await axiosClient.put(`/api/task/template/update/task/${taskId}`, data)
+  },
+
+  async reorderTemplateTasks(taskUUId: string, taskList: Record<string, unknown>[]) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return }
+    await axiosClient.put(`/api/task/template/update/order/${taskUUId}`, { taskList })
   },
 }

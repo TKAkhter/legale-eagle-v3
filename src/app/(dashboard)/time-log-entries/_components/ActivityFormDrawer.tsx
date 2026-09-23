@@ -21,17 +21,18 @@ interface Props {
   onClose: () => void
   prefillMatterId?: string
   activityId?: string
+  defaultActivityType?: 'Time' | 'Expense' | 'Fixed'
   onSuccess?: () => void
 }
 
-export function ActivityFormDrawer({ open, onClose, prefillMatterId, activityId, onSuccess }: Props) {
+export function ActivityFormDrawer({ open, onClose, prefillMatterId, activityId, defaultActivityType = 'Time', onSuccess }: Props) {
   const qc = useQueryClient()
   const [submitError, setSubmitError] = useState<string|null>(null)
   const isEdit = !!activityId
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
     resolver: zodResolver(activitySchema),
     defaultValues: {
-      activityType: 'Time',
+      activityType: defaultActivityType,
       billable: true,
       entryDate: new Date().toISOString().slice(0, 10),
       matterId: prefillMatterId ?? '',
@@ -74,8 +75,16 @@ export function ActivityFormDrawer({ open, onClose, prefillMatterId, activityId,
       })
       return
     }
-    if (prefillMatterId) reset(prev => ({ ...prev, matterId: prefillMatterId }))
-  }, [open, isEdit, detailQ.data, prefillMatterId, reset])
+    reset({
+      activityType: defaultActivityType,
+      billable: true,
+      entryDate: new Date().toISOString().slice(0, 10),
+      matterId: prefillMatterId ?? '',
+      activity: '',
+      hours: 0,
+      minutes: 0,
+    })
+  }, [open, isEdit, detailQ.data, prefillMatterId, defaultActivityType, reset])
 
   const { data: users = [] } = useQuery({
     queryKey: QK.users.mini(),
@@ -122,8 +131,8 @@ export function ActivityFormDrawer({ open, onClose, prefillMatterId, activityId,
     <FormDrawer
       open={open}
       onClose={onClose}
-      title={isEdit ? 'Edit Time Entry' : 'Log Time Entry'}
-      subtitle="Record billable time, expense, or fixed fee"
+      title={isEdit ? 'Edit Time Entry' : defaultActivityType === 'Expense' ? 'Log Disbursement' : 'Log Time Entry'}
+      subtitle={defaultActivityType === 'Expense' ? 'Record a pass-to-client expense' : 'Record billable time, expense, or fixed fee'}
       onSubmit={handleSubmit(onSubmit)}
       isSubmitting={isSubmitting}
       submitLabel={isEdit ? 'Update Entry' : 'Save Entry'}

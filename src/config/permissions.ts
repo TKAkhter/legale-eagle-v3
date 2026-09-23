@@ -31,6 +31,24 @@ export const PERMISSIONS = {
   CLIENTS_DELETE: 'clients:delete',
   CLIENTS_EXPORT: 'clients:export',
 
+  // Vendors
+  VENDORS_VIEW:   'vendors:view',
+  VENDORS_CREATE: 'vendors:create',
+  VENDORS_EDIT:   'vendors:edit',
+
+  // Leaves
+  LEAVES_VIEW:    'leaves:view',
+  LEAVES_CREATE:  'leaves:create',
+  LEAVES_APPROVE: 'leaves:approve',
+
+  // Bank accounts
+  BANK_ACCOUNTS_VIEW: 'bank_accounts:view',
+  BANK_ACCOUNTS_CREATE: 'bank_accounts:create',
+
+  // Payroll
+  PAYROLL_VIEW: 'payroll:view',
+  PAYROLL_CREATE: 'payroll:create',
+
   // Matters
   MATTERS_VIEW:   'matters:view',
   MATTERS_CREATE: 'matters:create',
