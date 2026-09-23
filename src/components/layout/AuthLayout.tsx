@@ -10,7 +10,7 @@
 import { Box, Paper, Typography, Divider } from "@mui/material"
 import { Outlet } from "react-router-dom"
 import GavelIcon from "@mui/icons-material/Gavel"
-import { useThemeStore } from "@/lib/store/themeStore"
+import { useThemeStore } from "@lib/store/themeStore"
 
 export function AuthLayout() {
   const colorMode = useThemeStore((s) => s.colorMode)

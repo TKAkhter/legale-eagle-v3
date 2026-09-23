@@ -1,82 +1,105 @@
-import { useTranslation } from 'react-i18next'
-/**
- * Activity History Report — filterable activity log for reports.
- *
- * Different from Audit Log (admin tool):
- *   Audit Log     = data changes (who changed what field)
- *   Activity Feed = business events (matters created, invoices paid, etc.)
- *
- * This page is for partners/managers to review firm activity over a period.
- */
 import { useState } from "react"
 import { Box, Button, Chip, Typography, Paper } from "@mui/material"
-import { ApexChart } from '@/components/charts/ApexChart'
-import { activityFeed as staticFeed } from '@/data/static'
-import { PageShell }   from "@/components/ui/PageShell"
-import { DataGrid }    from "@/components/data-grid/DataGrid"
-import { SearchInput } from "@/components/filters/SearchInput"
-import { activityApi } from "@/api/activity"
-import { formatDateTime, fromNow } from "@/lib/utils/formatDate"
+import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
+import { PageShell } from "@/components/ui/PageShell"
+import { DataGrid } from "@components/data-grid/DataGrid"
+import { ClientSelectFilter } from "@components/filters/ClientSelectFilter"
+import { MatterSelectFilter } from "@components/filters/MatterSelectFilter"
+import { UserSelectFilter } from "@components/filters/UserSelectFilter"
+import { DateRangeFilter } from "@components/filters/DateRangeFilter"
+import { reportsApi } from "@/api/reports"
+import { formatDateTime, fromNow } from "@lib/utils/formatDate"
+import { toast } from "@/lib/toast"
 import type { GridParams } from "@/types/common.types"
-import type { FilterPanelProps } from "@/components/data-grid/types"
+import type { FilterPanelProps } from "@components/data-grid/types"
 
-const ENTITY_COLOURS: Record<string, "primary"|"success"|"warning"|"info"|"secondary"|"default"> = {
-  Matter:  "primary",
+const ENTITY_COLOURS: Record<string, "primary" | "success" | "warning" | "info" | "secondary" | "default"> = {
+  Matter: "primary",
   Invoice: "success",
-  Lead:    "info",
-  Client:  "secondary",
-  Task:    "warning",
+  Lead: "info",
+  Client: "secondary",
+  Task: "warning",
   Timelog: "default",
 }
 
 function Filters({ onSearch, onReset, filters }: FilterPanelProps) {
-  const [q, setQ] = useState(String(filters.searchText ?? ""))
+  const [f, setF] = useState<Record<string, unknown>>(filters)
+  const set = (k: string, v: unknown) => setF(p => ({ ...p, [k]: v }))
   return (
-    <Box sx={{ display:"flex", gap:1.5, alignItems:"flex-end", flexWrap:"wrap" }}>
-      <SearchInput value={q} onChange={setQ} placeholder="Search activity…" />
-      <Button variant="contained" size="small" onClick={() => onSearch({ searchText: q })}>Search</Button>
-      <Button size="small" onClick={() => { setQ(""); onReset() }}>Reset</Button>
+    <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-end", flexWrap: "wrap" }}>
+      <ClientSelectFilter value={String(f.clientId ?? "") || undefined} onChange={v => set("clientId", v)} />
+      <MatterSelectFilter value={String(f.matterId ?? "") || undefined} onChange={v => set("matterId", v)} />
+      <UserSelectFilter value={String(f.userId ?? "")} onChange={v => set("userId", v)} label="Responsible" />
+      <DateRangeFilter
+        fromDate={String(f.fromDate ?? "")}
+        toDate={String(f.toDate ?? "")}
+        onChange={v => setF(p => ({ ...p, ...v }))}
+      />
+      <Button variant="contained" size="small" onClick={() => onSearch(f)}>Fetch</Button>
+      <Button size="small" onClick={() => { setF({}); onReset() }}>Reset</Button>
     </Box>
   )
 }
 
 export default function ActivityHistoryPage() {
-  const { t } = useTranslation()
+  async function emailExcel() {
+    try {
+      toast.success(await reportsApi.requestActivityHistoryExcel())
+    } catch {
+      toast.error("Excel export failed")
+    }
+  }
+
   return (
-    <PageShell title={t("nav.activity-history", "Activity History")} description="Firm-wide activity log for the selected period">
-      {/* Summary */}
-      <Box sx={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:2, mb:3 }}>
-        {[["Total Entries","3"],["This Month","2"],["Avg Per Day","0.3"]].map(([l,v])=>(
-          <Paper key={l} variant="outlined" sx={{p:2,borderRadius:2,textAlign:"center"}}>
-            <Typography variant="caption" color="text.secondary">{l}</Typography>
-            <Typography variant="h5" sx={{fontWeight:700}}>{v}</Typography>
-          </Paper>
-        ))}
-      </Box>
-            <DataGrid
+    <PageShell
+      title="Activity History"
+      description="Firm-wide activity history for the selected period"
+      action={(
+        <Button size="small" variant="outlined" startIcon={<MarkunreadOutlinedIcon />} onClick={emailExcel}>
+          Email Excel
+        </Button>
+      )}
+    >
+      <DataGrid
         columns={[
-          { field:"createdAt", header:"When", sortKey:"createdAt",
-            renderCell:(v) => (
+          {
+            field: "createdAt",
+            header: "When",
+            sortKey: "createdAt",
+            renderCell: v => (
               <Box>
-                <Typography variant="caption" sx={{ display:"block", fontWeight:500, fontSize:12 }}>{formatDateTime(String(v??""))}</Typography>
-                <Typography variant="caption" color="text.disabled" sx={{ fontSize:11 }}>{fromNow(String(v??""))}</Typography>
+                <Typography variant="caption" sx={{ display: "block", fontWeight: 500, fontSize: 12 }}>{formatDateTime(String(v ?? ""))}</Typography>
+                <Typography variant="caption" color="text.disabled" sx={{ fontSize: 11 }}>{fromNow(String(v ?? ""))}</Typography>
               </Box>
-            )
+            ),
           },
-          { field:"actor",       header:"User",        sortKey:"actor" },
-          { field:"entity",      header:"Module",
-            renderCell:(v) => <Chip size="small" label={String(v??"")} color={ENTITY_COLOURS[String(v??"")] ?? "default"} variant="outlined" sx={{ fontSize:11 }} />
+          {
+            field: "actor",
+            header: "User",
+            renderCell: (v, row) => String(v || (row as Record<string, unknown>).responsiblePersonName || (row as Record<string, unknown>).performedBy || "—"),
           },
-          { field:"entityName",  header:"Record",      sortKey:"entityName" },
-          { field:"description", header:"Description" },
+          {
+            field: "entity",
+            header: "Module",
+            renderCell: (v, row) => {
+              const label = String(v || (row as Record<string, unknown>).category || "—")
+              return <Chip size="small" label={label} color={ENTITY_COLOURS[label] ?? "default"} variant="outlined" sx={{ fontSize: 11 }} />
+            },
+          },
+          {
+            field: "entityName",
+            header: "Record",
+            renderCell: (v, row) => String(v || (row as Record<string, unknown>).matterTitle || (row as Record<string, unknown>).activity || "—"),
+          },
+          { field: "description", header: "Description", renderCell: (v, row) => String(v || (row as Record<string, unknown>).note || "—") },
         ]}
-        queryKey={["activity","history"]}
-        queryFn={(p: GridParams) =>
-          activityApi.getAuditLog(p) as unknown as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>
-        }
+        queryKey={["reports", "activity-history"]}
+        queryFn={(p: GridParams) => reportsApi.getActivityHistory(p)}
         FilterPanel={Filters}
-        hasFilters syncWithUrl
-        defaultSortBy="createdAt" defaultSortDir="desc"
+        hasFilters
+        syncWithUrl
+        defaultSortBy="createdAt"
+        defaultSortDir="desc"
         zebraStriping
       />
     </PageShell>

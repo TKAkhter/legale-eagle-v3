@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 /**
  * Audit Log — who changed what and when.
  *
@@ -16,12 +15,12 @@ import { useTranslation } from 'react-i18next'
 import { useState } from "react"
 import { Box, Button, Chip, Typography } from "@mui/material"
 import { PageShell }   from "@/components/ui/PageShell"
-import { DataGrid }    from "@/components/data-grid/DataGrid"
-import { SearchInput } from "@/components/filters/SearchInput"
+import { DataGrid }    from "@components/data-grid/DataGrid"
+import { SearchInput } from "@components/filters/SearchInput"
 import { activityApi } from "@/api/activity"
-import { formatDateTime } from "@/lib/utils/formatDate"
+import { formatDateTime } from "@lib/utils/formatDate"
 import type { GridParams } from "@/types/common.types"
-import type { FilterPanelProps } from "@/components/data-grid/types"
+import type { FilterPanelProps } from "@components/data-grid/types"
 
 const ACTION_COLOURS: Record<string, "success"|"primary"|"error"|"secondary"|"info"|"default"|"warning"> = {
   CREATE:  "success",
@@ -45,10 +44,9 @@ function AuditFilters({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function AuditLogPage() {
-  const { t } = useTranslation()
   return (
     <PageShell
-      title={t("nav.audit-log", "Audit Log")}
+      title="Audit Log"
       description="Complete history of all data changes — who changed what and when"
     >
       <DataGrid

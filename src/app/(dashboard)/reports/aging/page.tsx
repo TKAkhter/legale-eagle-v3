@@ -1,13 +1,11 @@
-import { useTranslation } from 'react-i18next'
-import { formatDate } from '@/lib/utils/formatDate'
 import { useQuery } from "@tanstack/react-query"
 import { Box, Paper, Typography, Chip, LinearProgress } from "@mui/material"
-import { ApexChart } from '@/components/charts/ApexChart'
+import { ApexChart } from '@components/charts/ApexChart'
 import { PageShell }      from "@/components/ui/PageShell"
 import { StatusBadge }    from "@/components/ui/StatusBadge"
 import { env }            from "@/config/env"
-import { axiosClient }    from "@/lib/api/axios"
-import { formatCurrency } from "@/lib/utils/formatCurrency"
+import { axiosClient }    from "@lib/api/axios"
+import { formatCurrency } from "@lib/utils/formatCurrency"
 import { invoices as staticInvoices } from "@/data/static"
 
 const BUCKETS = [
@@ -24,7 +22,6 @@ function daysPastDue(due: string) {
 }
 
 export default function AgingReportPage() {
-  const { t } = useTranslation()
   const { data: invoices=[], isLoading } = useQuery<Record<string,unknown>[]>({
     queryKey: ["reports","aging"],
     queryFn: async () => {
@@ -44,7 +41,7 @@ export default function AgingReportPage() {
   const grandTotal = bucketData.reduce((s,b)=>s+b.total,0)
 
   return (
-    <PageShell title={t("reports-aging", "Billing Aging Report")} description="Outstanding invoices grouped by days past due">
+    <PageShell title="Billing Aging Report" description="Outstanding invoices grouped by days past due">
       <Box sx={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:2,mb:3}}>
         {bucketData.map(b=>(
           <Paper key={b.label} variant="outlined" sx={{p:2,borderRadius:2,borderTop:`3px solid ${b.color}`}}>
@@ -92,7 +89,7 @@ export default function AgingReportPage() {
                       <Box component="td" sx={{px:2,py:1,fontSize:13,fontWeight:600}}>{String(inv.invoiceNo??"—")}</Box>
                       <Box component="td" sx={{px:2,py:1,fontSize:13}}>{cl?.companyName||`${cl?.firstName??""} ${cl?.lastName??""}`.trim()||"—"}</Box>
                       <Box component="td" sx={{px:2,py:1,fontSize:13}}>{mt?.title??"—"}</Box>
-                      <Box component="td" sx={{px:2,py:1,fontSize:13}}>{inv.dueDate?formatDate(String(inv.dueDate)):"—"}</Box>
+                      <Box component="td" sx={{px:2,py:1,fontSize:13}}>{inv.dueDate?new Date(String(inv.dueDate)).toLocaleDateString("en-GB"):"—"}</Box>
                       <Box component="td" sx={{px:2,py:1}}><Typography variant="caption" sx={{fontWeight:700,color:b.color}}>{days}d</Typography></Box>
                       <Box component="td" sx={{px:2,py:1,fontSize:13,fontWeight:700,color:"error.main"}}>{formatCurrency(Number(inv.balanceAmount??inv.taxableAmount??0))}</Box>
                       <Box component="td" sx={{px:2,py:1}}><StatusBadge status={String(inv.invoiceStatus??"")} /></Box>

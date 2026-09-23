@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import type { RowMenuItem } from './types'
-import { useAuthStore } from "@/lib/store/authStore"
-import { hasPermission } from "@/lib/auth/permissions"
+import { useAuthStore } from '@lib/store/authStore'
+import { hasPermission } from '@lib/auth/permissions'
 
 interface Props<T> { items: RowMenuItem<T>[]; row: T }
 export function RowMenu<T>({ items, row }: Props<T>) {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
-  const permissions = useAuthStore((s) => s.accessScope)
+  const permissions = useAuthStore((s) => s.permissions)
   const visible = items.filter((item) =>
     (!item.permission || hasPermission(permissions, item.permission)) && !item.hidden?.(row)
   )

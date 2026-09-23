@@ -16,9 +16,9 @@ import {
 import SendIcon        from "@mui/icons-material/Send"
 import DescriptionIcon from "@mui/icons-material/Description"
 import { env }         from "@/config/env"
-import { axiosClient } from "@/lib/api/axios"
+import { axiosClient } from "@lib/api/axios"
 import { toast }       from "@/lib/toast"
-import { formatCurrency } from "@/lib/utils/formatCurrency"
+import { formatCurrency } from "@lib/utils/formatCurrency"
 
 interface Props {
   open:    boolean

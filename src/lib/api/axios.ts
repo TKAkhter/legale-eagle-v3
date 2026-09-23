@@ -4,6 +4,7 @@ import axios, {
   type AxiosError,
 } from 'axios'
 import { env } from '@/config/env'
+import { attachApiLoading } from './apiLoading'
 
 /**
  * axios.ts — base HTTP client
@@ -58,6 +59,10 @@ function createInstance(config: AxiosRequestConfig = {}): AxiosInstance {
 
 export const axiosClient = createInstance()
 export const axiosBlob   = createInstance({ responseType: 'blob', timeout: 120_000 })
+
+// Global top-bar loading for every API call
+attachApiLoading(axiosClient)
+attachApiLoading(axiosBlob)
 
 // ─── Request interceptor ──────────────────────────────────────────────────────
 function attachAuthHeaders(instance: AxiosInstance) {

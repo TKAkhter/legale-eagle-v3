@@ -1,8 +1,8 @@
 import { Autocomplete, TextField } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { axiosClient } from "@/lib/api/axios"
-import { QK } from "@/lib/query/keys"
-import type { Department } from "@/types/common.types"
+import { axiosClient } from '@lib/api/axios'
+import { QK } from '@lib/query/keys'
+import type { Department } from '@/types/common.types'
 interface Props { value?:string; onChange:(id?:string)=>void }
 export function DepartmentFilter({ value, onChange }: Props) {
   const { data=[] } = useQuery({ queryKey: QK.departments.list(),

@@ -1,57 +1,105 @@
-import { useTranslation } from 'react-i18next'
-import { formatDate } from '@/lib/utils/formatDate'
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Button, Box, Chip, FormControl, InputLabel, Select, MenuItem } from "@mui/material"
-import AddIcon        from "@mui/icons-material/Add"
-import EditIcon       from "@mui/icons-material/Edit"
-import DeleteIcon     from "@mui/icons-material/Delete"
-import SwapHorizIcon  from "@mui/icons-material/SwapHoriz"
-import { PageShell }   from "@/components/ui/PageShell"
-import { useEffect } from "react"
-import { DataGrid }    from "@/components/data-grid/DataGrid"
-import { StatusBadge } from "@/components/ui/StatusBadge"
+import {
+  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControl, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup,
+} from "@mui/material"
+import AddIcon from "@mui/icons-material/Add"
+import EditIcon from "@mui/icons-material/Edit"
+import DeleteIcon from "@mui/icons-material/Delete"
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz"
+import RestartAltIcon from "@mui/icons-material/RestartAlt"
+import { useQuery } from "@tanstack/react-query"
+import { PageShell } from "@/components/ui/PageShell"
+import { DataGrid } from "@components/data-grid/DataGrid"
+import { StatusBadge } from "@components/ui/StatusBadge"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { SearchInput } from "@/components/filters/SearchInput"
-import { leadsApi }   from "@/api/leads"
-import { toast }      from "@/lib/toast"
-import { useAuthStore } from "@/lib/store/authStore"
-import { PERMISSIONS }  from "@/lib/auth/permissions"
+import { SearchInput, PracticeAreaFilter, DateRangeFilter, FilterActions } from "@components/filters"
+import { leadsApi } from "@/api/leads"
+import { toast } from "@/lib/toast"
+import { formatDate } from "@lib/utils/formatDate"
+import { useAuthStore } from "@lib/store/authStore"
+import { PERMISSIONS } from "@lib/auth/permissions"
 import type { GridParams } from "@/types/common.types"
-import type { FilterPanelProps } from "@/components/data-grid/types"
+import type { FilterPanelProps } from "@components/data-grid/types"
 import { LeadFormDrawer } from "./_components/LeadFormDrawer"
 
-const STATUSES = ["NEW","FOLLOW_UP","PROPOSAL","CONVERTED","CLOSED","WRITE_OFF"]
-
 function LeadFilters({ onSearch, onReset, filters }: FilterPanelProps) {
-  const [f, setF] = useState<Record<string,unknown>>(filters)
+  const [f, setF] = useState<Record<string, unknown>>({
+    type: "All",
+    statusGroup: "Open",
+    ...filters,
+  })
   return (
-    <Box sx={{ display:"flex", flexWrap:"wrap", gap:1.5, alignItems:"flex-end" }}>
-      <SearchInput value={String(f.searchText??"")} onChange={v => setF(p => ({...p,searchText:v}))} placeholder="Search leads..." />
-      <FormControl size="small" sx={{ minWidth:140 }}>
-        <InputLabel>Status</InputLabel>
-        <Select label="Status" value={String(f.currentStatus??"")} onChange={e => setF(p => ({...p,currentStatus:e.target.value}))}>
-          <MenuItem value=""><em>All</em></MenuItem>
-          {STATUSES.map(s => <MenuItem key={s} value={s}>{s.replace(/_/g," ")}</MenuItem>)}
-        </Select>
-      </FormControl>
-      <Box sx={{ display:"flex", gap:1 }}>
-        <Button variant="contained" size="small" onClick={() => onSearch(f)}>Search</Button>
-        <Button size="small" onClick={() => { setF({}); onReset() }}>Reset</Button>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={String(f.type ?? "All")}
+        onChange={(_, value) => value && setF(p => ({ ...p, type: value }))}
+      >
+        {["All", "People", "Company"].map(item => (
+          <ToggleButton key={item} value={item}>{item === "People" ? "Individual" : item}</ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={String(f.statusGroup ?? "Open")}
+        onChange={(_, value) => value && setF(p => ({ ...p, statusGroup: value }))}
+      >
+        {[
+          { label: "All", value: "All" },
+          { label: "Open", value: "Open" },
+          { label: "Converted", value: "Converted" },
+          { label: "Written Off", value: "Writeoff" },
+        ].map(item => (
+          <ToggleButton key={item.value} value={item.value}>{item.label}</ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-end" }}>
+        <SearchInput
+          value={String(f.searchText ?? "")}
+          onChange={v => setF(p => ({ ...p, searchText: v }))}
+          placeholder="Search by name..."
+        />
+        <PracticeAreaFilter
+          value={String(f.practiceArea ?? "")}
+          onChange={v => setF(p => ({ ...p, practiceArea: v }))}
+        />
+        <TextField
+          size="small"
+          label="Source Type"
+          value={String(f.sourceType ?? "")}
+          onChange={e => setF(p => ({ ...p, sourceType: e.target.value }))}
+        />
+        <DateRangeFilter
+          fromDate={String(f.fromDate ?? "")}
+          toDate={String(f.toDate ?? "")}
+          onChange={v => setF(p => ({ ...p, ...v }))}
+        />
+        <FilterActions
+          onSearch={() => onSearch(f)}
+          onClear={() => { setF({ type: "All", statusGroup: "Open" }); onReset() }}
+        />
       </Box>
     </Box>
   )
 }
 
 export default function LeadsPage() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
-  const hasPermission = useAuthStore(s => (s as {hasPermission:(p:string)=>boolean}).hasPermission)
+  const hasPermission = useAuthStore(s => s.hasPermission)
   const canCreate = hasPermission(PERMISSIONS.LEADS_CREATE)
-  const canEdit   = hasPermission(PERMISSIONS.LEADS_VIEW)
-
-  const [drawerOpen,  setDrawerOpen]  = useState(false)
+  const canEdit = hasPermission(PERMISSIONS.LEADS_VIEW)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+  const [editLeadId, setEditLeadId] = useState<string>()
+  const [writeOffId, setWriteOffId] = useState<string>()
+  const [writeOffReason, setWriteOffReason] = useState("")
+  const [reopenId, setReopenId] = useState<string>()
+  const [gridKey, setGridKey] = useState(0)
+
   useEffect(() => {
     if (searchParams.get("new") === "1") {
       setDrawerOpen(true)
@@ -59,68 +107,124 @@ export default function LeadsPage() {
     }
   }, [searchParams, setSearchParams])
 
-  const [editLeadId,  setEditLeadId]  = useState<string>()
-  const [deleteId,    setDeleteId]    = useState<string>()
-  const [gridKey,     setGridKey]     = useState(0)
+  // Dashboard deep-links: /leads?status=Open|Converted|Writeoff
+  const urlStatus = searchParams.get("status")
+  const initialStatusGroup = urlStatus === "Write_Off" || urlStatus === "Written Off"
+    ? "Writeoff"
+    : (urlStatus || undefined)
 
-  function openCreate() { setEditLeadId(undefined); setDrawerOpen(true) }
-  function openEdit(id: string) { setEditLeadId(id); setDrawerOpen(true) }
-  function onSaved() { setDrawerOpen(false); setGridKey(k => k+1); toast.success(editLeadId ? "Lead updated" : "Lead created") }
+  const reasonsQuery = useQuery({
+    queryKey: ["leads", "writeoff-reasons"],
+    queryFn: () => leadsApi.getWriteOffReasons(),
+    enabled: !!writeOffId,
+  })
 
-  async function handleWriteOff() {
-    if (!deleteId) return
-    await leadsApi.writeOff(deleteId)
-    setGridKey(k => k+1)
+  async function confirmWriteOff() {
+    if (!writeOffId) return
+    await leadsApi.writeOff(writeOffId, writeOffReason)
+    setWriteOffId(undefined)
+    setWriteOffReason("")
+    setGridKey(k => k + 1)
     toast.success("Lead written off")
+  }
+
+  async function confirmReopen() {
+    if (!reopenId) return
+    toast.success(await leadsApi.reopen(reopenId))
+    setReopenId(undefined)
+    setGridKey(k => k + 1)
   }
 
   return (
     <PageShell
-      title={t("nav.leads", "Leads")}
+      title="Leads"
       description="Track prospective clients and conversion pipeline"
-      action={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New Lead</Button> : undefined}
+      action={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditLeadId(undefined); setDrawerOpen(true) }}>New Lead</Button> : undefined}
     >
       <DataGrid
         key={gridKey}
         columns={[
-          { field:"firstName", header:"Name", renderCell:(_,row) => {
-            const r = row as Record<string,string>
-            return `${r.firstName??""} ${r.lastName??""}`.trim() || r.companyName || "—"
+          { field: "name", header: "Name", renderCell: v => String(v || "—") },
+          { field: "email", header: "Contact", renderCell: (_, row) => {
+            const r = row as { email?: string; phone?: string }
+            return [r.email, r.phone].filter(Boolean).join(" · ") || "—"
           }},
-          { field:"companyName", header:"Company" },
-          { field:"currentStatus", header:"Status", renderCell:(v) => <StatusBadge status={String(v??"")} /> },
-          { field:"practiceArea",  header:"Practice Area", renderCell:(v) => (v as Record<string,string>)?.name ?? "—" },
-          { field:"lawyer",        header:"Attorney", renderCell:(v) => { const u = v as Record<string,string>; return u ? `${u.firstName} ${u.lastName}` : "—" } },
-          { field:"createdAt",     header:"Created", renderCell:(v) => v ? formatDate(String(v)) : "—" },
-          { field:"leadType",      header:"Type", renderCell:(v) => <Chip size="small" label={String(v??"")} variant="outlined" /> },
+          { field: "status", header: "Lead Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
+          { field: "lastStatusUpdatedDate", header: "Last Status Update", renderCell: v => v ? formatDate(String(v)) : "—" },
+          { field: "leadSource", header: "Lead Source", renderCell: v => String(v || "—") },
+          { field: "practiceArea", header: "Practice Area", renderCell: v => String(v || "—") },
+          { field: "dispute", header: "Dispute", renderCell: v => String(v || "—") },
+          { field: "followUp", header: "Follow Up", renderCell: v => String(v || "—") },
+          { field: "conflictCheckStatus", header: "Conflict", renderCell: v => <Chip size="small" label={String(v || "—")} variant="outlined" /> },
+          { field: "attorneyName", header: "Allotted Lawyer", renderCell: v => String(v || "—") },
+          { field: "createdBy", header: "Created By", renderCell: v => String(v || "—") },
+          { field: "partyOpposing", header: "Party Opposing", renderCell: v => String(v || "—") },
+          { field: "createdAt", header: "Created Date", renderCell: v => v ? formatDate(String(v)) : "—" },
+          { field: "leadType", header: "Type", renderCell: v => <Chip size="small" label={String(v ?? "")} variant="outlined" /> },
         ]}
-        queryKey={["leads","list"]}
-        queryFn={(p: GridParams) => leadsApi.getAll(p) as Promise<import("@/types/common.types").PageResponse<Record<string,unknown>>>}
+        queryKey={["leads", "list"]}
+        queryFn={(p: GridParams) => leadsApi.getAll({
+          ...p,
+          filters: {
+            type: "All",
+            statusGroup: initialStatusGroup ?? "Open",
+            ...p.filters,
+            ...(initialStatusGroup && !p.filters?.statusGroup ? { statusGroup: initialStatusGroup } : {}),
+          },
+        })}
         FilterPanel={LeadFilters}
-        hasFilters syncWithUrl
-        detailPath={(row) => `/leads/${(row as Record<string,string>).id}`}
-        rowMenuItems={(row) => [
-          ...(canEdit ? [{ label:"Edit", icon:<EditIcon fontSize="small" />, onClick:() => openEdit(String((row as Record<string,string>).id)) }] : []),
-          { label:"Convert", icon:<SwapHorizIcon fontSize="small" />, onClick:() => navigate(`/leads/${(row as Record<string,string>).id}`) },
-          ...(canEdit ? [{ label:"Write Off", icon:<DeleteIcon fontSize="small" />, onClick:() => setDeleteId(String((row as Record<string,string>).id)) }] : []),
-        ]}
+        hasFilters
+        syncWithUrl
+        isSortingBackend={false}
+        defaultPageSize={10}
+        detailPath={row => `/leads/${String((row as { id?: string }).id ?? "")}`}
+        rowMenuItems={row => {
+          const r = row as { id?: string; status?: string }
+          const id = String(r.id ?? "")
+          const status = String(r.status ?? "")
+          const writtenOff = ["WRITE_OFF", "Writeoff"].includes(status)
+          return [
+            { label: "Details", onClick: () => navigate(`/leads/${id}`) },
+            ...(canEdit ? [{ label: "Edit", icon: <EditIcon fontSize="small" />, onClick: () => { setEditLeadId(id); setDrawerOpen(true) } }] : []),
+            { label: "Convert / Close", icon: <SwapHorizIcon fontSize="small" />, onClick: () => navigate(`/leads/${id}`) },
+            ...(canEdit && !writtenOff ? [{ label: "Write Off", icon: <DeleteIcon fontSize="small" />, onClick: () => setWriteOffId(id) }] : []),
+            ...(canEdit && writtenOff ? [{ label: "Reopen", icon: <RestartAltIcon fontSize="small" />, onClick: () => setReopenId(id) }] : []),
+          ]
+        }}
       />
 
       <LeadFormDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         leadId={editLeadId}
-        onSaved={onSaved}
+        onSaved={() => { setDrawerOpen(false); setGridKey(k => k + 1); toast.success(editLeadId ? "Lead updated" : "Lead created") }}
       />
 
+      <Dialog open={!!writeOffId} onClose={() => setWriteOffId(undefined)} fullWidth maxWidth="xs">
+        <DialogTitle>Write Off Lead</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+            <InputLabel>Reason</InputLabel>
+            <Select label="Reason" value={writeOffReason} onChange={e => setWriteOffReason(e.target.value)}>
+              {(reasonsQuery.data ?? []).map(reason => (
+                <MenuItem key={reason.id} value={reason.name}>{reason.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setWriteOffId(undefined)}>Cancel</Button>
+          <Button color="error" variant="contained" disabled={!writeOffReason} onClick={confirmWriteOff}>Write Off</Button>
+        </DialogActions>
+      </Dialog>
+
       <ConfirmDialog
-        open={!!deleteId}
-        onClose={() => setDeleteId(undefined)}
-        onConfirm={handleWriteOff}
-        title="Write Off Lead"
-        message="Are you sure you want to write off this lead? This action cannot be undone."
-        confirmLabel="Write Off"
-        severity="error"
+        open={!!reopenId}
+        onClose={() => setReopenId(undefined)}
+        onConfirm={confirmReopen}
+        title="Reopen Lead"
+        message="Are you sure you want to reopen this lead?"
+        confirmLabel="Reopen"
       />
     </PageShell>
   )

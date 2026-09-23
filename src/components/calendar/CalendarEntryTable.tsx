@@ -1,4 +1,4 @@
-import type { ColumnDef } from "@/components/data-grid/types"
+import type { ColumnDef } from '@components/data-grid/types'
 interface Props<T> { rows:T[]; columns:ColumnDef<T>[]; loading?:boolean }
 export function CalendarEntryTable<T extends Record<string,unknown>>({ rows, columns, loading }: Props<T>) {
   if (loading) return <div style={{ padding:16, color:'#6b7280' }}>Loading...</div>

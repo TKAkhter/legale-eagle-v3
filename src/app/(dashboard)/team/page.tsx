@@ -1,16 +1,15 @@
-import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { adminApi } from '@/api/admin'
 import { Box, Typography, Avatar } from '@mui/material'
-import { DataGrid } from '@/components/data-grid/DataGrid'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { SearchInput } from '@/components/filters/SearchInput'
-import { DepartmentFilter } from '@/components/filters/DepartmentFilter'
-import { axiosClient } from '@/lib/api/axios'
-import { buildQueryParams } from '@/lib/utils/buildQueryParams'
+import { DataGrid } from '@components/data-grid/DataGrid'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { SearchInput } from '@components/filters/SearchInput'
+import { DepartmentFilter } from '@components/filters/DepartmentFilter'
+import { axiosClient } from '@lib/api/axios'
+import { buildQueryParams } from '@lib/utils/buildQueryParams'
 import { useState } from 'react'
-import type { FilterPanelProps } from '@/components/data-grid/types'
+import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams } from '@/types/common.types'
 
 async function fetchTeam(params: GridParams) {
@@ -32,9 +31,8 @@ function TeamFilter({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function TeamPage() {
-  const { t } = useTranslation()
   return (
-    <PageShell title={t("nav.team", "Team")} description="Attorneys and support staff">
+    <PageShell title="Team" description="Attorneys and support staff">
       <DataGrid
         columns={[
           { field: 'firstName', header: 'Name', renderCell: (_, row) => {

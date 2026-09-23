@@ -5,8 +5,8 @@ import { Box, Typography, Paper, Button, Switch, FormControlLabel, Snackbar, Ale
 import TuneIcon from '@mui/icons-material/Tune'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@/lib/api/axios'
-import { QK } from '@/lib/query/keys'
+import { axiosClient } from '@lib/api/axios'
+import { QK } from '@lib/query/keys'
 
 interface Widget { name: string; seq: number; thumb?: string; visible?: boolean }
 

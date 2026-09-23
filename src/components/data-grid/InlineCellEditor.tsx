@@ -6,7 +6,7 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import { InputBase, CircularProgress, Box } from '@mui/material'
-import { toast } from "@/lib/toast"
+import { toast } from '@/lib/toast'
 
 interface Props {
   value:    string

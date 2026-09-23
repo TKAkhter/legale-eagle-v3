@@ -1,18 +1,22 @@
 /**
- * transformers/index.ts — barrel export for all data transformers.
+ * transformers/index.ts — re-exports all entity transformers.
  *
- * Every transformer:
- *   1. Takes raw backend data (Record<string,unknown>)
- *   2. Returns a typed, canonical FE shape
- *   3. Is called inside the api/ layer before data reaches the UI
+ * The transformer layer sits between the raw backend response
+ * and the canonical FE types defined in src/types/.
  *
- * This means pages always receive the same shape regardless of which
- * endpoint served the data, and static mode / live mode behave identically.
+ * Pattern:
+ *   BE response → transformer → FE canonical type → UI component
+ *
+ * Why this exists:
+ *   - Different backends may use different field names (e.g. leadId vs id)
+ *   - Nested objects need flattening for table columns
+ *   - Dates need normalising (timestamps vs ISO strings vs custom formats)
+ *   - When you swap backends, you only update the transformer, not every page
+ *
+ * Rule: transformers are one-way. Raw → Canonical only.
+ * For write operations (create/update), do the reverse mapping in the api/ file.
  */
-export * from './lead.transformer'
-export * from './client.transformer'
-export * from './matter.transformer'
-export * from './user.transformer'
-export * from './billing.transformer'
-export * from './task.transformer'
-export * from './timelog.transformer'
+export { transformLead,   type RawLead   } from "./lead.transformer"
+export { transformClient, type RawClient } from "./client.transformer"
+export { transformMatter, type RawMatter } from "./matter.transformer"
+export { transformUser,   type RawUser   } from "./user.transformer"

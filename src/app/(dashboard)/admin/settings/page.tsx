@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 /**
  * Settings page — tabbed settings panel.
  *
@@ -12,21 +11,21 @@ import { useTranslation } from 'react-i18next'
  * Static data mode: company form submits locally (no API call).
  * Real mode: saves to /api/company/update.
  */
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Box, Typography, Paper, Divider, Switch, FormControlLabel,
-  Tabs as MuiTabs, Tab, TextField, Button, Grid, Alert,
-  CircularProgress, Chip, Avatar,
+  Tabs as MuiTabs, Tab, TextField, Button,
+  CircularProgress, Chip, Avatar, Alert,
 } from "@mui/material"
 import { useForm, Controller } from "react-hook-form"
-import { useThemeStore }  from "@/lib/store/themeStore"
-import { useAuthStore }   from "@/lib/store/authStore"
-import { axiosClient }    from "@/lib/api/axios"
+import { useThemeStore }  from "@lib/store/themeStore"
+import { useAuthStore }   from "@lib/store/authStore"
 import { env }            from "@/config/env"
 import { logger }         from "@/lib/logger"
 import { toast }          from "@/lib/toast"
 import { PageShell }      from "@/components/ui/PageShell"
 import { LookupManager }  from "./_components/LookupManager"
+import { adminApi }       from "@/api/admin"
 
 interface CompanyForm {
   companyName: string
@@ -41,34 +40,59 @@ interface CompanyForm {
   timeZone:    string
 }
 
-function CompanyTab({ user }: { user: { company?: Record<string,unknown> } | null }) {
-  const company = user?.company as Record<string,unknown> | undefined
+function CompanyTab() {
   const [saving, setSaving] = useState(false)
+  const [companyId, setCompanyId] = useState("")
+  const [loading, setLoading] = useState(true)
 
-  const { control, handleSubmit, formState: { isDirty } } = useForm<CompanyForm>({
+  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<CompanyForm>({
     defaultValues: {
-      companyName:   String(company?.companyName ?? ""),
-      address:       String(company?.address ?? ""),
-      phone:         String(company?.phone ?? ""),
-      email:         String(company?.email ?? ""),
-      currency:      String(company?.currency ?? "AED"),
-      tax:           Number(company?.tax ?? 5),
-      taxName:       String(company?.taxName ?? "VAT"),
-      invoicePrefix: String(company?.invoicePrefix ?? "INV"),
-      dueDate:       Number(company?.dueDate ?? 30),
-      timeZone:      String(company?.timeZone ?? "GMT+04:00"),
+      companyName: "",
+      address: "",
+      phone: "",
+      email: "",
+      currency: "AED",
+      tax: 5,
+      taxName: "VAT",
+      invoicePrefix: "INV",
+      dueDate: 30,
+      timeZone: "GMT+04:00",
     },
   })
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const info = await adminApi.getCompanyInfo() as Record<string, unknown>
+        if (cancelled) return
+        setCompanyId(String(info.id ?? info.companyId ?? ""))
+        reset({
+          companyName: String(info.companyName ?? ""),
+          address: String(info.address ?? ""),
+          phone: String(info.phone ?? ""),
+          email: String(info.email ?? ""),
+          currency: String(info.currency ?? "AED"),
+          tax: Number(info.tax ?? 5),
+          taxName: String(info.taxName ?? "VAT"),
+          invoicePrefix: String(info.invoicePrefix ?? "INV"),
+          dueDate: Number(info.dueDate ?? 30),
+          timeZone: String(info.timeZone ?? "GMT+04:00"),
+        })
+      } catch {
+        toast.error("Failed to load company info")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [reset])
 
   async function onSubmit(data: CompanyForm) {
     setSaving(true)
     logger.info("SettingsPage", "Saving company settings", data)
     try {
-      if (!env.USE_STATIC_DATA) {
-        await axiosClient.put("/api/company/update", data)
-      } else {
-        await new Promise(r => setTimeout(r, 500))  // simulate save
-      }
+      await adminApi.updateCompany(companyId, data as unknown as Record<string, unknown>)
       toast.success("Company settings saved")
     } catch (e) {
       logger.error("SettingsPage", "Failed to save company settings", e)
@@ -77,6 +101,8 @@ function CompanyTab({ user }: { user: { company?: Record<string,unknown> } | nul
       setSaving(false)
     }
   }
+
+  if (loading) return <CircularProgress size={28} />
 
   const field = (name: keyof CompanyForm, label: string, opts?: { type?: string; required?: boolean }) => (
     <Controller
@@ -99,20 +125,20 @@ function CompanyTab({ user }: { user: { company?: Record<string,unknown> } | nul
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)}>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2, mb: 2.5 }}>
-        {field("companyName",   "Company Name",    { required: true })}
-        {field("email",         "Email",           { type: "email" })}
-        {field("phone",         "Phone")}
-        {field("address",       "Address")}
-        {field("currency",      "Currency")}
-        {field("timeZone",      "Time Zone")}
+        {field("companyName", "Company Name", { required: true })}
+        {field("email", "Email", { type: "email" })}
+        {field("phone", "Phone")}
+        {field("address", "Address")}
+        {field("currency", "Currency")}
+        {field("timeZone", "Time Zone")}
       </Box>
       <Divider sx={{ mb: 2 }} />
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>Billing Settings</Typography>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr 1fr" }, gap: 2, mb: 2.5 }}>
         {field("invoicePrefix", "Invoice Prefix")}
-        {field("taxName",       "Tax Name")}
-        {field("tax",           "Tax Rate (%)",    { type: "number" })}
-        {field("dueDate",       "Payment Due (days)", { type: "number" })}
+        {field("taxName", "Tax Name")}
+        {field("tax", "Tax Rate (%)", { type: "number" })}
+        {field("dueDate", "Payment Due (days)", { type: "number" })}
       </Box>
       <Button
         type="submit"
@@ -127,7 +153,6 @@ function CompanyTab({ user }: { user: { company?: Record<string,unknown> } | nul
 }
 
 export default function SettingsPage() {
-  const { t } = useTranslation()
   const [tab, setTab] = useState(0)
   const colorMode      = useThemeStore(s => s.colorMode)
   const toggleColorMode= useThemeStore(s => s.toggleColorMode)
@@ -142,7 +167,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <PageShell title={t("nav.admin-settings", "Settings")} description="Manage firm-wide settings and preferences">
+    <PageShell title="Settings" description="Manage firm-wide settings and preferences">
       <MuiTabs
         value={tab}
         onChange={(_, v) => setTab(v)}
@@ -179,7 +204,7 @@ export default function SettingsPage() {
       {tab === 1 && (
         <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Company Settings</Typography>
-          <CompanyTab user={user as { company?: Record<string,unknown> } | null} />
+          <CompanyTab />
         </Paper>
       )}
 
@@ -200,11 +225,11 @@ export default function SettingsPage() {
       )}
 
       {/* Lookup managers */}
-      {tab === 3 && <LookupManager title="Practice Areas" getUrl="/api/practice-area/get" addUrl="/api/practice-area/add" deleteUrl="/api/practice-area/delete" nameField="name" queryKey="practiceAreas" />}
-      {tab === 4 && <LookupManager title="Lead Sources"   getUrl="/api/lead-source/get"   addUrl="/api/lead-source/add"   deleteUrl="/api/lead-source/delete"   nameField="name" queryKey="leadSources"   />}
-      {tab === 5 && <LookupManager title="Departments"    getUrl="/api/util/list/department" addUrl="/api/department/add"  deleteUrl="/api/department/delete"    nameField="name" queryKey="departments"   />}
-      {tab === 6 && <LookupManager title="Designations"   getUrl="/api/util/get/designation" addUrl="/api/designation/add" deleteUrl="/api/designation/delete"   nameField="name" queryKey="designations"  />}
-      {tab === 7 && <LookupManager title="Session Rates"  getUrl="/api/session-rate/get"  addUrl="/api/session-rate/add"  deleteUrl="/api/session-rate/delete"  nameField="name" queryKey="sessionRates"  />}
+      {tab === 3 && <LookupManager title="Practice Areas" getUrl="/api/practicearea/get?fetchtype=all" addUrl="/api/practicearea/add" deleteUrl="/api/practicearea/change/status" nameField="name" queryKey="practiceAreas" statusChange />}
+      {tab === 4 && <LookupManager title="Lead Sources" getUrl="/api/util/get/source/master?status=Active" addUrl="/api/util/add/source/master" deleteUrl="/api/util/source/master/status/change" nameField="name" queryKey="leadSources" statusChange />}
+      {tab === 5 && <LookupManager title="Departments" getUrl="/api/util/list/department" addUrl="/api/util/add/department" deleteUrl="/api/util/department/change/status" nameField="name" queryKey="departments" statusChange />}
+      {tab === 6 && <LookupManager title="Designations" getUrl="/api/util/get/designation" addUrl="/api/util/add/designation" deleteUrl="/api/util/designation/change/status" nameField="name" queryKey="designations" statusChange />}
+      {tab === 7 && <LookupManager title="Session Rates" getUrl="/api/util/get/session/type" addUrl="/api/util/add/session/type" deleteUrl="/api/util/session/type/change/status" nameField="typeName" queryKey="sessionRates" statusChange />}
 
       {/* System Info */}
       {tab === 8 && (

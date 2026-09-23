@@ -20,8 +20,8 @@ import LogoutIcon          from "@mui/icons-material/Logout"
 import AccountCircleIcon   from "@mui/icons-material/AccountCircle"
 import { useNavigate }     from "react-router-dom"
 import { buildToolbarTheme } from "@/config/theme"
-import { useThemeStore }   from "@/lib/store/themeStore"
-import { useAuthStore }    from "@/lib/store/authStore"
+import { useThemeStore }   from "@lib/store/themeStore"
+import { useAuthStore }    from "@lib/store/authStore"
 import { GlobalSearch }    from "./GlobalSearch"
 import { NotificationsPanel } from "./NotificationsPanel"
 
@@ -119,7 +119,7 @@ export function Toolbar({ sidebarWidth, onMobileMenuClick }: Props) {
               <Typography variant="caption" color="text.secondary">{user?.email}</Typography>
             </Box>
             <Divider />
-            <MenuItem onClick={() => { setAnchor(null); navigate("/admin/settings") }}>
+            <MenuItem onClick={() => { setAnchor(null); navigate("/profile") }}>
               <AccountCircleIcon fontSize="small" sx={{ mr: 1.5 }} /> Profile & Settings
             </MenuItem>
             <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>

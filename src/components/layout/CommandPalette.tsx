@@ -26,8 +26,8 @@ import HistoryIcon      from "@mui/icons-material/History"
 import ChevronRightIcon  from "@mui/icons-material/ChevronRight"
 import AssignmentIcon     from "@mui/icons-material/Assignment"
 import ReceiptIcon        from "@mui/icons-material/Receipt"
-import { useDebounce }  from "@/hooks/useDebounce"
-import { axiosClient }  from "@/lib/api/axios"
+import { useDebounce }  from "@hooks/useDebounce"
+import { axiosClient }  from "@lib/api/axios"
 import { env }          from "@/config/env"
 import { logger }       from "@/lib/logger"
 import { leads as staticLeads, clients as staticClients, matters as staticMatters, tasks as staticTasks, invoices as staticInvoices } from "@/data/static"
@@ -107,35 +107,23 @@ async function search(query: string): Promise<Result[]> {
     return [...sLeads, ...sClients, ...sMatters, ...sTasks, ...sInvoices]
   }
 
-  // Real API — parallel search
-  const [leadsRes, clientsRes, mattersRes] = await Promise.allSettled([
-    axiosClient.get("/api/leads/list/filter",   { params: { firstName: query, pageNumber: 0, pageSize: 4 } }),
-    axiosClient.get("/api/client/get/short-info",{ params: { clientName: query, pageNumber: 0, pageSize: 4 } }),
-    axiosClient.get("/api/matter/get/short-info",{ params: { searchText: query, pageNumber: 0, pageSize: 4 } }),
-  ])
+  // Live BE — same endpoint as old GlobalSearch
+  const res = await axiosClient.post("/api/util/global/search", { searchKey: query })
+  const data = res.data?.data ?? res.data ?? {}
+  const matters = Array.isArray(data.matterResults) ? data.matterResults : []
+  const clients = Array.isArray(data.clientResults) ? data.clientResults : []
 
-  if (leadsRes.status === "fulfilled") {
-    const leads = leadsRes.value.data?.data?.content ?? leadsRes.value.data?.content ?? []
-    leads.forEach((l: Record<string,string>) => results.push({
-      id: l.id, type: "Lead", path: `/leads/${l.id}`,
-      label: `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || l.companyName || "Lead",
-      subLabel: l.currentStatus,
-    }))
-  }
-  if (clientsRes.status === "fulfilled") {
-    const clients = clientsRes.value.data?.data?.content ?? clientsRes.value.data?.content ?? []
-    clients.forEach((c: Record<string,string>) => results.push({
-      id: c.id, type: "Client", path: `/clients/${c.id}`,
-      label: c.companyName || `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "Client",
-    }))
-  }
-  if (mattersRes.status === "fulfilled") {
-    const matters = mattersRes.value.data?.data?.content ?? mattersRes.value.data?.content ?? []
-    matters.forEach((m: Record<string,string>) => results.push({
-      id: m.id, type: "Matter", path: `/matters/${m.id}`,
-      label: m.title || "Matter",
-    }))
-  }
+  matters.forEach((m: Record<string, string>) => results.push({
+    id: m.matterId, type: "Matter", path: `/matters/${m.matterId}`,
+    label: m.title || "Matter",
+  }))
+  clients.forEach((c: Record<string, string>) => {
+    const id = c.clientId ?? c.id
+    const label = c.clientType === "COMPANY"
+      ? (c.companyName || "Client")
+      : (c.firstName || c.companyName || "Client")
+    results.push({ id, type: "Client", path: `/clients/${id}`, label })
+  })
 
   return results
 }

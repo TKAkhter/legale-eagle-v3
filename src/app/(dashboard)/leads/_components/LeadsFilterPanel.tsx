@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Button } from '@mui/material'
-import { SearchInput } from '@/components/filters/SearchInput'
-import { DateRangeFilter } from '@/components/filters/DateRangeFilter'
-import { UserSelectFilter } from '@/components/filters/UserSelectFilter'
-import { DepartmentFilter } from '@/components/filters/DepartmentFilter'
-import type { FilterPanelProps } from '@/components/data-grid/types'
+import { SearchInput } from '@components/filters/SearchInput'
+import { DateRangeFilter } from '@components/filters/DateRangeFilter'
+import { UserSelectFilter } from '@components/filters/UserSelectFilter'
+import { DepartmentFilter } from '@components/filters/DepartmentFilter'
+import type { FilterPanelProps } from '@components/data-grid/types'
 
 export function LeadsFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
   const [f, setF] = useState<Record<string, unknown>>(filters)

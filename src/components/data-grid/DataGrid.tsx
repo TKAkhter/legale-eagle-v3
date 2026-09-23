@@ -20,10 +20,10 @@ import { useNavigate } from 'react-router-dom'
 import { useMediaQuery } from '@mui/material'
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Checkbox, Typography, Alert, Collapse, Button, Box,
+  Paper, Checkbox, Typography, Alert, Collapse, Button, Box, LinearProgress,
 } from '@mui/material'
 import type { DataGridProps, TableDensity, ColumnDef } from './types'
-import type { GridParams } from "@/types/common.types"
+import type { GridParams } from '@/types/common.types'
 import { Pagination }             from './Pagination'
 import { SkeletonRows }           from './SkeletonRows'
 import { ColumnHeader }           from './ColumnHeader'
@@ -37,10 +37,11 @@ import { MobileCardList }         from './MobileCardList'
 import { DataGridToolbar }        from './DataGridToolbar'
 import { ContextMenu }            from './ContextMenu'
 import { InlineCellEditor }       from './InlineCellEditor'
-import { useUrlState }            from "@/hooks/useUrlState"
-import { downloadBlob }           from "@/lib/utils/downloadBlob"
-import { logger }                 from "@/lib/logger"
-import { toast }                  from "@/lib/toast"
+import { CellEllipsis, nodeToTooltipText } from './CellEllipsis'
+import { useUrlState }            from '@hooks/useUrlState'
+import { downloadBlob }           from '@lib/utils/downloadBlob'
+import { logger }                 from '@/lib/logger'
+import { toast }                  from '@/lib/toast'
 
 const DENSITY_PY: Record<TableDensity, number> = {
   compact: 0.25, normal: 0.75, comfortable: 1.5,
@@ -106,7 +107,7 @@ export function DataGrid<TData extends Record<string, unknown>>({
   }
 
   // ── Data ────────────────────────────────────────────────────────────────────
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: [...queryKey, gridParams],
     queryFn:  () => queryFn(gridParams),
     placeholderData: keepPreviousData,
@@ -316,7 +317,10 @@ export function DataGrid<TData extends Record<string, unknown>>({
         </Box>
       )}
 
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius:2 }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius:2, position:'relative' }}>
+        {isFetching && !isLoading && (
+          <LinearProgress sx={{ position:'absolute', top:0, left:0, right:0, zIndex:2, borderTopLeftRadius:8, borderTopRightRadius:8 }} />
+        )}
         <Table
           ref={tableRef}
           size="small"
@@ -446,9 +450,13 @@ export function DataGrid<TData extends Record<string, unknown>>({
                             onCancel={() => setEditingCell(null)}
                           />
                         ) : col.renderCell ? (
-                          col.renderCell(value, row)
+                          (() => {
+                            const rendered = col.renderCell(value, row)
+                            const tip = nodeToTooltipText(rendered) ?? (value != null && value !== '' ? String(value) : undefined)
+                            return <CellEllipsis title={tip}>{rendered}</CellEllipsis>
+                          })()
                         ) : (
-                          String(value ?? '—')
+                          <CellEllipsis>{String(value ?? '—')}</CellEllipsis>
                         )}
                       </TableCell>
                     )

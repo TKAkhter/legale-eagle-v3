@@ -4,17 +4,17 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Box, Alert } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@/lib/api/axios'
-import { FormDrawer } from '@/components/ui/FormDrawer'
-import { FormSection } from '@/components/forms/FormSection'
-import { ControlledInput } from '@/components/forms/ControlledInput'
-import { ControlledSelect } from '@/components/forms/ControlledSelect'
-import { ControlledAsyncSelect } from '@/components/forms/ControlledAsyncSelect'
-import { ControlledDatePicker } from '@/components/forms/ControlledDatePicker'
-import { QK } from '@/lib/query/keys'
-import { registerOneDriveFolder } from '@/lib/utils/onedrive'
-import { useDebounce } from '@/hooks/useDebounce'
-import { matterSchema, type MatterForm } from '@/lib/validations/matter.schema'
+import { axiosClient } from '@lib/api/axios'
+import { FormDrawer } from '@components/ui/FormDrawer'
+import { FormSection } from '@components/forms/FormSection'
+import { ControlledInput } from '@components/forms/ControlledInput'
+import { ControlledSelect } from '@components/forms/ControlledSelect'
+import { ControlledAsyncSelect } from '@components/forms/ControlledAsyncSelect'
+import { ControlledDatePicker } from '@components/forms/ControlledDatePicker'
+import { QK } from '@lib/query/keys'
+import { registerOneDriveFolder } from '@lib/utils/onedrive'
+import { useDebounce } from '@hooks/useDebounce'
+import { matterSchema, type MatterForm } from '@lib/validations/matter.schema'
 
 const BILLING_OPTIONS = ['Hourly','Fixed','Session','NoAgreement','Contingent','NonContingent','Advance','Enforcement','SuccessRate']
   .map(v => ({ value: v, label: v }))
@@ -55,23 +55,50 @@ export function MatterFormDrawer({ open, onClose, matterId, onSuccess }: Props) 
 
   useEffect(() => { if (!open) reset() }, [open, reset])
 
-  const { data: users = [] } = useQuery({ queryKey: QK.users.mini(), queryFn: () => axiosClient.get('/api/user/get/min').then(r => r.data?.data ?? []) })
-  const { data: departments = [] } = useQuery({ queryKey: QK.departments.list(), queryFn: () => axiosClient.get('/api/util/list/department').then(r => r.data?.data ?? []) })
-  const { data: practiceAreas = [] } = useQuery({ queryKey: QK.practiceAreas.list(), queryFn: () => axiosClient.get('/api/practice-area/get').then(r => r.data?.data ?? []) })
+  const { data: users = [] } = useQuery({
+    queryKey: QK.users.mini(),
+    queryFn: async () => {
+      const r = await axiosClient.get('/api/user/get/min')
+      const { unwrapAxiosList } = await import('@lib/utils/unwrap')
+      return unwrapAxiosList(r.data)
+    },
+  })
+  const { data: departments = [] } = useQuery({
+    queryKey: QK.departments.list(),
+    queryFn: async () => {
+      const r = await axiosClient.get('/api/util/list/department')
+      const { unwrapAxiosList } = await import('@lib/utils/unwrap')
+      return unwrapAxiosList(r.data)
+    },
+  })
+  const { data: practiceAreas = [] } = useQuery({
+    queryKey: QK.practiceAreas.list(),
+    queryFn: async () => {
+      const r = await axiosClient.get('/api/practicearea/get', { params: { fetchtype: 'all' } })
+      const { unwrapAxiosList } = await import('@lib/utils/unwrap')
+      return unwrapAxiosList(r.data)
+    },
+  })
 
-  const userOpts = (users as Record<string, string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
+  const userOpts = (users as Record<string, string>[]).map(u => ({
+    value: u.id,
+    label: u.fullName || `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.id,
+  }))
   const [clientSearch, setClientSearch] = useState('')
   const debouncedClientSearch = useDebounce(clientSearch, 400)
   const { data: clients = [] } = useQuery({
     queryKey: QK.clients.shortInfo(debouncedClientSearch),
     queryFn: async () => {
-      const r = await axiosClient.get('/api/client/get/short-info', { params: { clientName: debouncedClientSearch, pageNumber: 0, pageSize: 50 } })
-      return r.data?.content ?? r.data?.data?.content ?? []
+      const r = await axiosClient.get('/api/client/get/short-info', {
+        params: { clientName: debouncedClientSearch, pageNumber: 0, pageSize: 50 },
+      })
+      const { unwrapAxiosList } = await import('@lib/utils/unwrap')
+      return unwrapAxiosList(r.data)
     },
   })
   const clientOpts = (clients as Record<string, string>[]).map(c => ({
     value: c.id,
-    label: c.companyName || `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || c.id,
+    label: c.clientName || c.companyName || `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || c.id,
   }))
   const deptOpts = (departments as Record<string, string>[]).map(d => ({ value: d.id, label: d.name }))
   const paOpts   = (practiceAreas as Record<string, string>[]).map(p => ({ value: p.id, label: p.name }))

@@ -77,12 +77,14 @@ import IntegrationInstructionsOutlinedIcon from '@mui/icons-material/Integration
 import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
 import RequestPageOutlinedIcon from '@mui/icons-material/RequestPageOutlined'
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
-import { useAuthStore }  from "@/lib/store/authStore"
-import { hasPermission } from "@/lib/auth/permissions"
-import { navigationConfig, type NavItem } from "@/config/navigation"
+import { useAuthStore }  from "@lib/store/authStore"
+import { hasPermission } from "@lib/auth/permissions"
+import { navigationConfig, type NavItem } from "@config/navigation"
 import { useTranslation } from "react-i18next"
 import { env } from "@/config/env"
 import { logger } from "@/lib/logger"
+import { buildNavFromMenu, flattenMenuUrls } from "@/lib/nav/buildNavFromMenu"
+import { collectAllowedPaths, isPathAllowed } from "@/lib/nav/legacyUrlMap"
 
 const ICONS = {
   DashboardOutlined: DashboardOutlinedIcon,
@@ -148,40 +150,43 @@ export function SidebarNav({ collapsed, onNavClick }: Props) {
   const navigate    = useNavigate()
   const location    = useLocation()
   const { t }       = useTranslation()
-  const menuItems   = useAuthStore(s => (s as { menuItems?: { url?: string }[] }).menuItems ?? [])
+  const menuItems   = useAuthStore(s => (s as { menuItems?: unknown[] }).menuItems ?? [])
   const permissions = (useAuthStore(s => (s as { permissions?: Set<string> }).permissions) ?? new Set<string>()) as Set<string>
 
   // Track which groups are open in the nav
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   /**
-   * Build the set of allowed URLs from the API menu response.
-   * Only used when VITE_DYNAMIC_NAV=true.
+   * Dynamic nav (old LMS parity): render menu from API URLs, remapped to v3 paths.
+   * Static nav: full navigationConfig (dev / DYNAMIC_NAV=false).
+   */
+  const navItems = useMemo(() => {
+    if (!env.DYNAMIC_NAV) return navigationConfig
+    if (!menuItems.length) return []
+    return buildNavFromMenu(menuItems)
+  }, [menuItems])
+
+  /**
+   * Allowed URL set — used only when falling back to filtering navigationConfig.
+   * Includes legacy → v3 remaps so old BE urls unlock new paths.
    */
   const allowedUrls = useMemo(() => {
-    if (!env.DYNAMIC_NAV) return null  // null = allow all
-
-    const urls = new Set<string>()
-    menuItems.forEach((item: { url?: string; submenu?: { url?: string }[] }) => {
-      if (item.url) urls.add(item.url)
-      item.submenu?.forEach(sub => { if (sub.url) urls.add(sub.url) })
-    })
-
-    logger.debug("SidebarNav", `Dynamic nav — ${urls.size} allowed URLs`, [...urls])
-    return urls
+    if (!env.DYNAMIC_NAV) return null
+    return collectAllowedPaths(flattenMenuUrls(menuItems))
   }, [menuItems])
 
   /**
    * Check if a nav item should be shown.
-   * - If DYNAMIC_NAV=true: item must be in the allowed URL set
-   * - If DYNAMIC_NAV=false: item is always shown (static nav)
-   * - Permission check always applies
+   * - Dynamic + API-built tree: already permission-filtered by BE → show
+   * - Dynamic + static config fallback: must match remapped allowed URLs
+   * - Permission check still applies when permission key is set
    */
   function isVisible(item: NavItem): boolean {
     if (item.permission && !hasPermission(permissions, item.permission)) return false
-    if (!allowedUrls) return true       // DYNAMIC_NAV=false → show all
-    if (!item.path) return true         // group headers always show
-    return allowedUrls.has(item.path)
+    if (!env.DYNAMIC_NAV) return true
+    // API-built items have no permission keys — trust BE menu
+    if (!item.permission) return true
+    return isPathAllowed(item.path, allowedUrls)
   }
 
   function isActive(path?: string): boolean {
@@ -344,7 +349,7 @@ export function SidebarNav({ collapsed, onNavClick }: Props) {
 
   return (
     <List disablePadding sx={{ pt: 1 }}>
-      {navigationConfig.map(item => renderItem(item))}
+      {navItems.map(item => renderItem(item))}
     </List>
   )
 }

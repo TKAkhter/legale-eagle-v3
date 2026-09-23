@@ -1,36 +1,44 @@
-import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
-import { Box, Typography, Button } from '@mui/material'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { DataGrid } from '@/components/data-grid/DataGrid'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { axiosClient } from '@/lib/api/axios'
-import { formatCurrency } from '@/lib/utils/formatCurrency'
-import { formatDate } from '@/lib/utils/formatDate'
+import { DataGrid } from '@components/data-grid/DataGrid'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { axiosClient } from '@lib/api/axios'
+import { formatCurrency } from '@lib/utils/formatCurrency'
+import { formatDate } from '@lib/utils/formatDate'
 import type { GridParams } from '@/types/common.types'
 import { env } from '@/config/env'
 import { invoiceApprovals as staticInvoiceApprovals } from '@/data/static'
 
 async function fetchPendingApprovals(_params: GridParams) {
+  if (env.USE_STATIC_DATA) {
+    const list = staticInvoiceApprovals
+    return { content: list, totalElements: list.length, totalPages: 1, number: 0, size: list.length, first: true, last: true, empty: list.length === 0 }
+  }
   const res = await axiosClient.get('/api/invoice/ap/get/user')
   const list = res.data?.data ?? res.data ?? []
-  return { content: list, totalElements: list.length, totalPages: 1, number: 0, size: list.length, first: true, last: true, empty: list.length === 0 }
+  const arr = Array.isArray(list) ? list : []
+  return { content: arr, totalElements: arr.length, totalPages: 1, number: 0, size: arr.length, first: true, last: true, empty: arr.length === 0 }
 }
 
 export default function InvoiceApprovalPage() {
-  const { t } = useTranslation()
   const qc = useQueryClient()
+  const [gridKey, setGridKey] = useState(0)
 
   async function handleApprove(row: Record<string, unknown>, approve: boolean) {
     try {
-      await axiosClient.post('/api/invoice/ap/approve/single', { status: approve ? 'Completed' : 'Rejected' }, {
-        params: { invoiceApprovalsId: row.id },
-      })
-      toast.error('Action failed')
+      if (!env.USE_STATIC_DATA) {
+        await axiosClient.post(
+          '/api/invoice/ap/approve/single',
+          { status: approve ? 'Completed' : 'Rejected', rejectedReason: approve ? '' : 'Rejected' },
+          { params: { invoiceApprovalsId: row.id } },
+        )
+      }
+      toast.success(approve ? 'Invoice approved' : 'Invoice rejected')
+      setGridKey(k => k + 1)
       qc.invalidateQueries({ queryKey: ['invoices', 'approval'] })
     } catch {
       toast.error('Action failed')
@@ -38,20 +46,20 @@ export default function InvoiceApprovalPage() {
   }
 
   return (
-    <PageShell title={t("nav.approvals-invoice", "Invoice Approvals")} description="Invoices pending your approval">
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Invoice Approvals</Typography>
+    <PageShell title="Invoice Approvals" description="Invoices pending your approval">
       <DataGrid
+        key={gridKey}
         columns={[
           { field: 'invoiceNo', header: 'Invoice #' },
-          { field: 'client', header: 'Client', renderCell: (v) => (v as Record<string,string>)?.companyName ?? '—' },
-          { field: 'taxableAmount', header: 'Amount', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
-          { field: 'issueDate', header: 'Issued', renderCell: (v) => formatDate(String(v ?? '')) },
-          { field: 'status', header: 'Status', renderCell: (v) => <StatusBadge status={String(v ?? 'Approval')} /> },
+          { field: 'client', header: 'Client', renderCell: v => (v as Record<string, string>)?.companyName ?? '—' },
+          { field: 'taxableAmount', header: 'Amount', align: 'right', renderCell: v => formatCurrency(Number(v ?? 0)) },
+          { field: 'issueDate', header: 'Issued', renderCell: v => formatDate(String(v ?? '')) },
+          { field: 'status', header: 'Status', renderCell: (v, row) => <StatusBadge status={String(v ?? (row as Record<string, unknown>).invoiceStatus ?? 'Approval')} /> },
         ]}
         queryKey={['invoices', 'approval']}
         queryFn={fetchPendingApprovals}
         isPaginated={false}
-        rowMenuItems={(row) => [
+        rowMenuItems={row => [
           { label: 'Approve', icon: <CheckIcon fontSize="small" />, onClick: () => handleApprove(row, true) },
           { label: 'Reject', icon: <CloseIcon fontSize="small" />, color: 'error', onClick: () => handleApprove(row, false) },
         ]}

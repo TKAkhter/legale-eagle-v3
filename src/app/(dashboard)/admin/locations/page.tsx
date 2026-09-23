@@ -1,19 +1,17 @@
-import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { adminApi } from '@/api/admin'
 import { toast } from '@/lib/toast'
-import { env } from '@/config/env'
 import { Box, Typography, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import DeleteIcon from '@mui/icons-material/Delete'
+import BlockIcon from '@mui/icons-material/Block'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { DataGrid } from '@/components/data-grid/DataGrid'
-import { Can } from '@/components/ui/Can'
-import { Modal } from '@/components/ui/Modal'
-import { ControlledInput } from '@/components/forms/ControlledInput'
-import { PERMISSIONS } from '@/config/permissions'
-import { axiosClient } from '@/lib/api/axios'
+import { DataGrid } from '@components/data-grid/DataGrid'
+import { Can } from '@components/ui/Can'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { Modal } from '@components/ui/Modal'
+import { ControlledInput } from '@components/forms/ControlledInput'
+import { PERMISSIONS } from '@config/permissions'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,49 +21,76 @@ const schema = z.object({ name: z.string().min(1, 'Name required'), country: z.s
 type Form = z.infer<typeof schema>
 
 async function fetchLocations(_p: GridParams) {
-  if (env.USE_STATIC_DATA) return { content:[], totalElements:0, totalPages:0, number:0, size:25, first:true, last:true, empty:true }
-  const r = await axiosClient.get('/api/location/get')
-  const list = r.data?.data ?? r.data ?? []
-  const arr = Array.isArray(list) ? list : [list].filter(Boolean)
+  const list = await adminApi.getLocations()
+  const arr = Array.isArray(list) ? list : []
   return { content: arr, totalElements: arr.length, totalPages: 1, number: 0, size: arr.length, first: true, last: true, empty: arr.length === 0 }
 }
 
 export default function LocationsPage() {
-  const { t } = useTranslation()
   const qc = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
+  const [gridKey, setGridKey] = useState(0)
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
 
   async function onSubmit(data: Form) {
     try {
-      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/location/add', data)
+      await adminApi.createLocation(data as unknown as Record<string, unknown>)
       toast.success('Location added')
+      setGridKey(k => k + 1)
       qc.invalidateQueries({ queryKey: ['locations'] })
       setModalOpen(false); reset()
     } catch { toast.error('Action failed') }
   }
 
   return (
-    <PageShell title={t("nav.admin-locations", "Locations")} description="Office locations and court venues">
+    <PageShell title="Locations" description="Hearing venues and court locations">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>Locations</Typography>
-        <Can do={PERMISSIONS.LOCATIONS_MANAGE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalOpen(true)}>Add Location</Button></Can>
+        <Can do={PERMISSIONS.LOCATIONS_MANAGE}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalOpen(true)}>Add Location</Button>
+        </Can>
       </Box>
       <DataGrid
+        key={gridKey}
         columns={[
-          { field: 'name', header: 'Location Name' },
-          { field: 'country', header: 'Country' },
+          { field: 'name', header: 'Location Name', renderCell: (v, row) => String(v || (row as Record<string, unknown>).locationName || '—') },
+          { field: 'country', header: 'Country', renderCell: v => String(v || '—') },
+          { field: 'status', header: 'Status', renderCell: v => <StatusBadge status={String(v || 'Active')} /> },
         ]}
-        queryKey={['locations']} queryFn={fetchLocations} isPaginated={false}
+        queryKey={['locations']}
+        queryFn={fetchLocations}
+        isPaginated={false}
         rowMenuItems={(row) => [
-          { label: 'Delete', icon: <DeleteIcon fontSize="small" />, permission: PERMISSIONS.LOCATIONS_MANAGE, color: 'error', onClick: async () => {
-            if (!env.USE_STATIC_DATA) await axiosClient.delete(`/api/location/delete/${row.id}`)
-            qc.invalidateQueries({ queryKey: ['locations'] })
-          }}
+          {
+            label: 'Deactivate',
+            icon: <BlockIcon fontSize="small" />,
+            permission: PERMISSIONS.LOCATIONS_MANAGE,
+            color: 'error',
+            onClick: async () => {
+              try {
+                await adminApi.deleteLocation(String((row as { id?: string }).id))
+                toast.success('Location deactivated')
+                setGridKey(k => k + 1)
+                qc.invalidateQueries({ queryKey: ['locations'] })
+              } catch { toast.error('Failed to deactivate') }
+            },
+          },
         ]}
       />
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Location" maxWidth="sm"
-        actions={<><Button onClick={() => setModalOpen(false)}>Cancel</Button><Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>{isSubmitting ? 'Adding…' : 'Add'}</Button></>}>
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Add Location"
+        maxWidth="sm"
+        actions={(
+          <>
+            <Button onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
+              {isSubmitting ? 'Adding…' : 'Add'}
+            </Button>
+          </>
+        )}
+      >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <ControlledInput name="name" control={control} label="Location Name" required />
           <ControlledInput name="country" control={control} label="Country" />

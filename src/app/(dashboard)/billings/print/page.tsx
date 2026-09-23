@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 /**
  * Invoice Print View — clean printable invoice layout.
  *
@@ -16,11 +15,10 @@ import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Box, Typography, Divider, Button, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress } from "@mui/material"
 import { billingApi } from "@/api/billing"
-import { formatDate, formatDateTime } from "@/lib/utils/formatDate"
-import { formatCurrency } from "@/lib/utils/formatCurrency"
+import { formatDate, formatDateTime } from "@lib/utils/formatDate"
+import { formatCurrency } from "@lib/utils/formatCurrency"
 
 export default function InvoicePrintPage() {
-  const { t } = useTranslation()
   const [params] = useSearchParams()
   const invoiceId = params.get("invoiceId") ?? ""
 

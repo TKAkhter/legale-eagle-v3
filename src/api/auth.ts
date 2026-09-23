@@ -1,5 +1,5 @@
 import { env }         from "@/config/env"
-import { axiosClient } from "@/lib/api/axios"
+import { axiosClient } from "@lib/api/axios"
 import { auth as staticAuth } from "@/data/static"
 
 export const authApi = {

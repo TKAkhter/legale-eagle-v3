@@ -10,9 +10,9 @@ import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useCallback } from 'react'
 import { Alert, Button, Box, LinearProgress } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from "@/lib/store/authStore"
-import { axiosClient } from "@/lib/api/axios"
-import { env } from "@/config/env"
+import { useAuthStore } from '@lib/store/authStore'
+import { axiosClient } from '@lib/api/axios'
+import { env } from '@/config/env'
 
 const WARNING_BEFORE_MS = 2 * 60 * 1000  // show warning 2 min before expiry
 const POLL_INTERVAL_MS  = 30 * 1000      // check every 30s

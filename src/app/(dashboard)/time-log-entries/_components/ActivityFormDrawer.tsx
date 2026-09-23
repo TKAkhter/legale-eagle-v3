@@ -1,61 +1,117 @@
-import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Box, Alert } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@/lib/api/axios'
-import { FormDrawer } from '@/components/ui/FormDrawer'
-import { FormSection } from '@/components/forms/FormSection'
-import { ControlledInput } from '@/components/forms/ControlledInput'
-import { ControlledSelect } from '@/components/forms/ControlledSelect'
-import { ControlledAsyncSelect } from '@/components/forms/ControlledAsyncSelect'
-import { ControlledDatePicker } from '@/components/forms/ControlledDatePicker'
-import { ControlledCheckbox } from '@/components/forms/ControlledCheckbox'
-import { QK } from '@/lib/query/keys'
-import { activitySchema, type ActivityForm } from '@/lib/validations/activity.schema'
+import { axiosClient } from '@lib/api/axios'
+import { FormDrawer } from '@components/ui/FormDrawer'
+import { FormSection } from '@components/forms/FormSection'
+import { ControlledInput } from '@components/forms/ControlledInput'
+import { ControlledSelect } from '@components/forms/ControlledSelect'
+import { ControlledAsyncSelect } from '@components/forms/ControlledAsyncSelect'
+import { ControlledDatePicker } from '@components/forms/ControlledDatePicker'
+import { ControlledCheckbox } from '@components/forms/ControlledCheckbox'
+import { QK } from '@lib/query/keys'
+import { activitySchema, type ActivityForm } from '@lib/validations/activity.schema'
+import { timelogsApi } from '@/api/timelogs'
+import { env } from '@/config/env'
 
-interface Props { open: boolean; onClose: () => void; prefillMatterId?: string; onSuccess?: () => void }
+interface Props {
+  open: boolean
+  onClose: () => void
+  prefillMatterId?: string
+  activityId?: string
+  onSuccess?: () => void
+}
 
-export function ActivityFormDrawer({ open, onClose, prefillMatterId, onSuccess }: Props) {
+export function ActivityFormDrawer({ open, onClose, prefillMatterId, activityId, onSuccess }: Props) {
   const qc = useQueryClient()
   const [submitError, setSubmitError] = useState<string|null>(null)
+  const isEdit = !!activityId
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
     resolver: zodResolver(activitySchema),
-    defaultValues: { activityType: 'Time', billable: true, entryDate: new Date().toISOString().slice(0, 10), matterId: prefillMatterId ?? '' },
+    defaultValues: {
+      activityType: 'Time',
+      billable: true,
+      entryDate: new Date().toISOString().slice(0, 10),
+      matterId: prefillMatterId ?? '',
+      activity: '',
+      hours: 0,
+      minutes: 0,
+    },
+  })
+
+  const detailQ = useQuery({
+    queryKey: ['activities', 'detail', activityId],
+    queryFn: () => timelogsApi.getById(String(activityId)),
+    enabled: open && !!activityId,
   })
 
   useEffect(() => {
-    if (open && prefillMatterId) reset(prev => ({ ...prev, matterId: prefillMatterId }))
-    if (!open) reset()
-  }, [open, prefillMatterId, reset])
+    if (!open) {
+      reset()
+      return
+    }
+    if (isEdit && detailQ.data) {
+      const d = detailQ.data as Record<string, unknown>
+      const matter = d.matter as { id?: string } | null
+      const person = d.responsiblePerson as { id?: string } | null
+      const total = Number(d.totalHours ?? 0)
+      const hours = Math.floor(total)
+      const minutes = Math.round((total - hours) * 60)
+      const at = String(d.activityType ?? 'Time')
+      reset({
+        activity: String(d.activity ?? d.note ?? ''),
+        activityType: (at === 'Expense' || at === 'Fixed' ? at : 'Time') as 'Time' | 'Expense' | 'Fixed',
+        billable: d.billable !== false,
+        entryDate: String(d.entryDate ?? new Date().toISOString().slice(0, 10)).slice(0, 10),
+        matterId: matter?.id ?? prefillMatterId ?? '',
+        hours: Number(d.hours ?? hours),
+        minutes: Number(d.minutes ?? minutes),
+        rate: d.rate != null ? Number(d.rate) : undefined,
+        responsiblePersonId: person?.id,
+        billingType: d.billingType != null ? String(d.billingType) : undefined,
+      })
+      return
+    }
+    if (prefillMatterId) reset(prev => ({ ...prev, matterId: prefillMatterId }))
+  }, [open, isEdit, detailQ.data, prefillMatterId, reset])
 
-  const { data: users = [] } = useQuery({ queryKey: QK.users.mini(), queryFn: () => axiosClient.get('/api/user/get/min').then(r => r.data?.data ?? []) })
+  const { data: users = [] } = useQuery({
+    queryKey: QK.users.mini(),
+    queryFn: () => {
+      if (env.USE_STATIC_DATA) return []
+      return axiosClient.get('/api/user/get/min').then(r => r.data?.data ?? [])
+    },
+  })
   const userOpts = (users as Record<string, string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
 
   async function onSubmit(data: ActivityForm) {
     setSubmitError(null)
     try {
-      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
-    await axiosClient.post('/api/activity/add/v2', {
-      activity: data.activity,
-      matter: { id: data.matterId },
-      activityType: data.activityType,
-      billingType: data.billingType,
-      hours: data.hours ?? 0,
-      minutes: data.minutes ?? 0,
-      rate: data.rate,
-      billable: data.billable,
-      entryDate: data.entryDate,
-      responsiblePerson: data.responsiblePersonId ? { id: data.responsiblePersonId } : undefined,
-      activityCategory: data.activityCategory ?? 'MATTER',
-    })
-    qc.invalidateQueries({ queryKey: ['activities'] })
-    onSuccess?.()
-    onClose()
+      const payload = {
+        activity: data.activity,
+        matter: { id: data.matterId },
+        activityType: data.activityType,
+        billingType: data.billingType,
+        hours: data.hours ?? 0,
+        minutes: data.minutes ?? 0,
+        rate: data.rate,
+        billable: data.billable,
+        entryDate: data.entryDate,
+        responsiblePerson: data.responsiblePersonId ? { id: data.responsiblePersonId } : undefined,
+        activityCategory: data.activityCategory ?? 'MATTER',
+      }
+      if (isEdit) await timelogsApi.edit({ ...payload, id: activityId })
+      else await timelogsApi.create(payload)
+      qc.invalidateQueries({ queryKey: ['activities'] })
+      qc.invalidateQueries({ queryKey: ['timelogs'] })
+      onSuccess?.()
+      onClose()
     } catch (e: unknown) {
       setSubmitError(
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        (e as { response?: { data?: { message?: string; Msg?: string } } })?.response?.data?.Msg
+        ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
         ?? (e as { message?: string })?.message
         ?? 'Something went wrong. Please try again.'
       )
@@ -63,10 +119,15 @@ export function ActivityFormDrawer({ open, onClose, prefillMatterId, onSuccess }
   }
 
   return (
-    <FormDrawer open={open} onClose={onClose} title="Log Time Entry"
+    <FormDrawer
+      open={open}
+      onClose={onClose}
+      title={isEdit ? 'Edit Time Entry' : 'Log Time Entry'}
       subtitle="Record billable time, expense, or fixed fee"
-      onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting} submitLabel="Save Entry">
-
+      onSubmit={handleSubmit(onSubmit)}
+      isSubmitting={isSubmitting}
+      submitLabel={isEdit ? 'Update Entry' : 'Save Entry'}
+    >
       {submitError && <Alert severity="error" sx={{ mb:2 }} onClose={()=>setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Activity">
         <ControlledInput name="activity" control={control} label="Activity Description" required multiline rows={2} />

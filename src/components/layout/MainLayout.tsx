@@ -1,4 +1,4 @@
-import { PageTransition } from "@/components/ui/PageTransition"
+import { PageTransition } from '@/components/ui/PageTransition'
 /**
  * MainLayout.tsx — root layout for all authenticated dashboard pages.
  *
@@ -20,13 +20,14 @@ import { Box, useMediaQuery } from "@mui/material"
 import { Outlet }        from "react-router-dom"
 import { Sidebar, SIDEBAR_W, COLLAPSED_W } from "./Sidebar"
 import { Toolbar }       from "./Toolbar"
-import { QuickCreateFAB } from "@/components/ui/QuickCreateFAB"
+import { QuickCreateFAB } from '@/components/ui/QuickCreateFAB'
 import { SessionTimeoutWarning } from './SessionTimeoutWarning'
-import { KeyboardShortcutsModal } from "@/components/ui/KeyboardShortcutsModal"
+import { KeyboardShortcutsModal } from '@/components/ui/KeyboardShortcutsModal'
 import { CommandPalette } from './CommandPalette'
+import { RouteProgress } from '@/components/ui/RouteProgress'
 import { ToastContainer } from "@/components/ui/ToastContainer"
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary"
-import { useThemeStore } from "@/lib/store/themeStore"
+import { useThemeStore } from "@lib/store/themeStore"
 import { logger }        from "@/lib/logger"
 
 const TOOLBAR_H = 56
@@ -123,6 +124,7 @@ export function MainLayout() {
       <SessionTimeoutWarning />
       <KeyboardShortcutsModal />
       <CommandPalette />
+      <RouteProgress />
       {/* Global toast notifications */}
       <ToastContainer />
     </Box>

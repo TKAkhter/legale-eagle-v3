@@ -1,14 +1,13 @@
-import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import { matterHearings as staticHearings } from '@/data/static'
 import { env } from '@/config/env'
 import { Box, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
-import { AppCalendar } from '@/components/calendar/AppCalendar'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { axiosClient } from '@/lib/api/axios'
-import type { CalendarEvent } from '@/components/calendar/types'
-import type { ColumnDef } from '@/components/data-grid/types'
+import { AppCalendar } from '@components/calendar/AppCalendar'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { axiosClient } from '@lib/api/axios'
+import type { CalendarEvent } from '@components/calendar/types'
+import type { ColumnDef } from '@components/data-grid/types'
 
 interface HearingEntry extends Record<string, unknown> { id: string; caseNo?: string; matterTitle?: string; status?: string }
 
@@ -40,10 +39,9 @@ const columns: ColumnDef<HearingEntry>[] = [
 ]
 
 export default function HearingCalendarPage() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
   return (
-    <PageShell title={t("nav.hearing-calendar", "Hearing Calendar")} description="Upcoming hearings for all team members">
+    <PageShell title="Hearing Calendar" description="Upcoming hearings for all team members">
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>Team Hearing Calendar</Typography>
       <AppCalendar
         queryFn={fetchHearings} entryQueryFn={fetchDayEntries} entryColumns={columns}

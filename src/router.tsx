@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { CircularProgress, Box } from '@mui/material'
 import { protectedLoader } from '@/middleware'
-import { PERMISSIONS } from '@/config/permissions'
+import { PERMISSIONS } from '@config/permissions'
 
 const Spin = () => <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}><CircularProgress /></Box>
 const L = (fn: () => Promise<{ default: React.ComponentType }>) => { const C = lazy(fn); return <Suspense fallback={<Spin />}><C /></Suspense> }
@@ -57,6 +57,7 @@ const router = createBrowserRouter([
       { path: '/reports/collections',      loader: protectedLoader('/reports/wip'), element: L(() => import('./app/(dashboard)/reports/collections/page')) },
       { path: '/team',                  loader: protectedLoader(PERMISSIONS.TEAM_VIEW),    element: L(() => import('./app/(dashboard)/team/page')) },
       { path: '/team/hearing-calendar', loader: protectedLoader(PERMISSIONS.TEAM_VIEW),    element: L(() => import('./app/(dashboard)/team/hearing-calendar/page')) },
+      { path: '/team/upcoming-hearings', loader: protectedLoader(PERMISSIONS.TEAM_VIEW),   element: L(() => import('./app/(dashboard)/team/upcoming-hearings/page')) },
       { path: '/timelogs/review',       loader: protectedLoader(PERMISSIONS.TIMELOGS_APPROVE), element: L(() => import('./app/(dashboard)/timelogs/review/page')) },
       { path: '/timelogs/pre-approval', loader: protectedLoader(PERMISSIONS.TIMELOGS_APPROVE), element: L(() => import('./app/(dashboard)/timelogs/pre-approval/page')) },
       { path: '/timelogs/approval',     loader: protectedLoader(PERMISSIONS.TIMELOGS_APPROVE), element: L(() => import('./app/(dashboard)/timelogs/approval/page')) },
@@ -69,6 +70,12 @@ const router = createBrowserRouter([
       { path: '/admin/permissions', loader: protectedLoader(PERMISSIONS.GROUPS_MANAGE),    element: L(() => import('./app/(dashboard)/admin/permissions/page')) },
       { path: '/admin/locations',   loader: protectedLoader(PERMISSIONS.LOCATIONS_VIEW),   element: L(() => import('./app/(dashboard)/admin/locations/page')) },
       { path: '/admin/settings',    loader: protectedLoader(PERMISSIONS.SETTINGS_VIEW),    element: L(() => import('./app/(dashboard)/admin/settings/page')) },
+      { path: '/profile',           loader: protectedLoader(),                             element: L(() => import('./app/(dashboard)/profile/page')) },
+      { path: '/activities',        loader: protectedLoader('/time-log-entries'),          element: L(() => import('./app/(dashboard)/activities/page')) },
+      { path: '/matters/print',     loader: protectedLoader('/matters'),                   element: L(() => import('./app/(dashboard)/matters/print/page')) },
+      { path: '/tickets',           loader: protectedLoader('/tickets'),                   element: L(() => import('./app/(dashboard)/tickets/page')) },
+      { path: '/email',             loader: protectedLoader('/email'),                     element: L(() => import('./app/(dashboard)/email/page')) },
+      { path: '/billings/invoices', loader: protectedLoader('/billings'),                  element: L(() => import('./app/(dashboard)/billings/page')) },
     ],
   },
   { path: '/403', element: <Box sx={{ p: 4 }}><h2>403 — Access Denied</h2></Box> },

@@ -16,7 +16,7 @@ import CloseIcon    from "@mui/icons-material/Close"
 import ArrowUpIcon  from "@mui/icons-material/KeyboardArrowUp"
 import ArrowDownIcon from "@mui/icons-material/KeyboardArrowDown"
 import RefreshIcon  from "@mui/icons-material/Refresh"
-import { useDashboardStore } from "@/lib/store/dashboardStore"
+import { useDashboardStore } from "@lib/store/dashboardStore"
 import { logger } from "@/lib/logger"
 
 interface Props {

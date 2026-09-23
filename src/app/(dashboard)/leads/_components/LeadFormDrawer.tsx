@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Box, Alert } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
-import { FormDrawer } from "@/components/ui/FormDrawer"
-import { ControlledInput, ControlledSelect, ControlledAsyncSelect, FormSection } from "@/components/forms"
+import { FormDrawer } from "@components/ui/FormDrawer"
+import { ControlledInput, ControlledSelect, ControlledAsyncSelect, FormSection } from "@components/forms"
 import { useDraftSave } from "@/hooks/useDraftSave"
 import { DraftBanner } from "@/components/ui/DraftBanner"
 import { leadsApi } from "@/api/leads"
@@ -54,16 +54,30 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
 
   useEffect(() => {
     if (existing && isEdit) {
-      const e = existing as Record<string,unknown>
+      const e = existing as {
+        firstName?: string
+        lastName?: string
+        companyName?: string
+        leadType?: string
+        email?: string
+        phone?: string
+        practiceAreaId?: string
+        leadSourceId?: string
+        attorneyId?: string
+        description?: string
+      }
+      const leadType = e.leadType === "COMPANY" || e.leadType === "Company" ? "COMPANY" : "PERSON"
       reset({
-        firstName: String(e.firstName??""), lastName: String(e.lastName??""),
-        companyName: String(e.companyName??""), leadType: (e.leadType as "PERSON"|"COMPANY") ?? "PERSON",
-        email: (e.emails as {emailId:string}[])?.[0]?.emailId ?? String(e.email??""),
-        phone: (e.phones as {phoneNo:string}[])?.[0]?.phoneNo ?? String(e.phone??""),
-        practiceAreaId: (e.practiceArea as {id:string})?.id,
-        leadSourceId:   (e.leadSource   as {id:string})?.id,
-        lawyerId:       (e.lawyer       as {id:string})?.id,
-        description:    String(e.description??""),
+        firstName: e.firstName ?? "",
+        lastName: e.lastName ?? "",
+        companyName: e.companyName ?? "",
+        leadType,
+        email: e.email ?? "",
+        phone: e.phone ?? "",
+        practiceAreaId: e.practiceAreaId,
+        leadSourceId: e.leadSourceId,
+        lawyerId: e.attorneyId,
+        description: e.description ?? "",
       })
     }
   }, [existing, isEdit, reset])

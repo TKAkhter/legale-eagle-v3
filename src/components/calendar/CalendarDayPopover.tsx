@@ -1,8 +1,8 @@
 import { Popover, Typography, Divider } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarEntryTable } from './CalendarEntryTable'
-import type { ColumnDef } from "@/components/data-grid/types"
-import { formatDate } from "@/lib/utils/formatDate"
+import type { ColumnDef } from '@components/data-grid/types'
+import { formatDate } from '@lib/utils/formatDate'
 interface Props<T> { anchorEl:Element|null; date:string|null; onClose:()=>void; entryQueryFn?:(d:string)=>Promise<T[]>; columns?:ColumnDef<T>[] }
 export function CalendarDayPopover<T extends Record<string,unknown>>({ anchorEl, date, onClose, entryQueryFn, columns=[] }: Props<T>) {
   const { data=[], isLoading } = useQuery({ queryKey:['calendar','day',date], queryFn:()=>entryQueryFn!(date!), enabled:!!anchorEl&&!!date&&!!entryQueryFn })

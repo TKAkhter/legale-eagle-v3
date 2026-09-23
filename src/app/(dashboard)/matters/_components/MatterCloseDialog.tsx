@@ -1,15 +1,20 @@
 import { mattersApi } from '@/api/matters'
-import { env } from '@/config/env'
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Alert, CircularProgress, Typography } from '@mui/material'
 import { useForm } from 'react-hook-form'
-import { axiosClient } from '@/lib/api/axios'
-import { ControlledInput } from '@/components/forms/ControlledInput'
-import { ControlledDatePicker } from '@/components/forms/ControlledDatePicker'
-import { ControlledSelect } from '@/components/forms/ControlledSelect'
+import { ControlledInput } from '@components/forms/ControlledInput'
+import { ControlledDatePicker } from '@components/forms/ControlledDatePicker'
+import { ControlledSelect } from '@components/forms/ControlledSelect'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from '@/lib/toast'
 
-interface Props { open: boolean; onClose: () => void; matterId: string; matterTitle: string }
+interface Props {
+  open: boolean
+  onClose: () => void
+  matterId: string
+  matterTitle: string
+  onClosed?: () => void
+}
 
 const CLOSE_REASONS = [
   { value: 'Settled',    label: 'Settled' },
@@ -19,23 +24,30 @@ const CLOSE_REASONS = [
   { value: 'Other',      label: 'Other' },
 ]
 
-export function MatterCloseDialog({ open, onClose, matterId, matterTitle }: Props) {
+export function MatterCloseDialog({ open, onClose, matterId, matterTitle, onClosed }: Props) {
   const qc = useQueryClient()
   const [error, setError] = useState('')
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm({
     defaultValues: { closeDate: new Date().toISOString().slice(0, 10), closeReason: 'Settled', closingNote: '' }
   })
 
-  async function onSubmit(data: Record<string, string>) {
+  async function onSubmit(data: { closeDate: string; closeReason: string; closingNote: string }) {
     setError('')
     try {
-      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
-      if (!env.USE_STATIC_DATA) await mattersApi.close(matterId, String(data.reason ?? ''))
+      await mattersApi.close(matterId, {
+        closeDate: data.closeDate,
+        closeReason: data.closeReason,
+        closingNote: data.closingNote,
+      })
       qc.invalidateQueries({ queryKey: ['matters'] })
+      toast.success('Matter closed')
       reset()
+      onClosed?.()
       onClose()
     } catch (e: unknown) {
-      setError((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to close matter')
+      setError((e as { response?: { data?: { message?: string; Msg?: string } } })?.response?.data?.Msg
+        ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? 'Failed to close matter')
     }
   }
 

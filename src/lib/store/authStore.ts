@@ -1,108 +1,193 @@
+import { createStore, useStore } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import type { AuthUser, ApiMenuItem, PermissionSet } from '@/types/auth.types'
+import { hasPermission } from '@lib/auth/permissions'
+import {
+  persistTokenToSession,
+  clearPersistedToken,
+  getPersistedToken,
+} from '@lib/auth/jwt'
+
 /**
- * authStore.ts — single source of truth for authentication state.
+ * authStore.ts
  *
- * Persists { accessToken, accessScope, user } to sessionStorage via
- * Zustand's persist middleware. On page refresh, Zustand rehydrates
- * accessToken so protectedLoader can check it without redirecting to login.
+ * Uses createStore (factory pattern) instead of the module-level create()
+ * so it's SSR-safe for Next.js migration — each request gets its own store.
  *
- * Usage:
- *   const user        = useAuthStore(s => s.user)
- *   const accessToken = useAuthStore(s => s.accessToken)
- *   useAuthStore.getState().setAuth({ user, accessToken, accessScope })
- *   useAuthStore.getState().clearAuth()
+ * For the Vite/React app we export a singleton useAuthStore hook.
+ *
+ * State persisted to sessionStorage: accessToken only (cleared on tab close).
+ * refreshToken: stored server-side in httpOnly cookie (more secure).
  */
-import { create }        from 'zustand'
-import { persist }       from 'zustand/middleware'
-import type { AuthUser, PermissionSet } from '@/types/auth.types'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── State shape ──────────────────────────────────────────────────────────────
 
-interface SetAuthPayload {
-  user:          AuthUser
-  accessToken:   string
-  refreshToken?: string
-  accessScope?:  PermissionSet
+interface AuthState {
+  user:         AuthUser | null
+  accessToken:  string | null
+  refreshToken: string | null
+  accessScope:  string
+  menuItems:    ApiMenuItem[]
+  permissions:  PermissionSet
+  isLoading:    boolean
 }
 
-interface AuthStore {
-  // ── State ──
-  user:          AuthUser | null
-  accessToken:   string | null
-  refreshToken:  string | null
-  accessScope:   PermissionSet
-  menuItems:     unknown[]
-
-  // ── Actions ──
-  setAuth:        (payload: SetAuthPayload) => void
-  clearAuth:      () => void
-  hasPermission:  (path: string) => boolean
+interface AuthActions {
+  setAuth: (payload: {
+    user: AuthUser
+    accessToken: string
+    refreshToken?: string
+    accessScope: string
+  }) => void
+  setMenuItems: (items: ApiMenuItem[], permissions: PermissionSet) => void
+  setToken: (token: string) => void
+  clearAuth: () => void
+  setLoading: (loading: boolean) => void
+  hasPermission: (permission: string) => boolean
 }
 
-const EMPTY_SCOPE: PermissionSet = new Set<string>()
+type AuthStore = AuthState & AuthActions
 
-// ─── Store ────────────────────────────────────────────────────────────────────
+// ─── Initial state ────────────────────────────────────────────────────────────
+
+const initialState: AuthState = {
+  user:         null,
+  accessToken:  null, // Zustand persist rehydrates this from sessionStorage — do NOT call getPersistedToken() here
+  refreshToken: null,
+  accessScope:  '',
+  menuItems:    [],
+  permissions:  new Set(),
+  isLoading:    false,
+}
+
+// ─── Store factory (SSR-safe) ─────────────────────────────────────────────────
+
+export const authStoreFactory = () =>
+  createStore<AuthStore>()(
+    persist(
+      (set, get) => ({
+        ...initialState,
+
+        setAuth: ({ user, accessToken, refreshToken, accessScope }) => {
+          persistTokenToSession(accessToken)
+          set({
+            user,
+            accessToken,
+            refreshToken: refreshToken ?? null,
+            accessScope,
+          })
+        },
+
+        setMenuItems: (items, permissions) => {
+          set({ menuItems: items, permissions })
+        },
+
+        setToken: (token) => {
+          persistTokenToSession(token)
+          set({ accessToken: token })
+        },
+
+        clearAuth: () => {
+          clearPersistedToken()
+          set({
+            user:         null,
+            accessToken:  null,
+            refreshToken: null,
+            accessScope:  '',
+            menuItems:    [],
+            permissions:  new Set(),
+          })
+        },
+
+        setLoading: (isLoading) => set({ isLoading }),
+
+        hasPermission: (permission) => {
+          const { permissions } = get()
+          return hasPermission(permissions, permission)
+        },
+      }),
+      {
+        name:    'le-auth',
+        storage: createJSONStorage(() => sessionStorage),
+        // Only persist non-sensitive state
+        partialize: (state) => ({
+          accessToken:  state.accessToken,   // ← needed for protectedLoader on refresh
+          accessScope:  state.accessScope,
+          user: state.user
+            ? {
+                id:              state.user.id,
+                firstName:       state.user.firstName,
+                lastName:        state.user.lastName,
+                email:           state.user.email,
+                companyUserType: state.user.companyUserType,
+                profilePic:      state.user.profilePic,
+              }
+            : null,
+        }),
+      },
+    ),
+  )
+
+// ─── Singleton for React/Vite app ─────────────────────────────────────────────
+
+import { create } from 'zustand'
 
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
-      // ── Initial state ──
-      user:         null,
-      accessToken:  null,
-      refreshToken: null,
-      accessScope:  EMPTY_SCOPE,
-      menuItems:    [],
+      ...initialState,
 
-      // ── setAuth — called after successful login ──
       setAuth: ({ user, accessToken, refreshToken, accessScope }) => {
-        const scope = accessScope ?? new Set<string>()
+        persistTokenToSession(accessToken)
+        set({ user, accessToken, refreshToken: refreshToken ?? null, accessScope })
+      },
+
+      setMenuItems: (items, permissions) => set({ menuItems: items, permissions }),
+
+      setToken: (token) => {
+        persistTokenToSession(token)
+        set({ accessToken: token })
+      },
+
+      clearAuth: () => {
+        clearPersistedToken()
         set({
-          user,
-          accessToken,
-          refreshToken:  refreshToken ?? null,
-          accessScope:   scope,
-          menuItems:     [],
+          user: null, accessToken: null, refreshToken: null,
+          accessScope: '', menuItems: [], permissions: new Set(),
         })
       },
 
-      // ── clearAuth — called on logout or session expiry ──
-      clearAuth: () => set({
-        user:         null,
-        accessToken:  null,
-        refreshToken: null,
-        accessScope:  EMPTY_SCOPE,
-        menuItems:    [],
-      }),
+      setLoading: (isLoading) => set({ isLoading }),
 
-      // ── hasPermission — checks if the user can access a route ──
-      hasPermission: (path: string) => {
-        const { accessScope } = get()
-        if (!path) return true
-        if (!accessScope || accessScope.size === 0) return true  // no restrictions
-        return accessScope.has(path) || accessScope.has('*')
-      },
+      hasPermission: (permission) => hasPermission(get().permissions, permission),
     }),
-
     {
       name: 'le-auth',
-      storage: {
-        getItem:    key => { try { const v = sessionStorage.getItem(key); return v ? JSON.parse(v) : null } catch { return null } },
-        setItem:    (key, value) => { try { sessionStorage.setItem(key, JSON.stringify(value)) } catch { /* quota */ } },
-        removeItem: key => { try { sessionStorage.removeItem(key) } catch { /* ignore */ } },
-      },
-      // ← accessToken MUST be in partialize — protectedLoader reads it on every navigation
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    partialize: (state): any => ({
-        accessToken: state.accessToken,
-        accessScope: state.accessScope,
-        user: state.user ? {
-          id:              state.user.id,
-          firstName:       state.user.firstName,
-          lastName:        state.user.lastName,
-          email:           state.user.email,
-          companyUserType: state.user.companyUserType,
-          profilePic:      state.user.profilePic,
-        } : null,
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        accessToken:  state.accessToken,   // ← required: protectedLoader checks this on every navigation
+        accessScope:  state.accessScope,
+        user: state.user
+          ? {
+              id:              state.user.id,
+              firstName:       state.user.firstName,
+              lastName:        state.user.lastName,
+              email:           state.user.email,
+              companyUserType: state.user.companyUserType,
+              profilePic:      state.user.profilePic,
+            }
+          : null,
       }),
-    }
-  )
+    },
+  ),
 )
+
+// ─── Selectors (memoised for performance) ─────────────────────────────────────
+
+export const selectUser        = (s: AuthStore) => s.user
+export const selectToken       = (s: AuthStore) => s.accessToken
+export const selectAccessScope = (s: AuthStore) => s.accessScope
+export const selectPermissions = (s: AuthStore) => s.permissions
+export const selectMenuItems   = (s: AuthStore) => s.menuItems
+export const selectIsLoading   = (s: AuthStore) => s.isLoading
+export const selectIsAuth      = (s: AuthStore) => !!s.accessToken && !!s.user

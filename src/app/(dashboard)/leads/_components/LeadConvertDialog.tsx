@@ -2,11 +2,11 @@ import { env } from '@/config/env'
 import { useState } from 'react'
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Stepper, Step, StepLabel, Alert, CircularProgress, Divider } from '@mui/material'
 import { useForm } from 'react-hook-form'
-import { axiosClient } from '@/lib/api/axios'
-import { ControlledInput } from '@/components/forms/ControlledInput'
-import { ControlledSelect } from '@/components/forms/ControlledSelect'
+import { axiosClient } from '@lib/api/axios'
+import { ControlledInput } from '@components/forms/ControlledInput'
+import { ControlledSelect } from '@components/forms/ControlledSelect'
 import { useQueryClient } from '@tanstack/react-query'
-import { QK } from '@/lib/query/keys'
+import { QK } from '@lib/query/keys'
 
 interface Props { open: boolean; onClose: () => void; leadId: string; leadName: string }
 

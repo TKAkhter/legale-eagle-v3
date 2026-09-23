@@ -9,7 +9,7 @@ import { Box, Button, Alert, CircularProgress, Typography, Divider, Link } from 
 import WindowIcon from "@mui/icons-material/Window"
 import { env } from "@/config/env"
 import { authApi } from "@/api/auth"
-import { useAuthStore } from "@/lib/store/authStore"
+import { useAuthStore } from "@lib/store/authStore"
 import { ControlledInput } from "@/components/forms/ControlledInput"
 
 const schema = z.object({
@@ -53,12 +53,13 @@ export default function LoginPage() {
           department: signinData.department as undefined,
         },
         accessToken: token,
-        accessScope: new Set<string>([String(signinData.accessScope ?? '')].filter(Boolean)),
+        accessScope: String(signinData.accessScope ?? ''),
         refreshToken: undefined,
       })
       // Resolve permissions from menu and store
       const { resolvePermissions } = await import("@lib/auth/permissions")
       const permissions = resolvePermissions(menu as import("@/types/auth.types").ApiMenuItem[], groups as import("@/types/auth.types").ApiUserGroup[])
+      useAuthStore.getState().setMenuItems(menu as import("@/types/auth.types").ApiMenuItem[], permissions)
       navigate("/dashboard", { replace: true })
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message

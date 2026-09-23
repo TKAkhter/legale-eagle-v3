@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 /**
  * OneDrive File Manager — browser-style file manager UI.
  *
@@ -40,7 +39,7 @@ import NavigateNextIcon     from "@mui/icons-material/NavigateNext"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { fileManagerApi, type FileItem } from "@/api/fileManager"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { formatDateTime } from "@/lib/utils/formatDate"
+import { formatDateTime } from "@lib/utils/formatDate"
 import { toast }  from "@/lib/toast"
 import { logger } from "@/lib/logger"
 
@@ -63,7 +62,6 @@ function fmtSize(bytes: number | null): string {
 }
 
 export default function FileManagerPage() {
-  const { t } = useTranslation()
   const qc = useQueryClient()
   useEffect(() => { document.title = 'Files — LegalEagle LMS' }, [])
   const fileInputRef = useRef<HTMLInputElement>(null)

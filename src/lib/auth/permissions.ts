@@ -148,7 +148,7 @@ export function resolvePermissions(
     })
   })
 
-  function processItem(item: ApiMenuItem) {
+  function processItem(item: ApiMenuItem & { submenu?: ApiMenuItem[] }) {
     const resource = resourceForMenuItem(item)
 
     if (resource) {
@@ -160,7 +160,12 @@ export function resolvePermissions(
       }
     }
 
-    item.children?.forEach(processItem)
+    const kids = item.children ?? (item as { submenu?: ApiMenuItem[] }).submenu ?? []
+    kids.forEach(child => processItem({
+      ...child,
+      id: child.id || (child as { submenuId?: string }).submenuId || "",
+      menuName: child.menuName || (child as { submenuName?: string }).submenuName || "",
+    }))
   }
 
   menuItems.forEach(processItem)

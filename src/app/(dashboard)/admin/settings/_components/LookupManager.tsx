@@ -1,11 +1,11 @@
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { useState } from 'react'
-import { Box, Paper, Typography, Button, TextField, IconButton, Skeleton } from '@mui/material'
+import { Box, Paper, Typography, Button, TextField, IconButton, Skeleton, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import DeleteIcon from '@mui/icons-material/Delete'
+import BlockIcon from '@mui/icons-material/Block'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@/lib/api/axios'
+import { axiosClient } from '@lib/api/axios'
 
 interface Props {
   title: string
@@ -15,17 +15,23 @@ interface Props {
   nameField: string
   queryKey: string
   extraFields?: { key: string; label: string; type?: string }[]
+  /** LMS masters deactivate via PUT/DELETE status-change rather than hard delete */
+  statusChange?: boolean
 }
 
-export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, queryKey, extraFields = [] }: Props) {
+export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, queryKey, extraFields = [], statusChange }: Props) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [extras, setExtras] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  
+
   const { data = [], isLoading } = useQuery<Record<string, unknown>[]>({
     queryKey: [queryKey, 'list'],
-    queryFn: async () => { const r = await axiosClient.get(getUrl); return r.data?.data ?? r.data ?? [] },
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) return []
+      const r = await axiosClient.get(getUrl)
+      return r.data?.data ?? r.data ?? []
+    },
   })
 
   async function handleAdd() {
@@ -33,27 +39,28 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
     setSaving(true)
     try {
       if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)) }
-      if (!env.USE_STATIC_DATA) await axiosClient.post(addUrl, { [nameField]: name.trim(), ...extras })
+      else await axiosClient.post(addUrl, { [nameField]: name.trim(), ...extras })
       qc.invalidateQueries({ queryKey: [queryKey] })
       setName(''); setExtras({})
-      toast.success(`${title.slice(0,-1)} added`)
+      toast.success(`${title.slice(0, -1)} added`)
     } catch { toast.error('Failed to add') }
     finally { setSaving(false) }
   }
 
-  async function handleDelete(id: unknown) {
+  async function handleDeactivate(id: unknown) {
     try {
       if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)) }
-      if (!env.USE_STATIC_DATA) await axiosClient.delete(`${deleteUrl}/${id}`)
+      else if (statusChange) await axiosClient.put(`${deleteUrl}/${id}`)
+      else await axiosClient.delete(`${deleteUrl}/${id}`)
       qc.invalidateQueries({ queryKey: [queryKey] })
-      toast.success('Deleted')
-    } catch { toast.error('Failed to delete') }
+      toast.success(statusChange ? 'Deactivated' : 'Deleted')
+    } catch { toast.error('Failed to update') }
   }
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
       <Box sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-        <TextField size="small" label={`New ${title.slice(0,-1)} name`} value={name}
+        <TextField size="small" label={`New ${title.slice(0, -1)} name`} value={name}
           onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdd()}
           sx={{ flex: 1 }} />
         {extraFields.map(f => (
@@ -71,13 +78,17 @@ export function LookupManager({ title, getUrl, addUrl, deleteUrl, nameField, que
           ? <Typography color="text.secondary" sx={{ p: 3 }}>No {title.toLowerCase()} yet.</Typography>
           : (data as Record<string, unknown>[]).map((item, i) => (
             <Box key={String(item.id ?? i)}
-              sx={{ px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              sx={{
+                px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 borderBottom: i < data.length - 1 ? '1px solid' : 'none', borderColor: 'divider',
-                '&:hover': { bgcolor: 'action.hover' } }}>
+                '&:hover': { bgcolor: 'action.hover' },
+              }}>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{String(item[nameField] ?? item.name ?? '—')}</Typography>
-              <IconButton size="small" onClick={() => handleDelete(item.id)} color="error">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
+              <Tooltip title={statusChange ? 'Deactivate' : 'Delete'}>
+                <IconButton size="small" onClick={() => handleDeactivate(item.id)} color="error">
+                  <BlockIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           ))
       }

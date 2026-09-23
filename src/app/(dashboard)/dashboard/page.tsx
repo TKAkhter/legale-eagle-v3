@@ -1,232 +1,245 @@
-import { useTranslation } from 'react-i18next'
-import { PageShell } from '@/components/ui/PageShell'
 /**
- * Dashboard page — customisable widget layout.
- *
- * Widget visibility and order is controlled by dashboardStore (localStorage).
- * The "Customise" button opens DashboardCustomiser drawer.
- *
- * Widgets available:
- *   kpi      — KPI cards (leads, matters, tasks)
- *   matters  — Matter activity area chart
- *   revenue  — Revenue breakdown bar chart
- *   activity — Recent firm-wide activity feed
- *   hearings — Upcoming hearings (coming soon)
- *   tasks    — My tasks widget (coming soon)
- *
- * Onboarding checklist shows until dismissed.
+ * Dashboard — AdminTab parity with old LMS widgets under each tab.
  */
-import { useState } from "react"
-import { Box, Typography, Paper, Skeleton, Chip, Button, IconButton, Tooltip } from "@mui/material"
-import TuneIcon    from "@mui/icons-material/Tune"
-import RefreshIcon from "@mui/icons-material/Refresh"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { env }             from "@/config/env"
-import { axiosClient as apiClient } from "@/lib/api/axios"
-import { useAuthStore }    from "@/lib/store/authStore"
-import { useDashboardStore } from "@/lib/store/dashboardStore"
-import { dashboard as staticDashboard } from "@/data/static"
-import { ActivityFeed }    from "@/components/widgets/ActivityFeed"
-import { DashboardCustomiser } from "@/components/widgets/DashboardCustomiser"
-import { OnboardingChecklist } from "@/components/widgets/OnboardingChecklist"
-import { ApexChart }       from "@/components/charts/ApexChart"
-import { logger }          from "@/lib/logger"
+import { useMemo, useState } from "react"
+import { Link as RouterLink } from "react-router-dom"
+import {
+  Badge, Box, Card, CardActionArea, CardContent, Chip, CircularProgress, Paper,
+  Tab, Tabs, Typography, Stack,
+} from "@mui/material"
+import { useQuery } from "@tanstack/react-query"
+import { PageShell } from "@/components/ui/PageShell"
+import { dashboardApi } from "@/api/dashboard"
+import { formatDate } from "@lib/utils/formatDate"
+import { SummaryCard, StatsGrid } from "./_components/SummaryCard"
+import { MattersGraph } from "./_components/MattersGraph"
+import {
+  LeadFollowupsWidget, TaskDeadlinesWidget, HearingsWidget,
+} from "./_components/DashboardWidgets"
+import { TimeLogsWidget } from "./_components/TimeLogsWidget"
+import { MatterRolesPanel } from "./_components/MatterRolesPanel"
+import { PanelLoader } from "@/components/ui/PanelLoader"
 
-// ─── KPI card ─────────────────────────────────────────────────────────────────
-function KpiCard({ title, value, sub, loading }: { title:string; value?:number; sub?:string; loading:boolean }) {
+interface TabDef { id: string; name: string; label: string }
+
+const DEFAULT_TABS: TabDef[] = [
+  { id: "lead", name: "Leads", label: "Leads" },
+  { id: "matter", name: "Matters", label: "Matters" },
+  { id: "hearing", name: "hearings", label: "Hearing" },
+  { id: "tasks", name: "Tasks", label: "Tasks" },
+  { id: "recentActivities", name: "Recent Activities", label: "Recent Activities" },
+  { id: "clients", name: "Favourite Clients", label: "Favourite Clients" },
+  { id: "matterRoles", name: "Matter Roles", label: "Matter Roles" },
+  { id: "timeLogs", name: "Time Logs", label: "Time Logs" },
+]
+
+function LeadsPanel({ data }: { data?: { openCount?: number; convertedCount?: number; writeOffCount?: number } }) {
+  const open = data?.openCount ?? 0
+  const converted = data?.convertedCount ?? 0
+  const writeOff = data?.writeOffCount ?? 0
   return (
-    <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ mb:0.5 }}>{title}</Typography>
-      {loading
-        ? <Skeleton width={80} height={40} />
-        : <Box sx={{ display:"flex", alignItems:"baseline", gap:1 }}>
-            <Typography variant="h4" sx={{ fontWeight:700 }}>{value ?? 0}</Typography>
-            {sub && <Chip size="small" label={sub} variant="outlined" sx={{ fontSize:11 }} />}
+    <Box>
+      <StatsGrid>
+        <SummaryCard count={open} label="Open" to="/leads?status=Open" color="success.main" />
+        <SummaryCard count={converted} label="Converted" to="/leads?status=Converted" color="info.main" />
+        <SummaryCard count={writeOff} label="Write Off" to="/leads?status=Writeoff" color="error.main" />
+        <SummaryCard count={open + converted + writeOff} label="Total" to="/leads" />
+      </StatsGrid>
+      <LeadFollowupsWidget />
+    </Box>
+  )
+}
+
+function MattersPanel({ data }: { data?: { open?: number; close?: number; reOpen?: number } }) {
+  const open = data?.open ?? 0
+  const close = data?.close ?? 0
+  const reOpen = data?.reOpen ?? 0
+  return (
+    <Box>
+      <StatsGrid>
+        <SummaryCard count={open} label="Open" to="/matters?status=OPEN" color="success.main" />
+        <SummaryCard count={close} label="Closed" to="/matters?status=CLOSE" color="error.main" />
+        <SummaryCard count={reOpen} label="Re-Open" to="/matters?status=RE_OPEN" color="info.main" />
+        <SummaryCard count={open + close + reOpen} label="Total" to="/matters" />
+      </StatsGrid>
+      <MattersGraph />
+    </Box>
+  )
+}
+
+function TasksPanel({ data }: { data?: { dueTask?: number; upcomingTask?: number; resubmitTask?: number; totalApproval?: number } }) {
+  return (
+    <Box>
+      <StatsGrid>
+        <SummaryCard count={data?.dueTask} label="Due" to="/tasks?taskStatus=Pending" color="error.main" />
+        <SummaryCard count={data?.resubmitTask} label="Re-submit" to="/tasks?taskStatus=Re_Submit" color="warning.main" />
+        <SummaryCard count={data?.upcomingTask} label="Upcoming" to="/tasks?taskStatus=Waiting_For_Approval" color="info.main" />
+        <SummaryCard count={data?.totalApproval} label="Approvals" to="/approvals/task" />
+      </StatsGrid>
+      <TaskDeadlinesWidget />
+    </Box>
+  )
+}
+
+function RecentActivitiesPanel() {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["dashboard", "recent-activities"],
+    queryFn: () => dashboardApi.recentActivities(),
+    staleTime: 60_000,
+  })
+  if (isLoading) return <PanelLoader label="Loading recent activity…" />
+  if (!data.length) return <Typography color="text.secondary">No recent activity</Typography>
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+      {(data as Record<string, unknown>[]).slice(0, 25).map((item, i) => {
+        const client = item.client as { firstName?: string; companyName?: string } | undefined
+        const matter = item.matter as { title?: string } | undefined
+        const label = matter?.title || client?.companyName || client?.firstName
+          || String(item.activityName ?? item.description ?? "Activity")
+        return (
+          <Box key={i} sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>{label}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {String(item.addedByName ?? item.userName ?? "")}
+              {item.createdAt ? ` · ${formatDate(String(item.createdAt))}` : ""}
+            </Typography>
           </Box>
-      }
+        )
+      })}
     </Paper>
   )
 }
 
-function greeting() {
-  const h = new Date().getHours()
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"
+function FavouriteClientsPanel() {
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["dashboard", "fav-clients"],
+    queryFn: () => dashboardApi.favouriteClients(),
+    staleTime: 60_000,
+  })
+  if (isLoading) return <PanelLoader label="Loading favourite clients…" />
+  if (!data.length) return <Typography color="text.secondary">No favourite clients yet</Typography>
+  return (
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(3, 1fr)" }, gap: 2 }}>
+      {(data as Record<string, unknown>[]).map((c) => {
+        const id = String(c.clientId ?? c.id ?? "")
+        const name = String(c.clientName ?? c.companyName ?? c.firstName ?? "Client")
+        return (
+          <Card key={id} variant="outlined" sx={{ borderRadius: 2 }}>
+            <CardActionArea component={RouterLink} to={`/clients/${id}`}>
+              <CardContent>
+                <Typography sx={{ fontWeight: 600 }}>{name}</Typography>
+                {c.status != null && <Chip size="small" label={String(c.status)} sx={{ mt: 1 }} />}
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        )
+      })}
+    </Box>
+  )
 }
 
 export default function DashboardPage() {
-  const { t } = useTranslation()
-  const user    = useAuthStore(s => (s as {user?:{firstName?:string}}).user)
-  const getVisible  = useDashboardStore(s => s.getVisible)
-  const visibleWidgets = getVisible()
-  const qc      = useQueryClient()
-  const [custOpen, setCustOpen] = useState(false)
-  const [chartRange, setChartRange] = useState<'30'|'90'|'180'>('30')
+  const [tab, setTab] = useState(0)
+  const [roleCount, setRoleCount] = useState<number | null>(null)
 
-  // Compute fromDate from chartRange
-  const chartFromDate = (() => {
-    const d = new Date()
-    d.setDate(d.getDate() - Number(chartRange))
-    return d.toISOString().slice(0, 10)
-  })()
-
-  // ── KPI data ────────────────────────────────────────────────────────────────
-  const { data:counts, isLoading:l1 } = useQuery({
-    queryKey: ["dashboard","counts"],
-    queryFn: async () => {
-      logger.debug("DashboardPage", "Fetching KPI counts")
-      if (env.USE_STATIC_DATA) return staticDashboard.counts
-      const [a,b,c] = await Promise.allSettled([
-        apiClient.get("/api/dashboard/lead/count"),
-        apiClient.get("/api/dashboard/matter/count"),
-        apiClient.get("/api/dashboard/task/count"),
-      ])
-      return {
-        ...(a.status==="fulfilled" ? a.value.data?.data??{} : {}),
-        ...(b.status==="fulfilled" ? b.value.data?.data??{} : {}),
-        ...(c.status==="fulfilled" ? c.value.data?.data??{} : {}),
-      }
-    },
-    staleTime: 5*60_000,
+  const setupQuery = useQuery({
+    queryKey: ["dashboard", "setup"],
+    queryFn: () => dashboardApi.getSetup(),
+    staleTime: 5 * 60_000,
   })
 
-  // ── Chart data ───────────────────────────────────────────────────────────────
-  const { data:history, isLoading:l2 } = useQuery({
-    queryKey: ["dashboard","history", chartRange],
-    queryFn: async () => {
-      const fromDate = chartFromDate
-      if (env.USE_STATIC_DATA) return staticDashboard.matterHistory
-      const r = await apiClient.get("/api/analytics/graph/matters-history-monthly")
-      return r.data?.data ?? []
-    },
-    staleTime: 10*60_000,
-  })
+  const leadCount = useQuery({ queryKey: ["dashboard", "lead-count"], queryFn: () => dashboardApi.leadCount() })
+  const matterCount = useQuery({ queryKey: ["dashboard", "matter-count"], queryFn: () => dashboardApi.matterCount() })
+  const taskCount = useQuery({ queryKey: ["dashboard", "task-count"], queryFn: () => dashboardApi.taskCount() })
+  const hearingSeries = useQuery({ queryKey: ["dashboard", "hearing-recent"], queryFn: () => dashboardApi.hearingRecent() })
 
-  const { data:revenue, isLoading:l3 } = useQuery({
-    queryKey: ["dashboard","revenue", chartRange],
-    queryFn: async () => {
-      const fromDate = chartFromDate
-      if (env.USE_STATIC_DATA) return staticDashboard.revenue
-      const r = await apiClient.get("/api/analytics/graph/fixedfees-timelogs-revenue")
-      return r.data?.data ?? []
-    },
-    staleTime: 10*60_000,
-  })
+  const tabs = useMemo(() => {
+    const seq = setupQuery.data?.sequenceList as { id: string; name: string; seq: number }[] | undefined
+    let mapped: TabDef[]
+    if (!Array.isArray(seq) || !seq.length) {
+      mapped = [...DEFAULT_TABS]
+    } else {
+      mapped = [...seq]
+        .sort((a, b) => a.seq - b.seq)
+        .map(item => ({
+          id: item.id,
+          name: item.name,
+          label: DEFAULT_TABS.find(t => t.name === item.name || t.id === item.id)?.label ?? item.name,
+        }))
+    }
+    if (!mapped.some(t => t.name === "Matter Roles")) {
+      const matterIdx = mapped.findIndex(t => t.name === "Matters")
+      const roleTab = { id: "matterRoles", name: "Matter Roles", label: "Matter Roles" }
+      if (matterIdx >= 0) mapped.splice(matterIdx + 1, 0, roleTab)
+      else mapped.push(roleTab)
+    }
+    if (!mapped.some(t => t.name === "Time Logs")) {
+      mapped.push({ id: "timeLogs", name: "Time Logs", label: "Time Logs" })
+    }
+    return mapped
+  }, [setupQuery.data])
 
-  const months  = (history??[]).map((d:Record<string,unknown>) => String(d.month??""))
-  const matData = (history??[]).map((d:Record<string,unknown>) => Number(d.count??0))
-  const revMon  = (revenue??[]).map((d:Record<string,unknown>) => String(d.month??""))
-  const fixed   = (revenue??[]).map((d:Record<string,unknown>) => Number(d.fixedFees??0))
-  const tlogs   = (revenue??[]).map((d:Record<string,unknown>) => Number(d.timelogs??0))
+  const active = tabs[tab] ?? tabs[0]
+  const hearingBadge = (hearingSeries.data?.today?.length ?? 0) + (hearingSeries.data?.tomorrow?.length ?? 0)
 
-  function isVisible(id: string) {
-    return visibleWidgets.some(w => w.id === id)
-  }
-
-  function handleRefresh() {
-    logger.info("DashboardPage", "Manual refresh triggered")
-    qc.invalidateQueries({ queryKey: ["dashboard"] })
-    qc.invalidateQueries({ queryKey: ["activity"] })
+  function badgeFor(name: string): number | null {
+    if (name === "Leads") return leadCount.data?.openCount ?? null
+    if (name === "Matters") return matterCount.data?.open ?? null
+    if (name === "hearings" || name === "Hearing") return hearingBadge
+    if (name === "Tasks") return taskCount.data?.dueTask ?? null
+    if (name === "Matter Roles") return roleCount
+    return null
   }
 
   return (
-    <PageShell title={t("nav.dashboard", "Dashboard")} description="Overview and key performance indicators">
-      {/* Page header */}
-      <Box sx={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", mb:2.5 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight:700 }}>
-            {greeting()}, {user?.firstName}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Here's what's happening at the firm today.
-          </Typography>
-        </Box>
-        <Box sx={{ display:"flex", gap:1 }}>
-          <Tooltip title="Refresh">
-            <IconButton size="small" onClick={handleRefresh}>
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<TuneIcon />}
-            onClick={() => setCustOpen(true)}
+    <PageShell title="Dashboard" description="Overview and key performance indicators">
+      {setupQuery.isLoading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}><CircularProgress /></Box>
+      ) : (
+        <>
+          <Tabs
+            value={Math.min(tab, tabs.length - 1)}
+            onChange={(_, v) => setTab(v)}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{ mb: 3, minHeight: 40, "& .MuiTab-root": { minHeight: 40, textTransform: "none", fontWeight: 600 } }}
           >
-            Customise
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Onboarding checklist — shows until dismissed */}
-      <OnboardingChecklist
-        counts={{
-          clients:  counts?.totalLeads ?? 0,
-          matters:  counts?.totalMatters ?? 0,
-          users:    2,
-          invoices: 3,
-        }}
-      />
-
-      {/* KPI cards */}
-      {isVisible("kpi") && (
-        <Box sx={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:2, mb:3 }}>
-          <KpiCard title="Total Leads"   value={counts?.totalLeads}   sub={`${counts?.openLeads??0} open`}  loading={l1} />
-          <KpiCard title="Open Matters"  value={counts?.openMatters}  loading={l1} />
-          <KpiCard title="Total Matters" value={counts?.totalMatters} loading={l1} />
-          <KpiCard title="Pending Tasks" value={counts?.pendingTasks}
-            sub={counts?.overdueTasks ? `${counts.overdueTasks} overdue` : undefined} loading={l1} />
-        </Box>
-      )}
-
-      {/* Chart date range selector */}
-      {(isVisible("matters") || isVisible("revenue")) && (
-        <Box sx={{ display:"flex", justifyContent:"flex-end", mb:1 }}>
-          <Box sx={{ display:"flex", gap:0.5 }}>
-            {(["30","90","180"] as const).map(r => (
-              <Button key={r} size="small"
-                variant={chartRange === r ? "contained" : "outlined"}
-                onClick={() => setChartRange(r)}
-                sx={{ py:0.5, px:1.5, fontSize:12, minWidth:40 }}>
-                {r}d
-              </Button>
-            ))}
-          </Box>
-        </Box>
-      )}
-
-      {/* Charts row */}
-      {(isVisible("matters") || isVisible("revenue")) && (
-        <Box sx={{ display:"grid", gridTemplateColumns:{ xs:"1fr", md:"1fr 1fr" }, gap:2, mb:3 }}>
-          {isVisible("matters") && (
-            <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight:600, mb:1.5 }}>Matter Activity (Monthly)</Typography>
-              {l2 ? <Skeleton height={200} /> : matData.length > 0 && (
-                <ApexChart type="area" height={200}
-                  series={[{ name:"Matters", data:matData }]}
-                  options={{ chart:{toolbar:{show:false}}, xaxis:{categories:months}, stroke:{curve:"smooth",width:2}, fill:{type:"gradient"}, dataLabels:{enabled:false}, colors:["#0F3C6E"], grid:{strokeDashArray:4} }}
+            {tabs.map((item) => {
+              const badge = badgeFor(item.name)
+              return (
+                <Tab
+                  key={item.id}
+                  label={
+                    badge != null ? (
+                      <Badge badgeContent={badge} color="primary" max={999}>
+                        <Box sx={{ pr: 1.5 }}>{item.label}</Box>
+                      </Badge>
+                    ) : item.label
+                  }
                 />
-              )}
-            </Paper>
+              )
+            })}
+          </Tabs>
+
+          {active?.name === "Leads" && <LeadsPanel data={leadCount.data} />}
+          {active?.name === "Matters" && <MattersPanel data={matterCount.data} />}
+          {(active?.name === "hearings" || active?.name === "Hearing") && (
+            <Box>
+              <StatsGrid>
+                <SummaryCard count={hearingSeries.data?.today?.length ?? 0} label="Today" to="/team/upcoming-hearings" />
+                <SummaryCard count={hearingSeries.data?.tomorrow?.length ?? 0} label="Tomorrow" to="/team/upcoming-hearings" color="info.main" />
+                <SummaryCard count={hearingBadge} label="Total" to="/team/hearing-calendar" />
+              </StatsGrid>
+              <HearingsWidget series={hearingSeries.data} />
+            </Box>
           )}
-          {isVisible("revenue") && (
-            <Paper variant="outlined" sx={{ p:2.5, borderRadius:2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight:600, mb:1.5 }}>Revenue Breakdown (Monthly)</Typography>
-              {l3 ? <Skeleton height={200} /> : revMon.length > 0 && (
-                <ApexChart type="bar" height={200}
-                  series={[{ name:"Fixed Fees", data:fixed },{ name:"Time Logs", data:tlogs }]}
-                  options={{ chart:{toolbar:{show:false}}, xaxis:{categories:revMon}, colors:["#0F3C6E","#00B4A6"], dataLabels:{enabled:false}, plotOptions:{bar:{borderRadius:4,columnWidth:"55%"}}, grid:{strokeDashArray:4} }}
-                />
-              )}
-            </Paper>
-          )}
-        </Box>
+          {active?.name === "Tasks" && <TasksPanel data={taskCount.data} />}
+          {active?.name === "Recent Activities" && <RecentActivitiesPanel />}
+          {active?.name === "Favourite Clients" && <FavouriteClientsPanel />}
+          {active?.name === "Matter Roles" && <MatterRolesPanel onCount={setRoleCount} />}
+          {active?.name === "Time Logs" && <TimeLogsWidget />}
+        </>
       )}
-
-      {/* Activity feed */}
-      {isVisible("activity") && <ActivityFeed limit={8} />}
-
-      {/* Customise drawer */}
-      <DashboardCustomiser open={custOpen} onClose={() => setCustOpen(false)} />
     </PageShell>
   )
 }

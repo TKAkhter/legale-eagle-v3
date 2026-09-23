@@ -6,13 +6,13 @@ import { useState } from 'react'
 import { Box, Typography, Paper, Chip, Skeleton, Button, Divider } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { axiosClient, axiosBlob } from '@/lib/api/axios'
+import { axiosClient, axiosBlob } from '@lib/api/axios'
 import { billingApi } from '@/api/billing'
 import { clientInvoices as staticInvoices } from '@/data/static'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { formatDate } from '@/lib/utils/formatDate'
-import { formatCurrency } from '@/lib/utils/formatCurrency'
-import { downloadBlob } from '@/lib/utils/downloadBlob'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { formatDate } from '@lib/utils/formatDate'
+import { formatCurrency } from '@lib/utils/formatCurrency'
+import { downloadBlob } from '@lib/utils/downloadBlob'
 import { RecordPaymentDialog } from '../_components/RecordPaymentDialog'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import EmailIcon from '@mui/icons-material/Email'
@@ -125,6 +125,25 @@ export default function InvoiceDetailPage() {
           } />
         </Box>
       </Paper>
+
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, mb: 2 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>Line Items</Typography>
+        {(((invoice as Record<string, unknown>)?.lineItems as Record<string, unknown>[]) ?? []).length === 0 && (
+          <Typography variant="body2" color="text.secondary">No line items</Typography>
+        )}
+        {(((invoice as Record<string, unknown>)?.lineItems as Record<string, unknown>[]) ?? []).map((item, index) => (
+          <Box key={String(item.id ?? index)} sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 1, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="body2">{String(item.description ?? '—')}</Typography>
+            <Typography variant="body2" color="text.secondary">Qty {String(item.quantity ?? 1)}</Typography>
+            <Typography variant="body2" color="text.secondary">{formatCurrency(Number(item.rate ?? 0))}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{formatCurrency(Number(item.amount ?? 0))}</Typography>
+          </Box>
+        ))}
+      </Paper>
+
+      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={() => window.open(`/billings/print?invoiceId=${invoiceId}`, '_blank')}>Print</Button>
+      </Box>
 
       <RecordPaymentDialog
         open={payOpen}

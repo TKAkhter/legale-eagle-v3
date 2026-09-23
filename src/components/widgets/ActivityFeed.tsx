@@ -26,7 +26,7 @@ import DescriptionIcon    from "@mui/icons-material/Description"
 import { useQuery }       from "@tanstack/react-query"
 import { useNavigate }    from "react-router-dom"
 import { activityApi, type ActivityItem } from "@/api/activity"
-import { fromNow }        from "@/lib/utils/formatDate"
+import { fromNow }        from "@lib/utils/formatDate"
 
 /** Icon + colour per activity type */
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {

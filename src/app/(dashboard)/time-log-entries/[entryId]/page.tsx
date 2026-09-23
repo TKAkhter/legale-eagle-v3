@@ -19,9 +19,9 @@ import CalendarIcon    from "@mui/icons-material/CalendarToday"
 import { PageShell }   from "@/components/ui/PageShell"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { env }              from "@/config/env"
-import { axiosClient }      from "@/lib/api/axios"
-import { formatDate }       from "@/lib/utils/formatDate"
-import { formatCurrency }   from "@/lib/utils/formatCurrency"
+import { axiosClient }      from "@lib/api/axios"
+import { formatDate }       from "@lib/utils/formatDate"
+import { formatCurrency }   from "@lib/utils/formatCurrency"
 import { timelogs as staticTimelogs } from "@/data/static"
 
 interface TimeEntry {
@@ -74,7 +74,7 @@ export default function TimeEntryDetailPage() {
   })
 
   if (isLoading) return (
-    <PageShell title={t("nav.time-log-entries", "Time Entry")}>
+    <PageShell title="Time Entry">
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
@@ -82,7 +82,7 @@ export default function TimeEntryDetailPage() {
   )
 
   if (isError || !entry) return (
-    <PageShell title={t("nav.time-log-entries", "Time Entry")}>
+    <PageShell title="Time Entry">
       <Alert severity="error">{t("errors.notFound", "Time entry not found.")}</Alert>
     </PageShell>
   )

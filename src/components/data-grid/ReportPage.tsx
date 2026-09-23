@@ -2,8 +2,8 @@ import { Box, Typography, Button } from '@mui/material'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import { DataGrid } from './DataGrid'
 import { useState } from 'react'
-import { axiosBlob } from "@/lib/api/axios"
-import { downloadBlob } from "@/lib/utils/downloadBlob"
+import { axiosBlob } from '@lib/api/axios'
+import { downloadBlob } from '@lib/utils/downloadBlob'
 import type { ColumnDef, QueryFn } from './types'
 
 interface Props<T extends Record<string, unknown>> {

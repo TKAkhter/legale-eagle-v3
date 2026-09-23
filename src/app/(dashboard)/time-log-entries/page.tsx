@@ -1,33 +1,22 @@
-import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
-import { Box, Typography, Button } from '@mui/material'
+import { Box, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useState } from 'react'
-import { DataGrid } from '@/components/data-grid/DataGrid'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { Can } from '@/components/ui/Can'
-import { PERMISSIONS } from '@/config/permissions'
-import { axiosClient } from '@/lib/api/axios'
-import { buildQueryParams } from '@/lib/utils/buildQueryParams'
-import { formatDate } from '@/lib/utils/formatDate'
-import { formatCurrency } from '@/lib/utils/formatCurrency'
-import { UserSelectFilter } from '@/components/filters/UserSelectFilter'
-import { MatterSelectFilter } from '@/components/filters/MatterSelectFilter'
-import { ClientSelectFilter } from '@/components/filters/ClientSelectFilter'
-import { DateRangeFilter } from '@/components/filters/DateRangeFilter'
-import type { FilterPanelProps } from '@/components/data-grid/types'
+import { useQueryClient } from '@tanstack/react-query'
+import { DataGrid } from '@components/data-grid/DataGrid'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { Can } from '@components/ui/Can'
+import { PERMISSIONS } from '@config/permissions'
+import { formatDate } from '@lib/utils/formatDate'
+import { formatCurrency } from '@lib/utils/formatCurrency'
+import { UserSelectFilter } from '@components/filters/UserSelectFilter'
+import { MatterSelectFilter } from '@components/filters/MatterSelectFilter'
+import { ClientSelectFilter } from '@components/filters/ClientSelectFilter'
+import { DateRangeFilter } from '@components/filters/DateRangeFilter'
+import type { FilterPanelProps } from '@components/data-grid/types'
 import { ActivityFormDrawer } from './_components/ActivityFormDrawer'
 import type { GridParams } from '@/types/common.types'
 import { timelogsApi } from '@/api/timelogs'
-import { env } from '@/config/env'
-
-async function fetchTimeLogs(params: GridParams) {
-  const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
-  const res = await axiosClient.post('/api/report/activity/filter/m/v3', {}, {
-    params: { ...qp, ...params.filters, pageNumber: qp.pageNumber, pageSize: qp.pageSize },
-  })
-  return res.data?.data ?? res.data
-}
 
 function TimeLogFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
   const [f, setF] = useState<Record<string, unknown>>(filters)
@@ -35,8 +24,8 @@ function TimeLogFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-end' }}>
       <UserSelectFilter value={String(f.userId ?? '')} onChange={v => set('userId', v)} label="User" />
-      <MatterSelectFilter value={String(f.matterId ?? '')} onChange={v => set('matterId', v)} />
-      <ClientSelectFilter value={String(f.clientId ?? '')} onChange={v => set('clientId', v)} />
+      <MatterSelectFilter value={String(f.matterId ?? '') || undefined} onChange={v => set('matterId', v)} />
+      <ClientSelectFilter value={String(f.clientId ?? '') || undefined} onChange={v => set('clientId', v)} />
       <DateRangeFilter fromDate={String(f.fromDate ?? '')} toDate={String(f.toDate ?? '')} onChange={v => setF(p => ({ ...p, ...v }))} />
       <Box sx={{ display: 'flex', gap: 1 }}>
         <Button variant="contained" size="small" onClick={() => onSearch(f)}>Search</Button>
@@ -47,35 +36,56 @@ function TimeLogFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function TimeLogEntriesPage() {
-  const { t } = useTranslation()
+  const qc = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
+  const [gridKey, setGridKey] = useState(0)
+
   return (
-    <PageShell title={t("nav.time-log-entries", "Time Entries")} description="Billable time log entries">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>Time Log Entries</Typography>
+    <PageShell
+      title="Time Entries"
+      description="Billable time log entries"
+      action={(
         <Can do={PERMISSIONS.TIMELOGS_CREATE}>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalOpen(true)}>Log Time</Button>
         </Can>
-      </Box>
+      )}
+    >
       <DataGrid
+        key={gridKey}
         columns={[
           { field: 'activity', header: 'Activity' },
           { field: 'matter', header: 'Matter', renderCell: (v) => (v as Record<string,string>)?.title ?? '—' },
+          { field: 'client', header: 'Client', renderCell: (v) => {
+            const c = v as Record<string,string> | null
+            return c?.companyName || `${c?.firstName ?? ''} ${c?.lastName ?? ''}`.trim() || '—'
+          }},
           { field: 'responsiblePerson', header: 'User', renderCell: (v) => { const u = v as Record<string,string>; return u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() : '—' } },
           { field: 'billingType', header: 'Type', renderCell: (v) => <StatusBadge status={String(v ?? '')} /> },
-          { field: 'totalHours', header: 'Hours', align: 'right' },
+          { field: 'totalHours', header: 'Hours', align: 'right', renderCell: v => Number(v ?? 0).toFixed(2) },
           { field: 'billing', header: 'Amount', align: 'right', renderCell: (v) => formatCurrency(Number(v ?? 0)) },
           { field: 'revenueStatus', header: 'Status', renderCell: (v) => <StatusBadge status={String(v ?? '')} /> },
           { field: 'entryDate', header: 'Date', renderCell: (v) => formatDate(String(v ?? '')) },
         ]}
         queryKey={['activities', 'list']}
-        queryFn={fetchTimeLogs}
+        queryFn={(p: GridParams) => timelogsApi.getReport(p)}
         FilterPanel={TimeLogFilterPanel}
         detailPath={(row) => `/time-log-entries/${(row as Record<string,string>).id}`}
-        hasFilters hasExport hasRowSelection syncWithUrl
-        defaultSortBy="entryDate" defaultSortDir="desc"
+        hasFilters
+        hasExport
+        hasRowSelection
+        syncWithUrl
+        defaultSortBy="entryDate"
+        defaultSortDir="desc"
       />
-      <ActivityFormDrawer open={modalOpen} onClose={() => setModalOpen(false)} onSuccess={() => setModalOpen(false)} />
+      <ActivityFormDrawer
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={() => {
+          setModalOpen(false)
+          setGridKey(k => k + 1)
+          qc.invalidateQueries({ queryKey: ['activities', 'list'] })
+        }}
+      />
     </PageShell>
   )
 }

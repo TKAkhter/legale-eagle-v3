@@ -1,10 +1,11 @@
-import { Box, Button } from '@mui/material'
+import { Box } from '@mui/material'
 import { useState } from 'react'
 import { DateRangeFilter } from './DateRangeFilter'
 import { UserSelectFilter } from './UserSelectFilter'
 import { ClientSelectFilter } from './ClientSelectFilter'
 import { MatterSelectFilter } from './MatterSelectFilter'
 import { DepartmentFilter } from './DepartmentFilter'
+import { FilterActions } from './FilterActions'
 
 export interface ReportFilterConfig {
   showUser?: boolean
@@ -14,6 +15,7 @@ export interface ReportFilterConfig {
   showDateRange?: boolean
 }
 
+/** Shared report filters — Search/Clear only trigger the list API. */
 export function makeReportFilterPanel(config: ReportFilterConfig) {
   return function ReportFilterPanel({ onSearch, onReset, filters }: { onSearch:(f:Record<string,unknown>)=>void; onReset:()=>void; filters:Record<string,unknown> }) {
     const [f, setF] = useState<Record<string,unknown>>(filters)
@@ -25,10 +27,11 @@ export function makeReportFilterPanel(config: ReportFilterConfig) {
         {config.showMatter     && <MatterSelectFilter value={String(f.matterId??'')}     onChange={v=>set('matterId',v)} />}
         {config.showDepartment && <DepartmentFilter   value={String(f.departmentId??'')} onChange={v=>set('departmentId',v)} />}
         {config.showDateRange  && <DateRangeFilter fromDate={String(f.fromDate??'')} toDate={String(f.toDate??'')} onChange={v=>setF(p=>({...p,...v}))} />}
-        <Box sx={{ display:'flex', gap:1 }}>
-          <Button variant="contained" size="small" onClick={()=>onSearch(f)}>Apply</Button>
-          <Button size="small" onClick={()=>{setF({});onReset()}}>Reset</Button>
-        </Box>
+        <FilterActions
+          onSearch={() => onSearch(f)}
+          onClear={() => { setF({}); onReset() }}
+          searchLabel="Search"
+        />
       </Box>
     )
   }

@@ -4,8 +4,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Alert } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
-import { FormDrawer } from "@/components/ui/FormDrawer"
-import { ControlledInput, ControlledSelect, FormSection } from "@/components/forms"
+import { FormDrawer } from "@components/ui/FormDrawer"
+import { ControlledInput, ControlledSelect, FormSection } from "@components/forms"
 import { clientsApi } from "@/api/clients"
 
 const schema = z.object({
@@ -40,13 +40,23 @@ export function ClientFormDrawer({ open, onClose, clientId, onSaved }: Props) {
 
   useEffect(() => {
     if (existing && isEdit) {
-      const e = existing as Record<string,unknown>
+      const e = existing as {
+        firstName?: string
+        lastName?: string
+        companyName?: string
+        clientType?: "PERSON" | "COMPANY"
+        email?: string
+        phone?: string
+        trnNo?: string
+      }
       reset({
-        firstName: String(e.firstName??""), lastName: String(e.lastName??""),
-        companyName: String(e.companyName??""), clientType: (e.clientType as "PERSON"|"COMPANY") ?? "PERSON",
-        email: (e.email as {emailId:string}[])?.[0]?.emailId ?? String(e.email??""),
-        phone: (e.phones as {phoneNo:string}[])?.[0]?.phoneNo ?? String(e.phone??""),
-        trnNo: String(e.trnNo??""),
+        firstName: e.firstName ?? "",
+        lastName: e.lastName ?? "",
+        companyName: e.companyName ?? "",
+        clientType: e.clientType ?? "PERSON",
+        email: e.email ?? "",
+        phone: e.phone ?? "",
+        trnNo: e.trnNo ?? "",
       })
     }
   }, [existing, isEdit, reset])

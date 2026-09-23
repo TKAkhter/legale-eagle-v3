@@ -1,42 +1,92 @@
-import { useTranslation } from 'react-i18next'
-import { Chip } from '@mui/material'
-import { PageShell }     from '@/components/ui/PageShell'
-import { DataGrid }      from '@/components/data-grid/DataGrid'
-import { StatusBadge }   from '@/components/ui/StatusBadge'
-import { env }           from '@/config/env'
-import { axiosClient }   from '@/lib/api/axios'
-import { formatCurrency } from '@/lib/utils/formatCurrency'
-import { lfaItems as staticLfa } from '@/data/static'
-import type { GridParams } from '@/types/common.types'
-
-async function fetchDefaultLfas(_p: GridParams) {
-  if (env.USE_STATIC_DATA) {
-    const list = staticLfa as Record<string,unknown>[]
-    return { content: list, totalElements: list.length, totalPages: 1, number: 0, size: list.length, first: true, last: true, empty: list.length === 0 }
-  }
-  const r = await axiosClient.get('/api/lfa/get/default')
-  const list = r.data?.data ?? r.data ?? []
-  const arr = Array.isArray(list) ? list : [list].filter(Boolean)
-  return { content: arr, totalElements: arr.length, totalPages: 1, number: 0, size: arr.length, first: true, last: true, empty: arr.length === 0 }
-}
+import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import { useQueryClient } from "@tanstack/react-query"
+import { Chip } from "@mui/material"
+import PlayArrowIcon from "@mui/icons-material/PlayArrow"
+import VisibilityIcon from "@mui/icons-material/Visibility"
+import { PageShell } from "@/components/ui/PageShell"
+import { DataGrid } from "@components/data-grid/DataGrid"
+import { StatusBadge } from "@components/ui/StatusBadge"
+import { formatCurrency } from "@lib/utils/formatCurrency"
+import { toast } from "@/lib/toast"
+import { lfaApi } from "@/api/lfa"
+import type { GridParams } from "@/types/common.types"
+import { LfaRatesDialog } from "../_components/LfaRatesDialog"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function DefaultLfasPage() {
   const { t } = useTranslation()
+  const qc = useQueryClient()
+  const [ratesId, setRatesId] = useState<string>()
+  const [activateId, setActivateId] = useState<string>()
+  const [gridKey, setGridKey] = useState(0)
+
   return (
-    <PageShell title={t('nav.lfa-default', 'Default Fee Agreements')} description={t('lfa.defaultDesc', 'Standard fee agreement templates')}>
+    <PageShell
+      title={t("nav.lfa-default", "Default Fee Agreements")}
+      description={t("lfa.defaultDesc", "Standard fee agreement templates")}
+    >
       <DataGrid
+        key={gridKey}
         columns={[
-          { field: 'agreementNo',       header: 'Agreement No.',  sortKey: 'agreementNo', minWidth: 140 },
-          { field: 'billingType',        header: 'Billing Type',   renderCell: v => <Chip size="small" label={String(v ?? '')} variant="outlined" /> },
-          { field: 'fixedBillingAmount', header: 'Fixed Amount',   align: 'right', renderCell: v => formatCurrency(Number(v ?? 0)) },
-          { field: 'hourlyRate',         header: 'Hourly Rate',    align: 'right', renderCell: v => v ? `AED ${Number(v).toFixed(2)}/hr` : '—' },
-          { field: 'sessionRate',        header: 'Session Rate',   align: 'right', renderCell: v => v ? `AED ${Number(v).toFixed(2)}` : '—' },
-          { field: 'current',            header: 'Status',         renderCell: v => <StatusBadge status={v ? 'Active' : 'Inactive'} /> },
+          { field: "agreementNo", header: "Agreement No.", sortKey: "agreementNo", minWidth: 140 },
+          { field: "billingType", header: "Billing Type", renderCell: v => <Chip size="small" label={String(v ?? "")} variant="outlined" /> },
+          {
+            field: "fixedBillingAmount",
+            header: "Fixed Amount",
+            align: "right",
+            renderCell: v => v != null ? formatCurrency(Number(v)) : "—",
+          },
+          {
+            field: "hourlyRate",
+            header: "Hourly Rate",
+            align: "right",
+            renderCell: v => v != null ? `${formatCurrency(Number(v))}/hr` : "—",
+          },
+          {
+            field: "sessionRate",
+            header: "Session Rate",
+            align: "right",
+            renderCell: v => v != null ? formatCurrency(Number(v)) : "—",
+          },
+          { field: "current", header: "Status", renderCell: v => <StatusBadge status={v ? "Active" : "Inactive"} /> },
         ]}
-        queryKey={['lfa', 'default']}
-        queryFn={fetchDefaultLfas}
+        queryKey={["lfa", "default"]}
+        queryFn={(p: GridParams) => lfaApi.getDefaults(p)}
         isPaginated={false}
         defaultSortBy="agreementNo"
+        rowMenuItems={row => {
+          const r = row as Record<string, unknown>
+          const id = String(r.id ?? "")
+          return [
+            {
+              label: "View Rates",
+              icon: <VisibilityIcon fontSize="small" />,
+              hidden: () => String(r.billingType) === "Fixed",
+              onClick: () => setRatesId(id),
+            },
+            {
+              label: "Activate",
+              icon: <PlayArrowIcon fontSize="small" />,
+              hidden: () => Boolean(r.current),
+              onClick: () => setActivateId(id),
+            },
+          ]
+        }}
+      />
+      <LfaRatesDialog open={!!ratesId} lfaId={ratesId} onClose={() => setRatesId(undefined)} />
+      <ConfirmDialog
+        open={!!activateId}
+        onClose={() => setActivateId(undefined)}
+        onConfirm={async () => {
+          toast.success(await lfaApi.activateDefault(String(activateId)))
+          setActivateId(undefined)
+          setGridKey(k => k + 1)
+          qc.invalidateQueries({ queryKey: ["lfa", "default"] })
+        }}
+        title="Activate Default LFA"
+        message="Make this the active default fee agreement?"
+        confirmLabel="Activate"
       />
     </PageShell>
   )

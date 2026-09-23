@@ -1,16 +1,15 @@
-import { env } from '@/config/env'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Box, Alert } from '@mui/material'
+import { Alert } from '@mui/material'
 import { useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@/lib/api/axios'
-import { FormDrawer } from '@/components/ui/FormDrawer'
-import { FormSection } from '@/components/forms/FormSection'
-import { ControlledInput } from '@/components/forms/ControlledInput'
-import { ControlledSelect } from '@/components/forms/ControlledSelect'
-import { ControlledDatePicker } from '@/components/forms/ControlledDatePicker'
-import { ControlledCheckbox } from '@/components/forms/ControlledCheckbox'
-import { QK } from '@/lib/query/keys'
+import { FormDrawer } from '@components/ui/FormDrawer'
+import { FormSection } from '@components/forms/FormSection'
+import { ControlledInput } from '@components/forms/ControlledInput'
+import { ControlledSelect } from '@components/forms/ControlledSelect'
+import { ControlledDatePicker } from '@components/forms/ControlledDatePicker'
+import { ControlledCheckbox } from '@components/forms/ControlledCheckbox'
+import { QK } from '@lib/query/keys'
+import { lfaApi } from '@/api/lfa'
 
 const BILLING_OPTS = ['Hourly','Fixed','Session','NoAgreement','Contingent','NonContingent','Advance','Enforcement','SuccessRate','Courier','Translation']
   .map(v => ({ value:v, label:v }))
@@ -36,32 +35,29 @@ export function LfaFormDrawer({ open, onClose, lfaId, onSuccess }: Props) {
   async function onSubmit(data: Record<string, unknown>) {
     setSubmitError(null)
     try {
-      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
-    const payload = {
-      agreementNo:         data.agreementNo,
-      lfaTitle:            data.lfaTitle,
-      billingType:         data.billingType,
-      fixedBillingAmount:  data.fixedBillingAmount ? Number(data.fixedBillingAmount) : undefined,
-      contingent:          data.contingent ? Number(data.contingent) : undefined,
-      cap:                 data.cap,
-      capAmount:           data.capAmount ? Number(data.capAmount) : undefined,
-      retainer:            data.retainer,
-      retainerAmount:      data.retainerAmount ? Number(data.retainerAmount) : undefined,
-      referral:            data.referral,
-      referralPercentage:  data.referralPercentage ? Number(data.referralPercentage) : undefined,
-      agreementDate:       data.agreementDate,
-    }
-    if (isEdit) {
-      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/lfa/edit', { ...payload, lfaId })
-    } else {
-      if (!env.USE_STATIC_DATA) await axiosClient.post('/api/lfa/add', payload)
-    }
-    qc.invalidateQueries({ queryKey: QK.lfa.all() })
-    onSuccess?.()
-    onClose()
+      const payload = {
+        agreementNo:         data.agreementNo,
+        lfaTitle:            data.lfaTitle,
+        billingType:         data.billingType,
+        fixedBillingAmount:  data.fixedBillingAmount ? Number(data.fixedBillingAmount) : undefined,
+        contingent:          data.contingent ? Number(data.contingent) : undefined,
+        cap:                 data.cap,
+        capAmount:           data.capAmount ? Number(data.capAmount) : undefined,
+        retainer:            data.retainer,
+        retainerAmount:      data.retainerAmount ? Number(data.retainerAmount) : undefined,
+        referral:            data.referral,
+        referralPercentage:  data.referralPercentage ? Number(data.referralPercentage) : undefined,
+        agreementDate:       data.agreementDate,
+      }
+      if (isEdit) await lfaApi.update(String(lfaId), payload)
+      else await lfaApi.create(payload)
+      qc.invalidateQueries({ queryKey: QK.lfa.all() })
+      onSuccess?.()
+      onClose()
     } catch (e: unknown) {
       setSubmitError(
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        (e as { response?: { data?: { message?: string; Msg?: string } } })?.response?.data?.Msg
+        ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
         ?? (e as { message?: string })?.message
         ?? 'Something went wrong. Please try again.'
       )

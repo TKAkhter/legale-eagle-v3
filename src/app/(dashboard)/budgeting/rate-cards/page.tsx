@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { Box, Avatar, Typography, Chip } from '@mui/material'
 import { PageShell }     from '@/components/ui/PageShell'
-import { DataGrid }      from '@/components/data-grid/DataGrid'
+import { DataGrid }      from '@components/data-grid/DataGrid'
 import { env }           from '@/config/env'
-import { axiosClient }   from '@/lib/api/axios'
-import { formatDate }     from '@/lib/utils/formatDate'
+import { axiosClient }   from '@lib/api/axios'
+import { formatDate }     from '@lib/utils/formatDate'
 import { rateCards as staticRateCards } from '@/data/static'
 import type { GridParams } from '@/types/common.types'
 
@@ -13,7 +13,7 @@ async function fetchRateCards(p: GridParams) {
     const list = staticRateCards as Record<string,unknown>[]
     return { content: list, totalElements: list.length, totalPages: 1, number: 0, size: list.length, first: true, last: true, empty: list.length === 0 }
   }
-  const r = await axiosClient.get('/api/user/rate-cards/get', { params: { userId: p.filters?.userId ?? '' } })
+  const r = await axiosClient.get('/api/user/rate-cards/all', { params: { userId: p.filters?.userId ?? '' } })
   const list = r.data?.data ?? r.data ?? []
   const arr = Array.isArray(list) ? list : [list].filter(Boolean)
   return { content: arr, totalElements: arr.length, totalPages: 1, number: 0, size: arr.length, first: true, last: true, empty: arr.length === 0 }

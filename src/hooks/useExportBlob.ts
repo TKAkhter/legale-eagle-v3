@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { axiosBlob } from '@/lib/api/axios'
-import { downloadBlob } from '@/lib/utils/downloadBlob'
+import { axiosBlob } from '@lib/api/axios'
+import { downloadBlob } from '@lib/utils/downloadBlob'
 
 export function useExportBlob() {
   const [exporting, setExporting] = useState(false)

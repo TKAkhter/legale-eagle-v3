@@ -1,53 +1,69 @@
-import { useTranslation } from 'react-i18next'
 import { PageShell } from '@/components/ui/PageShell'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
-import ViewListIcon   from '@mui/icons-material/ViewList'
-import { tasks as staticTasks } from '@/data/static'
+import ViewListIcon from '@mui/icons-material/ViewList'
 import { TaskKanban } from './_components/TaskKanban'
-import { Box, Typography, Button, Chip } from '@mui/material'
+import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Select, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import { useSearchParams } from "react-router-dom"
-import { useEffect } from "react"
-import { DataGrid } from '@/components/data-grid/DataGrid'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { Can } from '@/components/ui/Can'
-import { PERMISSIONS } from '@/config/permissions'
-import { axiosClient } from '@/lib/api/axios'
-import { buildQueryParams } from '@/lib/utils/buildQueryParams'
-import { formatDate } from '@/lib/utils/formatDate'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import { useSearchParams, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { DataGrid } from '@components/data-grid/DataGrid'
+import { StatusBadge } from '@components/ui/StatusBadge'
+import { Can } from '@components/ui/Can'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { SearchInput, FilterActions } from '@components/filters'
+import { PERMISSIONS } from '@config/permissions'
+import { formatDate } from '@lib/utils/formatDate'
 import type { GridParams } from '@/types/common.types'
+import type { FilterPanelProps } from '@components/data-grid/types'
 import { tasksApi } from '@/api/tasks'
-import { env } from '@/config/env'
 import { TaskFormDrawer } from './_components/TaskFormDrawer'
-import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from '@/lib/toast'
 
-async function fetchTasks(params: GridParams) {
-  if (env.USE_STATIC_DATA) return tasksApi.getAll(params)
-  const qp = buildQueryParams(params, { paginationConvention: 'pageNumber-pageSize' })
-  const res = await axiosClient.get('/api/task/get/individual/task/v2', {
-    params: { ...qp, eventType: 'ALL', taskStatus: 'Pending', sortBy: qp.sortBy, sortDir: qp.sortDirection },
+const EVENT_TYPES = ['ALL', 'MATTER', 'CLIENT', 'LEAD', 'GENERAL']
+const STATUSES = ['All', 'Pending', 'In_Progress', 'Completed', 'Overdue', 'Canceled']
+
+function TaskFilters({ onSearch, onReset, filters }: FilterPanelProps) {
+  const [f, setF] = useState<Record<string, unknown>>({
+    eventType: 'ALL',
+    taskStatus: 'Pending',
+    ...filters,
   })
-  return res.data?.data ?? res.data
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-end' }}>
+      <SearchInput value={String(f.searchText ?? '')} onChange={v => setF(p => ({ ...p, searchText: v }))} placeholder="Search tasks..." />
+      <FormControl size="small" sx={{ minWidth: 140 }}>
+        <InputLabel>Related To</InputLabel>
+        <Select label="Related To" value={String(f.eventType ?? 'ALL')} onChange={e => setF(p => ({ ...p, eventType: e.target.value }))}>
+          {EVENT_TYPES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+        </Select>
+      </FormControl>
+      <FormControl size="small" sx={{ minWidth: 140 }}>
+        <InputLabel>Status</InputLabel>
+        <Select label="Status" value={String(f.taskStatus ?? 'Pending')} onChange={e => setF(p => ({ ...p, taskStatus: e.target.value }))}>
+          {STATUSES.map(s => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
+        </Select>
+      </FormControl>
+      <FilterActions
+        onSearch={() => onSearch(f)}
+        onClear={() => { setF({ eventType: 'ALL', taskStatus: 'Pending' }); onReset() }}
+      />
+    </Box>
+  )
 }
 
 export default function TasksPage() {
-  const { t } = useTranslation()
-  const [view, setView] = useState<'list'|'board'>('list')
-  // Kanban uses the same static data — in live mode fetch from API
-  const { data: kanbanData } = useQuery({
-    queryKey: ['tasks','kanban'],
-    queryFn: async () => {
-      if (env.USE_STATIC_DATA) return staticTasks
-      const r = await axiosClient.get('/api/task/get/individual/task/v2', { params: { pageNumber:0, pageSize:100, eventType:'ALL', taskStatus:'Pending' } })
-      return r.data?.data?.content ?? r.data?.content ?? []
-    },
-    enabled: view === 'board',
-  })
-  const kanbanTasks = (kanbanData ?? []) as import('./_components/TaskKanban').KanbanTask[]
+  const navigate = useNavigate()
+  const [view, setView] = useState<'list' | 'board'>('list')
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+  const [editId, setEditId] = useState<string | undefined>()
+  const [deleteId, setDeleteId] = useState<string>()
+  const [gridKey, setGridKey] = useState(0)
+
   useEffect(() => {
     if (searchParams.get("new") === "1") {
       setDrawerOpen(true)
@@ -55,34 +71,104 @@ export default function TasksPage() {
     }
   }, [searchParams, setSearchParams])
 
-  const [editId, setEditId] = useState<string | undefined>()
+  const { data: kanbanData } = useQuery({
+    queryKey: ['tasks', 'kanban'],
+    queryFn: async () => {
+      const page = await tasksApi.getAll({ page: 0, pageSize: 100, filters: { eventType: 'ALL', taskStatus: 'All' } })
+      return page.content
+    },
+    enabled: view === 'board',
+  })
+  const kanbanTasks = (kanbanData ?? []) as unknown as import('./_components/TaskKanban').KanbanTask[]
 
   return (
-    <PageShell title={t("nav.tasks", "Tasks")} description="All tasks across matters" action={<Can do={PERMISSIONS.TASKS_CREATE}><Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>New Task</Button></Can>}>
-      {view === 'board' ? (
-        <TaskKanban tasks={kanbanTasks} onAddTask={()=>{setEditId(undefined);setDrawerOpen(true)}} />
-      ) : (
-      <DataGrid
-        columns={[
-          { field: 'taskName', header: 'Task' },
-          { field: 'taskType', header: 'Related To' },
-          { field: 'priority', header: 'Priority', renderCell: (v) => {
-            const color = v === 'High' ? 'error' : v === 'Low' ? 'default' : 'warning'
-            return <Chip size="small" label={String(v ?? 'Normal')} color={color as 'error'|'warning'|'default'} variant="outlined" />
-          }},
-          { field: 'taskDeadLine', header: 'Deadline', renderCell: (v) => formatDate(String(v ?? '')) },
-        ]}
-        queryKey={['tasks', 'list']}
-        queryFn={fetchTasks}
-        hasExport syncWithUrl
-        detailPath={(row) => `/tasks/${row.id}`}
-        rowMenuItems={(row) => [
-          { label: 'Edit', icon: <></>, permission: 'tasks:edit', onClick: () => { setEditId(String(row.id)); setDrawerOpen(true) } },
-        ]}
-      />
+    <PageShell
+      title="Tasks"
+      description="All tasks across matters"
+      action={(
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <ToggleButtonGroup exclusive size="small" value={view} onChange={(_, value) => value && setView(value)}>
+            <ToggleButton value="list"><ViewListIcon fontSize="small" /></ToggleButton>
+            <ToggleButton value="board"><ViewKanbanIcon fontSize="small" /></ToggleButton>
+          </ToggleButtonGroup>
+          <Can do={PERMISSIONS.TASKS_CREATE}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(undefined); setDrawerOpen(true) }}>
+              New Task
+            </Button>
+          </Can>
+        </Box>
       )}
-      <TaskFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} taskId={editId}
-        onSuccess={() => { qc.invalidateQueries({ queryKey: ['tasks','list'] }); setDrawerOpen(false) }} />
+    >
+      {view === 'board' ? (
+        <TaskKanban tasks={kanbanTasks} onAddTask={() => { setEditId(undefined); setDrawerOpen(true) }} />
+      ) : (
+        <DataGrid
+          key={gridKey}
+          columns={[
+            { field: 'taskName', header: 'Task Name' },
+            { field: 'description', header: 'Description', renderCell: v => String(v || '—') },
+            { field: 'taskType', header: 'Related To', renderCell: v => <Chip size="small" label={String(v ?? '—')} variant="outlined" /> },
+            { field: 'priority', header: 'Priority', renderCell: (v) => {
+              const color = v === 'High' ? 'error' : v === 'Low' ? 'default' : 'warning'
+              return <Chip size="small" label={String(v ?? 'Normal')} color={color as 'error' | 'warning' | 'default'} variant="outlined" />
+            }},
+            { field: 'taskStatus', header: 'Status', renderCell: v => <StatusBadge status={String(v ?? '')} /> },
+            { field: 'assignedTo', header: 'Assigned To', renderCell: v => {
+              const u = v as { firstName?: string; lastName?: string } | null
+              return u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || '—' : '—'
+            }},
+            { field: 'createdBy', header: 'Created By', renderCell: v => {
+              if (typeof v === 'string') return v || '—'
+              const u = v as { firstName?: string; lastName?: string } | null
+              return u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || '—' : '—'
+            }},
+            { field: 'taskDeadLine', header: 'Deadline', renderCell: (v) => formatDate(String(v ?? '')) },
+          ]}
+          queryKey={['tasks', 'list']}
+          queryFn={(p: GridParams) => tasksApi.getAll({
+            ...p,
+            filters: { eventType: 'ALL', taskStatus: 'Pending', ...p.filters },
+          })}
+          FilterPanel={TaskFilters}
+          hasFilters
+          syncWithUrl
+          isSortingBackend={false}
+          defaultPageSize={10}
+          detailPath={(row) => `/tasks/${String((row as { id?: string }).id ?? '')}`}
+          rowMenuItems={(row) => {
+            const id = String((row as { id?: string }).id ?? '')
+            return [
+              { label: 'Details', onClick: () => navigate(`/tasks/${id}`) },
+              { label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: () => { setEditId(id); setDrawerOpen(true) } },
+              { label: 'Delete', icon: <DeleteIcon fontSize="small" />, onClick: () => setDeleteId(id) },
+            ]
+          }}
+        />
+      )}
+      <TaskFormDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        taskId={editId}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ['tasks'] })
+          setDrawerOpen(false)
+          setGridKey(k => k + 1)
+          toast.success(editId ? 'Task updated' : 'Task created')
+        }}
+      />
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(undefined)}
+        onConfirm={async () => {
+          toast.success(await tasksApi.delete(String(deleteId)))
+          setGridKey(k => k + 1)
+          qc.invalidateQueries({ queryKey: ['tasks'] })
+        }}
+        title="Delete Task"
+        message="Are you sure you want to delete this task?"
+        confirmLabel="Delete"
+        severity="error"
+      />
     </PageShell>
   )
 }

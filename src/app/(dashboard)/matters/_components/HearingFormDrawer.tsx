@@ -5,12 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Box, Alert } from '@mui/material'
 import { useQueryClient } from '@tanstack/react-query'
-import { axiosClient } from '@/lib/api/axios'
-import { FormDrawer } from '@/components/ui/FormDrawer'
-import { FormSection } from '@/components/forms/FormSection'
-import { ControlledInput } from '@/components/forms/ControlledInput'
-import { ControlledDatePicker } from '@/components/forms/ControlledDatePicker'
-import { QK } from '@/lib/query/keys'
+import { axiosClient } from '@lib/api/axios'
+import { FormDrawer } from '@components/ui/FormDrawer'
+import { FormSection } from '@components/forms/FormSection'
+import { ControlledInput } from '@components/forms/ControlledInput'
+import { ControlledDatePicker } from '@components/forms/ControlledDatePicker'
+import { QK } from '@lib/query/keys'
 
 const schema = z.object({
   caseNo:       z.string().optional(),
@@ -22,9 +22,9 @@ const schema = z.object({
 })
 type Form = z.infer<typeof schema>
 
-interface Props { open: boolean; onClose: () => void; matterId: string; hearingId?: string }
+interface Props { open: boolean; onClose: () => void; matterId: string; hearingId?: string; onSuccess?: () => void }
 
-export function HearingFormDrawer({ open, onClose, matterId, hearingId }: Props) {
+export function HearingFormDrawer({ open, onClose, matterId, hearingId, onSuccess }: Props) {
   const qc = useQueryClient()
   const [submitError, setSubmitError] = useState<string|null>(null)
   const { control, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ resolver: zodResolver(schema) })
@@ -42,6 +42,7 @@ export function HearingFormDrawer({ open, onClose, matterId, hearingId }: Props)
       if (!env.USE_STATIC_DATA) await axiosClient.post('/api/hearing/add', payload)
     }
     qc.invalidateQueries({ queryKey: ['matters','hearings', matterId] })
+    onSuccess?.()
     onClose()
     } catch (e: unknown) {
       setSubmitError(

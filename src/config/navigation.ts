@@ -91,6 +91,13 @@ export const navigationConfig: NavItem[] = [
         permission: PERMISSIONS.TIMELOGS_VIEW,
       },
       {
+        id: 'activities',
+        title: 'nav.activities',
+        path: '/activities',
+        icon: 'HistoryOutlined',
+        permission: PERMISSIONS.TIMELOGS_VIEW,
+      },
+      {
         id: 'tasks',
         title: 'nav.tasks',
         path: '/tasks',
@@ -121,7 +128,7 @@ export const navigationConfig: NavItem[] = [
       {
         id: 'invoices',
         title: 'nav.invoices',
-        path: '/billings/invoices',
+        path: '/billings',
         icon: 'RequestPageOutlined',
         permission: PERMISSIONS.BILLING_VIEW,
       },
@@ -240,6 +247,7 @@ export const navigationConfig: NavItem[] = [
     children: [
       { id: 'my-team',          title: 'nav.myTeam',         path: '/team',                    icon: 'GroupOutlined', permission: PERMISSIONS.TEAM_VIEW },
       { id: 'hearing-calendar', title: 'nav.hearingCalendar',path: '/team/hearing-calendar',   icon: 'EventNoteOutlined', permission: PERMISSIONS.TEAM_VIEW },
+      { id: 'upcoming-hearings', title: 'nav.upcomingHearings', path: '/team/upcoming-hearings', icon: 'GavelOutlined', permission: PERMISSIONS.TEAM_VIEW },
     ],
   },
   {

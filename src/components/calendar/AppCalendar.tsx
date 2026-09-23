@@ -7,7 +7,7 @@ import { Box, Paper } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarDayPopover } from './CalendarDayPopover'
 import type { AppCalendarProps, CalendarEvent } from './types'
-import type { ColumnDef } from "@/components/data-grid/types"
+import type { ColumnDef } from '@components/data-grid/types'
 
 export function AppCalendar<TEntry extends Record<string,unknown>>({
   queryFn, entryQueryFn, entryColumns=[], onEventClick,

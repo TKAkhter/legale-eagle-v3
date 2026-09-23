@@ -1,6 +1,6 @@
 import { Autocomplete, TextField, CircularProgress } from '@mui/material'
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form'
-import type { SelectOption } from "@/types/common.types"
+import type { SelectOption } from '@/types/common.types'
 interface Props<T extends FieldValues> { name:Path<T>; control:Control<T>; label:string; options:SelectOption[]; loading?:boolean; onInputChange?:(v:string)=>void; required?:boolean }
 export function ControlledAsyncSelect<T extends FieldValues>({ name, control, label, options, loading, onInputChange, required }: Props<T>) {
   return <Controller name={name} control={control} render={({field,fieldState})=>(
