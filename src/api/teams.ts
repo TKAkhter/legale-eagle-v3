@@ -120,4 +120,39 @@ export const teamsApi = {
       empty: content.length === 0,
     }
   },
+
+  async getMemberHearings(attorneyId: string, p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf([
+        {
+          id: "h1",
+          matterTitle: "260303",
+          clientName: "Al Rashid Holdings",
+          hearingDate: "2026-09-15T10:00:00",
+          location: "Dubai Courts",
+          caseNo: "CASE-101",
+          note: "Mention hearing",
+        },
+      ] as Record<string, unknown>[], p)
+    }
+    const res = await axiosClient.get("/api/report/hearings", {
+      params: {
+        attorney: attorneyId,
+        pageNumber: p.page,
+        pageSize: p.pageSize,
+      },
+    })
+    const d = res.data?.data ?? res.data ?? {}
+    const content = (d.content ?? (Array.isArray(d) ? d : [])) as Record<string, unknown>[]
+    return {
+      content,
+      totalElements: Number(d.totalElements ?? content.length),
+      totalPages: Number(d.totalPages ?? 1),
+      number: p.page,
+      size: p.pageSize,
+      first: p.page === 0,
+      last: true,
+      empty: content.length === 0,
+    }
+  },
 }

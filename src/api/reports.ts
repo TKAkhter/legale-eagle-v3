@@ -378,4 +378,316 @@ export const reportsApi = {
   revenue: () => env.USE_STATIC_DATA
     ? Promise.resolve(staticDash.revenue)
     : axiosClient.get("/api/analytics/graph/fixedfees-timelogs-revenue").then(r => r.data?.data ?? []),
+
+  /** Generic GET report list helper used by SimpleReportPage configs. */
+  async fetchReport(
+    path: string,
+    p: GridParams,
+    paramMap: (f: Record<string, unknown>) => Record<string, unknown> = f => f,
+    staticRows: Record<string, unknown>[] = [],
+    method: "get" | "post" = "get",
+  ): Promise<PageResponse<Record<string, unknown>>> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return pg(staticRows.length ? staticRows : [{ id: "1", note: "Sample row (static mode)" }], p)
+    }
+    const f = p.filters ?? {}
+    const params = {
+      pageNumber: p.page,
+      pageSize: p.pageSize,
+      ...paramMap(f),
+    }
+    const res = method === "post"
+      ? await axiosClient.post(path, {}, { params })
+      : await axiosClient.get(path, { params })
+    return unwrap(res.data?.data ?? res.data, p)
+  },
+
+  getDues: (p: GridParams) => reportsApi.fetchReport("/api/report/dues", p, f => ({
+    clientId: f.clientId ?? "",
+    matterId: f.matterId ?? "",
+  }), [
+    { id: "d1", clientName: "Al Rashid Holdings", matterTitle: "260303", dueAmount: 12000, overdueDays: 45 },
+  ]),
+
+  getMattersReport: (p: GridParams) => reportsApi.fetchReport("/api/report/matter/mini/filter/v2", p, f => ({
+    clientId: f.clientId ?? "",
+    departmentId: f.departmentId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "m1", title: "260303 — Building Dispute", status: "Open", clientName: "Al Rashid Holdings", billingType: "Hourly" },
+  ], "post"),
+
+  getTasksReport: (p: GridParams) => reportsApi.fetchReport("/api/report/tasks", p, f => ({
+    type: f.eventType ?? "ALL",
+    clientId: f.clientId ?? "",
+    userId: f.userId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "t1", taskName: "Draft memo", taskStatus: "Pending", priority: "High", assignedTo: "Sarah Johnson" },
+  ], "post"),
+
+  getHearingsReport: (p: GridParams) => reportsApi.fetchReport("/api/report/hearings/mini/page", p, f => ({
+    clientId: f.clientId ?? "",
+    matterId: f.matterId ?? "",
+    hearingfromDate: f.fromDate ?? "",
+    hearingToDate: f.toDate ?? "",
+    caseNo: "",
+    caseType: "",
+  }), [
+    { id: "h1", hearingTitle: "CMC", matterTitle: "260303", hearingDate: "2026-09-25", location: "Dubai Courts" },
+  ]),
+
+  getProfitLoss: (p: GridParams) => reportsApi.fetchReport("/api/report/fee-earners/revenue/profit-and-loss", p, f => ({
+    departmentId: f.departmentId ?? "",
+    responsiblePerson: f.userId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "pl1", userName: "Sarah Johnson", revenue: 85000, cost: 42000, profit: 43000 },
+  ]),
+
+  getAttorneyRevenue: (p: GridParams) => reportsApi.fetchReport("/api/report/fee-earners/revenue/billed", p, f => ({
+    departmentId: f.departmentId ?? "",
+    responsiblePerson: f.userId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "ar1", userName: "Sarah Johnson", billed: 85000, collected: 75000 },
+  ]),
+
+  getReferralReport: (p: GridParams) => reportsApi.fetchReport("/api/report/lfa/referral", p, f => ({
+    billingType: f.billingType ?? "",
+    clientId: f.clientId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "rf1", referralParty: "Mohammad Ovesh", referralSource: "Internal", amount: 15000 },
+  ]),
+
+  getNonConvertedLeads: (p: GridParams) => reportsApi.fetchReport("/api/report/lead/activity-time", p, f => ({
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+    userId: f.userId ?? "",
+  }), [
+    { id: "nc1", leadName: "Prospect Co", hours: 12, status: "Open" },
+  ]),
+
+  getPurgedDiscounted: (p: GridParams) => reportsApi.fetchReport("/api/report/activity/statistics/purged-discounted", p, f => ({
+    departmentId: f.departmentId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "pd1", activity: "Research", purgedHours: 2, discountedAmount: 500 },
+  ]),
+
+  getCostAnalysis: (p: GridParams) => reportsApi.fetchReport("/api/report/lfa/cost-analysis", p, f => ({
+    matterId: f.matterId ?? "",
+    lfaId: f.lfaId ?? "",
+    billingType: f.billingType ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "ca1", agreementNo: "LFA-001", cost: 25000, billed: 40000, margin: 15000 },
+  ]),
+
+  getZohoOutstanding: (p: GridParams) => reportsApi.fetchReport("/api/zoho/outstanding", p, f => ({
+    clientId: f.clientId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "zo1", clientName: "Al Rashid Holdings", outstanding: 8500, zohoInvoiceNo: "INV-ZOHO-1" },
+  ], "post"),
+
+  getInvoicesReport: (p: GridParams) => reportsApi.fetchReport("/api/report/invoice/filter", p, f => ({
+    clientId: f.clientId ?? "",
+    matterId: f.matterId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+  }), [
+    { id: "inv1", invoiceNo: "INV-1001", clientName: "Al Rashid Holdings", totalAmount: 15000, status: "Paid" },
+  ]),
+
+  getLeadsReport: (p: GridParams) => reportsApi.fetchReport("/api/report/lead/filter", p, f => ({
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+    userId: f.userId ?? "",
+  }), [
+    { id: "ld1", leadName: "Prospect Co", status: "Open", ownerName: "Sarah Johnson", value: 25000 },
+  ], "post"),
+
+  getActivitiesReport: (p: GridParams) => reportsApi.fetchReport("/api/report/activity/filter/m/v2", p, f => ({
+    clientId: f.clientId ?? "",
+    matterId: f.matterId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+    userId: f.userId ?? "",
+  }), [
+    { id: "act1", activityName: "Document Review", matterTitle: "260303", hours: 3.5, userName: "Sarah Johnson" },
+  ], "post"),
+
+  getDepositBalance: (p: GridParams) => reportsApi.fetchReport("/api/report/deposit/balance/amount/v2", p, f => ({
+    clientId: f.clientId ?? "",
+    lfaId: f.lfaId ?? "",
+  }), [
+    { id: "dep1", clientName: "Al Rashid Holdings", agreementNo: "LFA-001", balance: 5000 },
+  ]),
+
+  getUserTimelogEntries: (p: GridParams) => reportsApi.fetchReport("/api/report/activity/statistics/by-person", p, f => ({
+    userId: f.userId ?? "", departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "ute1", userName: "Sarah Johnson", totalHours: 42, billableHours: 38, nonBillableHours: 4, departmentName: "Litigation" },
+  ]),
+
+  getRatingReport: (p: GridParams) => reportsApi.fetchReport("/api/report/tasks/rating", p, f => ({
+    userId: f.userId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "rt1", userName: "Sarah Johnson", averageRating: 4.5, taskCount: 12 },
+  ]),
+
+  getPostsReport: (p: GridParams) => reportsApi.fetchReport("/api/leads/get/list", p, f => ({
+    type: "People", status: "Converted", page: p.page, pageSize: p.pageSize,
+  }), [
+    { id: "p1", firstName: "Ali", lastName: "Hassan", companyName: "Prospect Co", status: "Converted" },
+  ]),
+
+  getWipAttorney: (p: GridParams) => reportsApi.fetchReport("/api/report/wip-reports/fee-earners", p, f => ({
+    responsiblePerson: f.userId ?? "", departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "", invoiceCreated: false,
+  }), [
+    { id: "wa1", userName: "Sarah Johnson", matterTitle: "260303", totalHours: 12, totalAmount: 12000, revenueStatus: "DRAFT" },
+  ]),
+
+  getWipMatter: (p: GridParams) => reportsApi.fetchReport("/api/report/wip-reports/fee-earners/by-matter", p, f => ({
+    matterId: f.matterId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "wm1", matterTitle: "260303", userName: "Sarah Johnson", totalHours: 12, totalAmount: 12000, revenueStatus: "DRAFT" },
+  ]),
+
+  getRetainerStatementReport: (p: GridParams) => reportsApi.fetchReport("/api/report/tasks", p, f => ({
+    clientId: f.clientId ?? "", matterId: f.matterId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "rs1", clientName: "Al Rashid Holdings", matterTitle: "260303", balance: 5000, status: "Active" },
+  ]),
+
+  getMatterSummary: (p: GridParams) => reportsApi.fetchReport("/api/report/matter/mini/filter", p, f => ({
+    clientId: f.clientId ?? "", userId: f.userId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "ms1", title: "260303", clientName: "Al Rashid", attorneyName: "Sarah Johnson", status: "Open", billingType: "Hourly" },
+  ], "post"),
+
+  getClosedMatters: (p: GridParams) => reportsApi.fetchReport("/api/matter/close/form/search", p, f => ({
+    clientId: f.clientId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "cm1", matterTitle: "260280", clientName: "Al Rashid", closedDate: "2026-08-01", closedBy: "Admin", reason: "Settled" },
+  ], "post"),
+
+  getFeeEarnerBilled: (p: GridParams) => reportsApi.fetchReport("/api/report/wip-reports/fee-earners", p, f => ({
+    responsiblePerson: f.userId ?? "", departmentId: f.departmentId ?? "", matterId: f.matterId ?? "", invoiceCreated: true, fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "feb1", userName: "Sarah Johnson", matterTitle: "260303", totalHours: 10, totalAmount: 10000, departmentName: "Litigation" },
+  ]),
+
+  getTaskAverage: (p: GridParams) => reportsApi.fetchReport("/api/report/tasks/rating", p, f => ({
+    userId: f.userId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "ta1", userName: "Sarah Johnson", averageRating: 4.2, taskCount: 8 },
+  ]),
+
+  getFixedBalance: (p: GridParams) => reportsApi.fetchReport("/api/report/fixed/balance/amount", p, f => ({
+    lfaId: f.lfaId ?? "", clientId: f.clientId ?? "", matterId: f.matterId ?? "",
+  }), [
+    { id: "fb1", agreementNo: "LFA-001", clientName: "Al Rashid", matterTitle: "260303", balance: 8000, totalAmount: 20000 },
+  ]),
+
+  getBillingByLfa: (p: GridParams) => reportsApi.fetchReport("/api/report/lfa/billing/v2", p, f => ({
+    lfaId: f.lfaId ?? "", clientId: f.clientId ?? "", matterId: f.matterId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "bl1", agreementNo: "LFA-001", clientName: "Al Rashid", matterTitle: "260303", billed: 40000, collected: 35000 },
+  ]),
+
+  getBillableByDepartment: (p: GridParams) => reportsApi.fetchReport("/api/report/department/billing/v2", p, f => ({
+    departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "bd1", departmentName: "Litigation", totalBilled: 120000, totalPaid: 100000, outstanding: 20000 },
+  ]),
+
+  getAuditReport: (p: GridParams) => reportsApi.fetchReport("/api/audit-record/page", p, f => ({
+    userId: f.userId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "au1", action: "UPDATE", entityType: "Matter", userName: "Admin", createdAt: "2026-09-01", details: "Status changed" },
+  ]),
+
+  getOnedriveReport: (p: GridParams) => reportsApi.fetchReport("/api/onedrive/matter/folders", p, f => ({
+    matterId: f.matterId ?? "", clientId: f.clientId ?? "",
+  }), [
+    { id: "od1", matterTitle: "260303", folderName: "Building Dispute", path: "/Matters/260303", clientName: "Al Rashid" },
+  ]),
+
+  getFavouriteClients: (p: GridParams) => reportsApi.fetchReport("/api/fav/client/list/group", p, f => ({
+    clientId: f.clientId ?? "",
+  }), [
+    { id: "fc1", clientName: "Al Rashid Holdings", userName: "Sarah Johnson", count: 3, createdAt: "2026-07-01" },
+  ]),
+
+  getFixedFeeRevenueAllocation: (p: GridParams) => reportsApi.fetchReport("/api/revenue-allocation", p, f => ({
+    departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "ff1", matterTitle: "260303", userName: "Sarah Johnson", allocated: 15000, departmentName: "Litigation" },
+  ]),
+
+  getProcuredBy: (p: GridParams) => reportsApi.fetchReport("/api/report/procuredby/revenue", p, f => ({
+    userId: f.userId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "pb1", userName: "Sarah Johnson", revenue: 85000, leadCount: 12, matterCount: 8 },
+  ]),
+
+  getLeadValue: (p: GridParams) => reportsApi.fetchReport("/api/report/procuredby/revenue", p, f => ({
+    userId: f.userId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "", type: "lead-value",
+  }), [
+    { id: "lv1", userName: "Sarah Johnson", leadValue: 120000, convertedValue: 80000, leadCount: 15 },
+  ]),
+
+  getLeadsReduction: (p: GridParams) => reportsApi.fetchReport("/api/leads/reductions", p, f => ({
+    userId: f.userId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "lr1", stage: "Qualification", count: 20, reductionPct: 35, userName: "Sarah Johnson" },
+  ]),
+
+  getMatterRevenueSummary: (p: GridParams) => reportsApi.fetchReport("/api/revenue-allocation/matter-revenue-summary", p, f => ({
+    departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "mrs1", matterTitle: "260303", revenue: 45000, sessions: 6, departmentName: "Litigation" },
+  ]),
+
+  getEstimateHoursByDesignation: (p: GridParams) => reportsApi.fetchReport("/api/report/estimate-hours-by-designation/matter-summary", p, f => ({
+    matterId: f.matterId ?? "", departmentId: f.departmentId ?? "",
+  }), [
+    { id: "eh1", matterTitle: "260303", designation: "Associate", estimatedHours: 40, actualHours: 36 },
+  ]),
+
+  getRevenueBudget: (p: GridParams) => reportsApi.fetchReport("/api/report/revenue-vs-budget", p, f => ({
+    departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "rb1", departmentName: "Litigation", revenue: 100000, budget: 90000, variance: 10000 },
+  ]),
+
+  getBillingRateAnalysis: (p: GridParams) => reportsApi.fetchReport("/api/report/fee-earners/revenue/effective-billing-rate", p, f => ({
+    responsiblePerson: f.userId ?? "", departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "bra1", userName: "Sarah Johnson", effectiveRate: 950, standardRate: 1000, hours: 40, departmentName: "Litigation" },
+  ]),
+
+  getMatterBillingSnapshot: (p: GridParams) => reportsApi.fetchReport("/api/report/matter/all/billing/cached", p, f => ({
+    departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "mbs1", matterTitle: "260303", clientName: "Al Rashid", totalBilled: 50000, wip: 5000, status: "Open" },
+  ]),
+
+  getMarginErosionCache: (p: GridParams) => reportsApi.fetchReport("/api/report/get/me-report-cache", p, f => ({
+    departmentId: f.departmentId ?? "", fromDate: f.fromDate ?? "", toDate: f.toDate ?? "",
+  }), [
+    { id: "mec1", matterTitle: "260303", userName: "Sarah Johnson", erosionAmount: 2000, erosionPct: 8.5, departmentName: "Litigation" },
+  ]),
 }

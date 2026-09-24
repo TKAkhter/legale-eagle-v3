@@ -37,6 +37,7 @@ import ArrowBackIcon    from "@mui/icons-material/ArrowBack"
 import RefreshIcon      from "@mui/icons-material/Refresh"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { emailApi, type Email, type EmailFolder } from "@/api/email"
+import { ComposeEmailDrawer } from "./_components/ComposeEmailDrawer"
 import { formatDateTime, fromNow } from "@lib/utils/formatDate"
 import { toast }   from "@/lib/toast"
 import { logger }  from "@/lib/logger"
@@ -68,6 +69,8 @@ export default function EmailPage() {
   const [selectedEmail,  setSelectedEmail]  = useState<Email | null>(null)
   // Mobile: which panel to show (0=folders, 1=list, 2=preview)
   const [mobilePanel,    setMobilePanel]    = useState(1)
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [replyTo, setReplyTo] = useState<{ to?: string; subject?: string } | null>(null)
 
   // Fetch folders
   const { data: folders = [], isLoading: fLoading } = useQuery<EmailFolder[]>({
@@ -120,7 +123,12 @@ export default function EmailPage() {
         {(isDesktop || !isTablet) && (
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Mail</Typography>
         )}
-        <Button variant="contained" size="small" sx={{ fontSize: 12, py: 0.5, minWidth: isTablet && !isDesktop ? 36 : "auto" }}>
+        <Button
+          variant="contained"
+          size="small"
+          sx={{ fontSize: 12, py: 0.5, minWidth: isTablet && !isDesktop ? 36 : "auto" }}
+          onClick={() => { setReplyTo(null); setComposeOpen(true) }}
+        >
           {isTablet && !isDesktop ? "+" : "+ Compose"}
         </Button>
       </Box>
@@ -250,7 +258,17 @@ export default function EmailPage() {
 
           {/* Action bar */}
           <Box sx={{ px: 2, py: 1, borderBottom: "1px solid", borderColor: "divider", display: "flex", gap: 1 }}>
-            <Button size="small" startIcon={<ReplyIcon />} variant="outlined">Reply</Button>
+            <Button
+              size="small"
+              startIcon={<ReplyIcon />}
+              variant="outlined"
+              onClick={() => {
+                setReplyTo({ to: selectedEmail.from, subject: selectedEmail.subject })
+                setComposeOpen(true)
+              }}
+            >
+              Reply
+            </Button>
             <Tooltip title="Delete">
               <IconButton size="small" color="error" onClick={() => deleteEmail.mutate(selectedEmail.id)}>
                 <DeleteIcon fontSize="small" />
@@ -294,6 +312,17 @@ export default function EmailPage() {
         {showList    && listPanel}
         {showPreview && previewPanel}
       </Paper>
+      <ComposeEmailDrawer
+        open={composeOpen}
+        onClose={() => { setComposeOpen(false); setReplyTo(null) }}
+        replyTo={replyTo}
+        onSuccess={() => {
+          setComposeOpen(false)
+          setReplyTo(null)
+          toast.success("Email sent")
+          void refetch()
+        }}
+      />
     </Box>
   )
 }

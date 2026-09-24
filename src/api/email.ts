@@ -134,4 +134,67 @@ export const emailApi = {
       }),
     })
   },
+
+  /**
+   * Resolve a conversation thread by internetMessageId (LMS matter-mail detail).
+   * Returns messages newest-first; empty if Graph unavailable.
+   */
+  async getConversationByInternetMessageId(internetMessageId: string): Promise<Array<{
+    id: string
+    subject: string
+    from: string
+    to: string
+    cc: string
+    body: string
+    date: string
+    webLink: string
+    hasAttachments: boolean
+  }>> {
+    if (env.USE_STATIC_DATA || !internetMessageId) return []
+    try {
+      const { getOneDriveToken } = await import("@lib/auth/msal")
+      const token = await getOneDriveToken()
+      const escaped = internetMessageId.replace(/'/g, "''")
+      const filterUrl =
+        `https://graph.microsoft.com/v1.0/me/messages?$filter=internetMessageId eq '${encodeURIComponent(escaped)}'` +
+        `&$select=id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,sentDateTime,internetMessageId,conversationId,hasAttachments,webLink`
+      const r = await fetch(filterUrl, { headers: { Authorization: `Bearer ${token}` } })
+      if (!r.ok) return []
+      const data = await r.json()
+      const first = (data.value ?? [])[0] as Record<string, unknown> | undefined
+      if (!first) return []
+      const conversationId = String(first.conversationId ?? "")
+      let messages = data.value ?? [first]
+      if (conversationId) {
+        const convEsc = conversationId.replace(/'/g, "''")
+        const convUrl =
+          `https://graph.microsoft.com/v1.0/me/messages?$filter=conversationId eq '${encodeURIComponent(convEsc)}'` +
+          `&$top=100&$select=id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,sentDateTime,internetMessageId,conversationId,hasAttachments,webLink`
+        const cr = await fetch(convUrl, { headers: { Authorization: `Bearer ${token}` } })
+        if (cr.ok) {
+          const cd = await cr.json()
+          messages = cd.value ?? messages
+        }
+      }
+      const addr = (list: unknown) =>
+        ((list as { emailAddress?: { address?: string } }[]) ?? [])
+          .map(x => x.emailAddress?.address ?? "")
+          .filter(Boolean)
+          .join(", ")
+      return (messages as Record<string, unknown>[]).map(m => ({
+        id: String(m.id ?? ""),
+        subject: String(m.subject ?? "(No subject)"),
+        from: (m.from as { emailAddress?: { address?: string } })?.emailAddress?.address ?? "",
+        to: addr(m.toRecipients),
+        cc: addr(m.ccRecipients),
+        body: (m.body as { content?: string })?.content ?? "",
+        date: String(m.receivedDateTime ?? m.sentDateTime ?? ""),
+        webLink: String(m.webLink ?? ""),
+        hasAttachments: Boolean(m.hasAttachments),
+      }))
+    } catch (e) {
+      logger.warn("emailApi", "Graph conversation fetch failed", e)
+      return []
+    }
+  },
 }

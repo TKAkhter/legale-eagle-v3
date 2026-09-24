@@ -244,16 +244,42 @@ export const timelogsApi = {
     return res.data?.Msg ?? res.data?.message ?? "Activities approved."
   },
 
-  async purge(activityId: string, body: { hours?: number; minutes?: number }) {
+  async purge(activityId: string, body: { hours?: number; minutes?: number; billedHours?: number; billedMinutes?: number }) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Purged." }
     const res = await axiosClient.post("/api/activity/purge/v2", body, { params: { activityId } })
     return res.data?.Msg ?? res.data?.message ?? "Purged."
   },
 
-  async discount(activityId: string, body: { hours?: number; minutes?: number }) {
+  async discount(activityId: string, body: { hours?: number; minutes?: number; billedHours?: number; billedMinutes?: number }) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Discounted." }
     const res = await axiosClient.post("/api/activity/discount/v2", body, { params: { activityId } })
     return res.data?.Msg ?? res.data?.message ?? "Discounted."
+  },
+
+  async purgeForInvoice(invoiceId: string, activityId: string, body: { billedHours: number; billedMinutes: number }) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Purged." }
+    const res = await axiosClient.post("/api/activity/purge", body, { params: { invoiceId, activityId } })
+    return res.data?.Msg ?? res.data?.message ?? "Purged."
+  },
+
+  async discountForInvoice(invoiceId: string, activityId: string, body: { billedHours: number; billedMinutes: number }) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Discounted." }
+    const res = await axiosClient.post("/api/activity/discount", body, { params: { invoiceId, activityId } })
+    return res.data?.Msg ?? res.data?.message ?? "Discounted."
+  },
+
+  async getByInvoice(invoiceId: string, attorneyId?: string) {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "a1", activity: "Legal research", hours: 4, minutes: 0, billing: 4000, note: "Research" },
+        { id: "a2", activity: "Drafting", hours: 6, minutes: 0, billing: 8000, note: "Draft reply" },
+      ]
+    }
+    const res = await axiosClient.get("/api/activity/get/by/invoice/all", {
+      params: { invoiceId, attorneyId: attorneyId ?? "" },
+    })
+    const data = res.data?.data ?? res.data ?? []
+    return Array.isArray(data) ? data : []
   },
 
   async getStopwatchInfo(stopwatchId?: string) {

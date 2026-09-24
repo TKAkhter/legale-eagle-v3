@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { Box, Typography, Paper, Chip, Button, Divider } from "@mui/material"
 import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import AddIcon from "@mui/icons-material/Add"
@@ -23,8 +23,12 @@ import { MatterTimeline } from "../_components/MatterTimeline"
 import { MatterOverview } from "../_components/MatterOverview"
 import { MatterNotesPanel } from "../_components/MatterNotesPanel"
 import { MatterCloseDialog } from "../_components/MatterCloseDialog"
+import PauseCircleOutlineOutlinedIcon from "@mui/icons-material/PauseCircleOutlineOutlined"
 import { MatterFormDrawer } from "../_components/MatterFormDrawer"
 import { ActivityFormDrawer } from "../../time-log-entries/_components/ActivityFormDrawer"
+import { DocumentsTab } from "@/components/detail/DocumentsTab"
+import { StopWorkingDrawer } from "../_components/StopWorkingDrawer"
+import { MatterFinancialsTab } from "../_components/MatterFinancialsTab"
 import { useStopwatchStore, getActiveMatterTimers, setActiveMatterTimers, MAX_MATTER_TIMERS } from "@lib/store/stopwatchStore"
 import { useAuthStore } from "@lib/store/authStore"
 import { formatDate } from "@lib/utils/formatDate"
@@ -48,6 +52,7 @@ function personName(value: unknown): string {
 
 export default function MatterDetailPage() {
   const { matterId } = useParams()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const startStopwatch = useStopwatchStore(s => s.start)
   const setTimers = useStopwatchStore(s => s.setTimers)
@@ -59,6 +64,7 @@ export default function MatterDetailPage() {
   const [closeOpen, setCloseOpen] = useState(false)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [stopWorkingOpen, setStopWorkingOpen] = useState(false)
   const [startingTimer, setStartingTimer] = useState(false)
 
   const { data: matter, isLoading, isError } = useQuery({
@@ -91,6 +97,8 @@ export default function MatterDetailPage() {
   const cl = (m.client ?? m.clientMini) as { companyName?: string; firstName?: string } | null
   const pa = (m.practiceArea as { name?: string })?.name ?? ""
   const id = String(m.matterId ?? matterId ?? "")
+  const stopWorking = m.matterStopWorking as { matterStopWorkingEnabled?: boolean; matterStopWorkingReasonId?: string } | null
+  const stopWorkingEnabled = !!(stopWorking?.matterStopWorkingEnabled ?? m.stopWorkingEnabled)
 
   function activityHours(row: Record<string, unknown>): string {
     if (row.totalHours != null && row.totalHours !== "") return Number(row.totalHours).toFixed(1)
@@ -196,6 +204,17 @@ export default function MatterDetailPage() {
           {isOpen && <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setHearingOpen(true)}>Hearing</Button>}
           {isOpen && <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setLogTimeOpen(true)}>Time Entry</Button>}
           {canEdit && isOpen && <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>Edit</Button>}
+          {canEdit && isOpen && (
+            <Button
+              size="small"
+              variant="outlined"
+              color={stopWorkingEnabled ? "warning" : "inherit"}
+              startIcon={<PauseCircleOutlineOutlinedIcon />}
+              onClick={() => setStopWorkingOpen(true)}
+            >
+              {stopWorkingEnabled ? "Edit Stop Working" : "Stop Working"}
+            </Button>
+          )}
           {canEdit && isOpen && <Button size="small" variant="outlined" color="error" startIcon={<CloseIcon />} onClick={() => setCloseOpen(true)}>Close</Button>}
           {canEdit && status === "CLOSE" && <Button size="small" variant="outlined" startIcon={<RestartAltIcon />} onClick={() => setReopenOpen(true)}>Reopen</Button>}
           <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={() => window.open(`/matters/print?matterId=${matterId}`, "_blank")}>Print</Button>
@@ -215,6 +234,7 @@ export default function MatterDetailPage() {
           </Box>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <StatusBadge status={status} />
+            {stopWorkingEnabled && <Chip size="small" color="warning" label="Stop Working" />}
             <Chip size="small" label={String(m.billingType ?? "")} variant="outlined" />
             {!!pa && <Chip size="small" label={pa} variant="outlined" />}
           </Box>
@@ -340,6 +360,12 @@ export default function MatterDetailPage() {
               ]}
               queryKey={["matters", "mails", matterId]}
               queryFn={(p: GridParams) => mattersApi.getMails(id, p)}
+              onRowClick={(row) => {
+                const r = row as Record<string, unknown>
+                const eid = String(r.emailId ?? r.id ?? "")
+                if (!eid) return
+                navigate(`/matters/${id}/mail/${encodeURIComponent(eid)}?_matterId=${id}`)
+              }}
             />
           ),
         },
@@ -476,8 +502,18 @@ export default function MatterDetailPage() {
               queryKey={["matters", "invoices", matterId]}
               queryFn={(p: GridParams) => mattersApi.getInvoices(id, p)}
               detailPath={row => `/billings/${String((row as { id?: string }).id ?? "")}`}
+              rowMenuItems={row => {
+                const invId = String((row as { id?: string }).id ?? "")
+                return [
+                  { label: "Record Payment", onClick: () => { window.location.href = `/payment?invoiceId=${invId}` } },
+                ]
+              }}
             />
           ),
+        },
+        {
+          label: "Financials",
+          content: <MatterFinancialsTab matterId={id} />,
         },
         {
           label: "Timeline",
@@ -488,6 +524,26 @@ export default function MatterDetailPage() {
               tasks={(tasksTimeline.data?.content ?? ST) as Record<string, unknown>[]}
               timelogs={(timelogsTimeline.data?.content ?? STL) as Record<string, unknown>[]}
               invoices={(invoicesTimeline.data?.content ?? SI) as Record<string, unknown>[]}
+            />
+          ),
+        },
+        {
+          label: "Documents",
+          content: <DocumentsTab relatedTo="MATTER" relatedToId={id} />,
+        },
+        {
+          label: "Conflict Check",
+          content: (
+            <DataGrid
+              columns={[
+                { field: "partyName", header: "Party", renderCell: (v, row) => String(v ?? (row as { name?: string }).name ?? (row as { matchedName?: string }).matchedName ?? "—") },
+                { field: "matchType", header: "Match Type", renderCell: v => String(v || "—") },
+                { field: "status", header: "Status", renderCell: (v, row) => <StatusBadge status={String(v ?? (row as { risk?: string }).risk ?? "")} /> },
+                { field: "details", header: "Details", renderCell: v => String(v || "—") },
+              ]}
+              queryKey={["matters", "conflict", matterId]}
+              queryFn={(p: GridParams) => mattersApi.getConflictChecks(id, p)}
+              zebraStriping
             />
           ),
         },
@@ -540,16 +596,31 @@ export default function MatterDetailPage() {
         onClose={() => setCloseOpen(false)}
         matterId={id}
         matterTitle={String(m.title ?? "")}
+        responsibleAttorneyId={String((m.responsibleAttorney as { id?: string } | null)?.id ?? m.responsibleAttorneyId ?? "")}
         onClosed={() => qc.invalidateQueries({ queryKey: ["matters", "detail", matterId] })}
       />
       <MatterFormDrawer
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        matterId={String(m.id ?? id)}
+        matterId={id}
         onSuccess={() => {
           setEditOpen(false)
           qc.invalidateQueries({ queryKey: ["matters", "detail", matterId] })
           toast.success("Matter updated")
+        }}
+      />
+      <StopWorkingDrawer
+        open={stopWorkingOpen}
+        onClose={() => setStopWorkingOpen(false)}
+        matterId={id}
+        current={{
+          enabled: stopWorkingEnabled,
+          reasonId: String(stopWorking?.matterStopWorkingReasonId ?? m.stopWorkingReasonId ?? ""),
+        }}
+        onSuccess={() => {
+          setStopWorkingOpen(false)
+          qc.invalidateQueries({ queryKey: ["matters", "detail", matterId] })
+          toast.success("Stop working updated")
         }}
       />
       <ConfirmDialog

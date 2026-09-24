@@ -98,6 +98,12 @@ export const tasksApi = {
     await axiosClient.post("/api/task/update/single/task", data, { params: { taskId } })
   },
 
+  async addSubtask(mainTaskId: string, data: Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return { id: "st-new" } }
+    const res = await axiosClient.post("/api/task/add/subtask", data, { params: { mainTaskId } })
+    return res.data?.data ?? res.data
+  },
+
   async delete(taskId: string): Promise<string> {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Task deleted." }
     const res = await axiosClient.put("/api/task/delete/task", {}, { params: { taskId } })

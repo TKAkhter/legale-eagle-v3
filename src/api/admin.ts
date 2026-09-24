@@ -111,6 +111,28 @@ export const adminApi = {
     return res.data?.data ?? res.data ?? []
   },
 
+  /** Per-user permission matrix (LMS /menu/individual/menu). */
+  async getIndividualMenu(userId: string) {
+    if (env.USE_STATIC_DATA) {
+      return {
+        permissions: [
+          {
+            parentMenu: { id: "m1", menuName: "Matters" },
+            parentMenuAccess: { visible: true, add: true, edit: false, delete: false },
+            submenu: [],
+          },
+        ],
+      }
+    }
+    const res = await axiosClient.get("/api/menu/individual/menu", { params: { userId } })
+    return res.data?.data ?? res.data ?? {}
+  },
+
+  async saveIndividualPermissions(userId: string, permission: unknown[]) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    await axiosClient.post("/api/group/add/individual/permission", { permission }, { params: { userId } })
+  },
+
   async getCompanyInfo() {
     if (env.USE_STATIC_DATA) {
       return {

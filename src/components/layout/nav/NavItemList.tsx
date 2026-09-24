@@ -66,8 +66,17 @@ import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined"
 import PercentOutlinedIcon from "@mui/icons-material/PercentOutlined"
 import EmojiEventsOutlinedIcon from "@mui/icons-material/EmojiEventsOutlined"
 import HourglassBottomOutlinedIcon from "@mui/icons-material/HourglassBottomOutlined"
+import HourglassTopOutlinedIcon from "@mui/icons-material/HourglassTopOutlined"
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined"
 import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined"
+import MoneyOffOutlinedIcon from "@mui/icons-material/MoneyOffOutlined"
+import FolderOpenOutlinedIcon from "@mui/icons-material/FolderOpenOutlined"
+import ChecklistOutlinedIcon from "@mui/icons-material/ChecklistOutlined"
+import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined"
+import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined"
+import PersonOffOutlinedIcon from "@mui/icons-material/PersonOffOutlined"
+import DeleteSweepOutlinedIcon from "@mui/icons-material/DeleteSweepOutlined"
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined"
 import { useTranslation } from "react-i18next"
 import type { NavItem } from "@config/navigation"
 import { logger } from "@/lib/logger"
@@ -129,8 +138,17 @@ const ICONS = {
   PercentOutlined: PercentOutlinedIcon,
   EmojiEventsOutlined: EmojiEventsOutlinedIcon,
   HourglassBottomOutlined: HourglassBottomOutlinedIcon,
+  HourglassTopOutlined: HourglassTopOutlinedIcon,
   StorefrontOutlined: StorefrontOutlinedIcon,
   EventAvailableOutlined: EventAvailableOutlinedIcon,
+  MoneyOffOutlined: MoneyOffOutlinedIcon,
+  FolderOpenOutlined: FolderOpenOutlinedIcon,
+  ChecklistOutlined: ChecklistOutlinedIcon,
+  ShowChartOutlined: ShowChartOutlinedIcon,
+  ShareOutlined: ShareOutlinedIcon,
+  PersonOffOutlined: PersonOffOutlinedIcon,
+  DeleteSweepOutlined: DeleteSweepOutlinedIcon,
+  LocalShippingOutlined: LocalShippingOutlinedIcon,
 } as const
 
 export interface NavListProps {

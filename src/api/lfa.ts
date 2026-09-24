@@ -100,6 +100,19 @@ export const lfaApi = {
     return unwrapAxiosList(res.data)
   },
 
+  /** Seed designation rates for new Hourly LFAs (LMS /util/get/hourly/rate). */
+  async getDefaultHourlyRates() {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { designation: { id: "d1", name: "Partner" }, rate: 800, defaultRate: 800 },
+        { designation: { id: "d2", name: "Associate" }, rate: 450, defaultRate: 450 },
+        { designation: { id: "d3", name: "Paralegal" }, rate: 200, defaultRate: 200 },
+      ]
+    }
+    const res = await axiosClient.get("/api/util/get/hourly/rate")
+    return res.data?.data ?? res.data ?? []
+  },
+
   async getDefaults(p: GridParams) {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 150))

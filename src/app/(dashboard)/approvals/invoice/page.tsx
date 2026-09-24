@@ -1,14 +1,16 @@
 import { PageShell } from '@/components/ui/PageShell'
-import { toast } from '@/lib/toast'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
+import { InvoiceApprovalReviewDialog } from './_components/InvoiceApprovalReviewDialog'
 import { axiosClient } from '@lib/api/axios'
 import { formatCurrency } from '@lib/utils/formatCurrency'
 import { formatDate } from '@lib/utils/formatDate'
+import { toast } from '@/lib/toast'
 import type { GridParams } from '@/types/common.types'
 import { env } from '@/config/env'
 import { invoiceApprovals as staticInvoiceApprovals } from '@/data/static'
@@ -27,6 +29,7 @@ async function fetchPendingApprovals(_params: GridParams) {
 export default function InvoiceApprovalPage() {
   const qc = useQueryClient()
   const [gridKey, setGridKey] = useState(0)
+  const [reviewRow, setReviewRow] = useState<Record<string, unknown> | null>(null)
 
   async function handleApprove(row: Record<string, unknown>, approve: boolean) {
     try {
@@ -60,9 +63,20 @@ export default function InvoiceApprovalPage() {
         queryFn={fetchPendingApprovals}
         isPaginated={false}
         rowMenuItems={row => [
+          { label: 'Review', icon: <VisibilityIcon fontSize="small" />, onClick: () => setReviewRow(row as Record<string, unknown>) },
           { label: 'Approve', icon: <CheckIcon fontSize="small" />, onClick: () => handleApprove(row, true) },
           { label: 'Reject', icon: <CloseIcon fontSize="small" />, color: 'error', onClick: () => handleApprove(row, false) },
         ]}
+      />
+      <InvoiceApprovalReviewDialog
+        open={!!reviewRow}
+        onClose={() => setReviewRow(null)}
+        approval={reviewRow}
+        onDone={() => {
+          setReviewRow(null)
+          setGridKey(k => k + 1)
+          qc.invalidateQueries({ queryKey: ['invoices', 'approval'] })
+        }}
       />
     </PageShell>
   )

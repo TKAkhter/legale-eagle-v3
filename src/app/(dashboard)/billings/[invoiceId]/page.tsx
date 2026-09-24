@@ -1,19 +1,22 @@
 import PrintIcon from '@mui/icons-material/Print'
+import HistoryIcon from '@mui/icons-material/History'
+import EditIcon from '@mui/icons-material/Edit'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { useState } from 'react'
 import { Box, Typography, Paper, Chip, Skeleton, Button, Divider } from '@mui/material'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient, axiosBlob } from '@lib/api/axios'
 import { billingApi } from '@/api/billing'
 import { clientInvoices as staticInvoices } from '@/data/static'
-import { StatusBadge } from '@components/ui/StatusBadge'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate } from '@lib/utils/formatDate'
 import { formatCurrency } from '@lib/utils/formatCurrency'
 import { downloadBlob } from '@lib/utils/downloadBlob'
 import { RecordPaymentDialog } from '../_components/RecordPaymentDialog'
+import { InvoiceFormDrawer } from '../_components/InvoiceFormDrawer'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import EmailIcon from '@mui/icons-material/Email'
 import DescriptionIcon from '@mui/icons-material/Description'
@@ -30,8 +33,10 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function InvoiceDetailPage() {
   const { invoiceId } = useParams()
+  const qc = useQueryClient()
   const [downloading, setDownloading] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [emailing, setEmailing] = useState(false)
   const [dlWord, setDlWord] = useState(false)
 
@@ -42,6 +47,24 @@ export default function InvoiceDetailPage() {
       return billingApi.getById(invoiceId!)
     },
     enabled: !!invoiceId,
+  })
+
+  const logsQuery = useQuery({
+    queryKey: ['invoices', 'logs', invoiceId],
+    enabled: !!invoiceId,
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) {
+        return [
+          { id: 'il1', action: 'Created', userName: 'Admin', createdAt: '2026-08-01T10:00:00', details: 'Invoice drafted' },
+          { id: 'il2', action: 'Sent', userName: 'Sarah Johnson', createdAt: '2026-08-02T14:00:00', details: 'Emailed to client' },
+        ]
+      }
+      const res = await axiosClient.get('/api/activity/log/get/v2', {
+        params: { type: 'Invoice', relatedToId: invoiceId, pageNumber: 0, pageSize: 50 },
+      })
+      const d = res.data?.data ?? res.data ?? []
+      return Array.isArray(d) ? d : d.content ?? []
+    },
   })
 
   async function emailInvoice() {
@@ -73,6 +96,8 @@ export default function InvoiceDetailPage() {
   const client = invoice?.client as Record<string,string> | undefined
   const matter = invoice?.matter as Record<string,string> | undefined
   const balance = Number(invoice?.balanceAmount ?? 0)
+  const status = String(invoice?.invoiceStatus ?? '')
+  const canEdit = /draft|approval|pending/i.test(status)
 
   const invNo = (invoice as Record<string,unknown>)?.invoiceNo ?? invoiceId
   return (
@@ -85,7 +110,12 @@ export default function InvoiceDetailPage() {
             <StatusBadge status={invoice?.invoiceStatus ?? '—'} />
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {canEdit && (
+            <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
+              Edit
+            </Button>
+          )}
           <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadPdf} disabled={downloading}>
             {downloading ? 'Downloading…' : 'PDF'}
           </Button>
@@ -141,6 +171,29 @@ export default function InvoiceDetailPage() {
         ))}
       </Paper>
 
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, mb: 2 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <HistoryIcon fontSize="small" /> Audit Log
+        </Typography>
+        {!((logsQuery.data ?? []) as unknown[]).length && (
+          <Typography variant="body2" color="text.secondary">No log entries</Typography>
+        )}
+        {((logsQuery.data ?? []) as Record<string, unknown>[]).map((log, i) => (
+          <Box key={String(log.id ?? i)} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', flexWrap: 'wrap' }}>
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>{String(log.action ?? log.logType ?? log.title ?? 'Update')}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {String(log.userName ?? log.createdBy ?? '')}
+                {log.details || log.note ? ` · ${String(log.details ?? log.note)}` : ''}
+              </Typography>
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              {log.createdAt ? formatDate(String(log.createdAt)) : '—'}
+            </Typography>
+          </Box>
+        ))}
+      </Paper>
+
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
         <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={() => window.open(`/billings/print?invoiceId=${invoiceId}`, '_blank')}>Print</Button>
       </Box>
@@ -151,6 +204,15 @@ export default function InvoiceDetailPage() {
         invoiceId={invoiceId ?? ''}
         invoiceNo={invoice?.invoiceNo ?? ''}
         balance={balance}
+      />
+      <InvoiceFormDrawer
+        open={editOpen}
+        invoiceId={invoiceId}
+        onClose={() => setEditOpen(false)}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ['invoices', 'detail', invoiceId] })
+          toast.success('Invoice updated')
+        }}
       />
     </Box>
   )

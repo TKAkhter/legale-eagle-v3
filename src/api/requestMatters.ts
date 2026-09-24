@@ -41,6 +41,30 @@ export const requestMattersApi = {
     const arr = Array.isArray(list) ? list : []
     return pageOf(arr.map(r => ({ ...r, id: String(r.id ?? r.matterId) })), p)
   },
+
+  async getById(id: string): Promise<Record<string, unknown>> {
+    if (env.USE_STATIC_DATA) {
+      return { id, title: "Request — Building Dispute", billingType: "Hourly", clientId: "c1", responsibleAttorneyId: "u1" }
+    }
+    try {
+      const res = await axiosClient.get("/api/matter/get/with/lfa/details", { params: { matterId: id } })
+      return (res.data?.data ?? res.data) as Record<string, unknown>
+    } catch {
+      const res = await axiosClient.post("/api/matter/get/by/id", null, { params: { matterId: id } })
+      return (res.data?.data ?? res.data) as Record<string, unknown>
+    }
+  },
+
+  async create(payload: Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return { id: "rm-new" } }
+    const res = await axiosClient.post("/api/matter/add", { ...payload, matterType: "Request_Matter" })
+    return res.data?.data ?? res.data
+  },
+
+  async update(id: string, payload: Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return }
+    await axiosClient.put(`/api/matter/update/v2/${id}`, { ...payload, matterType: "Request_Matter" })
+  },
 }
 
 export const internalLeadsApi = {

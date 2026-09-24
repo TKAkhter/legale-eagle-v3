@@ -41,6 +41,28 @@ function unwrapPage(data: unknown, p: GridParams): PageResponse<Record<string, u
   return pageOf(mapped, p)
 }
 
+/** Generic page unwrap — do NOT run lead transformers on unrelated list payloads. */
+function unwrapGenericPage(data: unknown, p: GridParams): PageResponse<Record<string, unknown>> {
+  const d = (data ?? {}) as Record<string, unknown>
+  const content = (Array.isArray(d.content) ? d.content
+    : Array.isArray(d) ? d
+    : Array.isArray(d.data) ? d.data
+    : []) as Record<string, unknown>[]
+  if (Array.isArray(d.content) || typeof d.totalElements === "number") {
+    return {
+      content,
+      totalElements: Number(d.totalElements ?? content.length),
+      totalPages: Number(d.totalPages ?? (Math.ceil(content.length / p.pageSize) || 0)),
+      number: Number(d.number ?? p.page),
+      size: Number(d.size ?? p.pageSize),
+      first: Boolean(d.first ?? p.page === 0),
+      last: Boolean(d.last ?? true),
+      empty: Boolean(d.empty ?? content.length === 0),
+    }
+  }
+  return pageOf(content, p)
+}
+
 function asStrings(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).filter(Boolean) : []
 }
@@ -194,8 +216,9 @@ export const leadsApi = {
   },
 
   async writeOff(leadId: string, reason?: string) {
-    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
-    await axiosClient.post("/api/leads/get/lead/writeoff", { leadId, reason })
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return "Lead written off." }
+    const res = await axiosClient.post("/api/leads/get/lead/writeoff", { reason }, { params: { leadId } })
+    return res.data?.Msg ?? res.data?.message ?? "Lead written off."
   },
 
   async reopen(leadId: string): Promise<string> {
@@ -252,6 +275,76 @@ export const leadsApi = {
         pageSize: p.pageSize,
       },
     })
-    return unwrapPage(res.data?.data ?? res.data, p)
+    return unwrapGenericPage(res.data?.data ?? res.data, p)
+  },
+
+  async getMeetings(leadId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "m1", title: "Initial consultation", meetingDate: "2026-09-10T10:00:00", status: "Completed", location: "Office" },
+        { id: "m2", title: "Proposal review", meetingDate: "2026-09-18T14:00:00", status: "Scheduled", location: "Zoom" },
+      ]
+    }
+    const res = await axiosClient.get("/api/meeting/get/by/lead", { params: { leadId } })
+    const { unwrapAxiosList } = await import("@lib/utils/unwrap")
+    return unwrapAxiosList(res.data)
+  },
+
+  async createMeeting(leadId: string, data: Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return }
+    await axiosClient.post("/api/meeting/add", { ...data, leadId })
+  },
+
+  async getConflictChecks(leadId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "cc1", partyName: "Al Rashid Holdings", matchType: "Client", risk: "Low", status: "Cleared" },
+      ]
+    }
+    const res = await axiosClient.get("/api/conflict/check/lead/search", { params: { leadId } })
+    const { unwrapAxiosList } = await import("@lib/utils/unwrap")
+    return unwrapAxiosList(res.data)
+  },
+
+  async assignAttorney(leadId: string, lawyerId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Attorney assigned." }
+    const res = await axiosClient.post("/api/leads/assign/attorney", null, { params: { leadId, lawyerId } })
+    return res.data?.Msg ?? res.data?.message ?? "Attorney assigned."
+  },
+
+  async getLeadStatuses(): Promise<string[]> {
+    if (env.USE_STATIC_DATA) {
+      return ["NEW", "FOLLOW_UP", "PROPOSAL", "CONVERTED", "CLOSED", "WRITE_OFF"]
+    }
+    try {
+      const res = await axiosClient.get("/api/leads/get/status")
+      const list = res.data?.data ?? res.data ?? []
+      if (Array.isArray(list) && list.length) {
+        return list.map((s: unknown) => {
+          if (typeof s === "string") return s
+          const o = s as { name?: string; status?: string; currentStatus?: string }
+          return String(o.name ?? o.status ?? o.currentStatus ?? "")
+        }).filter(Boolean)
+      }
+    } catch { /* fall through */ }
+    return ["NEW", "FOLLOW_UP", "PROPOSAL", "CONVERTED", "CLOSED", "WRITE_OFF"]
+  },
+
+  async getActivityLogs(leadId: string, p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf([
+        { id: "log1", action: "STATUS_CHANGE", details: "NEW → FOLLOW_UP", userName: "Sarah Johnson", createdAt: "2026-09-01T10:00:00" },
+        { id: "log2", action: "UPDATE", details: "Attorney assigned", userName: "Admin", createdAt: "2026-09-02T11:00:00" },
+      ], p)
+    }
+    const res = await axiosClient.get("/api/audit-record/page", {
+      params: {
+        relatedTo: "LEAD",
+        relatedToId: leadId,
+        pageNumber: p.page,
+        pageSize: p.pageSize,
+      },
+    })
+    return unwrapGenericPage(res.data?.data ?? res.data, p)
   },
 }

@@ -1,9 +1,13 @@
 import { useState } from "react"
 import { useParams } from "react-router-dom"
-import { Box, Typography, Paper, Avatar, Chip, Button } from "@mui/material"
+import { Box, Typography, Paper, Avatar, Chip, Button, IconButton, Menu, MenuItem } from "@mui/material"
 import EditIcon from "@mui/icons-material/Edit"
 import LockOpenIcon from "@mui/icons-material/LockOpen"
 import LockIcon from "@mui/icons-material/Lock"
+import AddIcon from "@mui/icons-material/Add"
+import MoreVertIcon from "@mui/icons-material/MoreVert"
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance"
+import CategoryIcon from "@mui/icons-material/Category"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { clientsApi } from "@/api/clients"
 import { PageShell } from "@/components/ui/PageShell"
@@ -12,7 +16,12 @@ import { DetailSkeleton } from "@/components/ui/Skeletons"
 import { Tabs } from "@/components/ui/Tabs"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { DetailInfoRow } from "@/components/detail/DetailInfoRow"
+import { DocumentsTab } from "@/components/detail/DocumentsTab"
 import { ClientFormDrawer } from "../_components/ClientFormDrawer"
+import { FinanceContactDrawer } from "../_components/FinanceContactDrawer"
+import { AllotBankAccountDrawer } from "../_components/AllotBankAccountDrawer"
+import { AssignCreditCategoryDrawer } from "../_components/AssignCreditCategoryDrawer"
 import { formatDate } from "@lib/utils/formatDate"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { toast } from "@/lib/toast"
@@ -21,23 +30,16 @@ import { useAuthStore } from "@lib/store/authStore"
 import type { GridParams } from "@/types/common.types"
 import type { Client } from "@/transformers/client.transformer"
 
-function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
-  return (
-    <Box sx={{ mb: 1.5 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        {label}
-      </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.25 }}>{value ?? "—"}</Typography>
-    </Box>
-  )
-}
-
 export default function ClientDetailPage() {
   const { clientId } = useParams()
   const qc = useQueryClient()
   const canEdit = useAuthStore(s => s.hasPermission)("/clients")
   const [editOpen, setEditOpen] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
+  const [financeOpen, setFinanceOpen] = useState(false)
+  const [bankOpen, setBankOpen] = useState(false)
+  const [creditOpen, setCreditOpen] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
 
   const { data: client, isLoading, isError } = useQuery({
     queryKey: ["clients", "detail", clientId],
@@ -102,6 +104,21 @@ export default function ClientDetailPage() {
               {isClosed ? "Activate" : "Deactivate"}
             </Button>
           )}
+          {canEdit && (
+            <>
+              <IconButton size="small" onClick={e => setMenuAnchor(e.currentTarget)} aria-label="More actions">
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+              <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+                <MenuItem onClick={() => { setMenuAnchor(null); setBankOpen(true) }}>
+                  <AccountBalanceIcon fontSize="small" sx={{ mr: 1 }} /> Allot Bank Account
+                </MenuItem>
+                <MenuItem onClick={() => { setMenuAnchor(null); setCreditOpen(true) }}>
+                  <CategoryIcon fontSize="small" sx={{ mr: 1 }} /> Assign Credit Category
+                </MenuItem>
+              </Menu>
+            </>
+          )}
         </Box>
       )}
     >
@@ -139,29 +156,29 @@ export default function ClientDetailPage() {
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Contact</Typography>
-                <InfoRow label="Emails" value={c.emails.join(", ") || "—"} />
-                <InfoRow label="Phones" value={c.phones.join(", ") || "—"} />
-                <InfoRow label="Address" value={c.address || "—"} />
-                <InfoRow
+                <DetailInfoRow label="Emails" value={(c.emails ?? []).join(", ") || c.email || "—"} />
+                <DetailInfoRow label="Phones" value={(c.phones ?? []).join(", ") || c.phone || "—"} />
+                <DetailInfoRow label="Address" value={c.address || "—"} />
+                <DetailInfoRow
                   label="Nationality"
-                  value={c.nationality.length ? (
+                  value={(c.nationality ?? []).length ? (
                     <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                      {c.nationality.map(item => <Chip key={item} size="small" label={item} variant="outlined" />)}
+                      {(c.nationality ?? []).map(item => <Chip key={item} size="small" label={item} variant="outlined" />)}
                     </Box>
                   ) : "—"}
                 />
               </Paper>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Details</Typography>
-                <InfoRow label="Client ID" value={c.clientExternalId || "—"} />
-                <InfoRow label="Type" value={c.clientType} />
-                <InfoRow label="Username" value={c.username || "—"} />
-                <InfoRow label="Group" value={c.groupName || "—"} />
-                <InfoRow label="Bank Account" value={c.bankAccount || "—"} />
-                <InfoRow label="Last Activity" value={c.lastActivityDate ? formatDate(c.lastActivityDate) : "—"} />
-                <InfoRow label="Created" value={formatDate(c.createdAt)} />
-                <InfoRow label="Collected" value={formatCurrency(Number(revenue.collected ?? 0))} />
-                <InfoRow label="Outstanding" value={formatCurrency(Number(revenue.outstanding ?? 0))} />
+                <DetailInfoRow label="Client ID" value={c.clientExternalId || "—"} />
+                <DetailInfoRow label="Type" value={c.clientType} />
+                <DetailInfoRow label="Username" value={c.username || "—"} />
+                <DetailInfoRow label="Group" value={c.groupName || "—"} />
+                <DetailInfoRow label="Bank Account" value={c.bankAccount || "—"} />
+                <DetailInfoRow label="Last Activity" value={c.lastActivityDate ? formatDate(c.lastActivityDate) : "—"} />
+                <DetailInfoRow label="Created" value={formatDate(c.createdAt)} />
+                <DetailInfoRow label="Collected" value={formatCurrency(Number(revenue.collected ?? 0))} />
+                <DetailInfoRow label="Outstanding" value={formatCurrency(Number(revenue.outstanding ?? 0))} />
               </Paper>
             </Box>
           ),
@@ -184,6 +201,22 @@ export default function ClientDetailPage() {
           ),
         },
         {
+          label: "Admin Documents",
+          content: (
+            <DataGrid
+              columns={[
+                { field: "documentName", header: "Document", renderCell: (v, row) => String(v ?? (row as { name?: string }).name ?? "—") },
+                { field: "docType", header: "Type", renderCell: v => String(v || "—") },
+                { field: "uploadedBy", header: "Uploaded By", renderCell: v => String(v || "—") },
+                { field: "uploadedAt", header: "Date", renderCell: (v, row) => formatDate(String(v ?? (row as { createdAt?: string }).createdAt ?? "")) },
+              ]}
+              queryKey={["clients", "admin-docs", clientId]}
+              queryFn={(p: GridParams) => clientsApi.getAdminDocuments(String(clientId), p)}
+              zebraStriping
+            />
+          ),
+        },
+        {
           label: "Tasks",
           content: (
             <DataGrid
@@ -194,6 +227,8 @@ export default function ClientDetailPage() {
               ]}
               queryKey={["clients", "tasks", clientId]}
               queryFn={(p: GridParams) => clientsApi.getTasks(String(clientId), p)}
+              detailPath={row => `/tasks/${String((row as { id?: string }).id ?? "")}`}
+              zebraStriping
             />
           ),
         },
@@ -270,26 +305,66 @@ export default function ClientDetailPage() {
               queryKey={["clients", "lfas", clientId]}
               queryFn={(p: GridParams) => clientsApi.getLfas(String(clientId), p)}
               detailPath={row => `/lfa/${String((row as { id?: string }).id ?? "")}`}
+              zebraStriping
+            />
+          ),
+        },
+        {
+          label: "Leads",
+          content: (
+            <DataGrid
+              columns={[
+                { field: "name", header: "Lead", renderCell: (v, row) => String(v ?? (row as { companyName?: string }).companyName ?? "—") },
+                { field: "status", header: "Status", renderCell: v => <StatusBadge status={String(v ?? "")} /> },
+                { field: "practiceArea", header: "Practice Area", renderCell: v => typeof v === "object" && v ? String((v as { name?: string }).name ?? "") : String(v ?? "—") },
+                { field: "createdAt", header: "Created", renderCell: v => v ? formatDate(String(v)) : "—" },
+              ]}
+              queryKey={["clients", "leads", clientId]}
+              queryFn={(p: GridParams) => clientsApi.getLeads(String(clientId), p)}
+              detailPath={row => `/leads/${String((row as { id?: string }).id ?? "")}`}
+              zebraStriping
+            />
+          ),
+        },
+        {
+          label: "Mails",
+          content: (
+            <DataGrid
+              columns={[
+                { field: "subject", header: "Subject" },
+                { field: "from", header: "From", renderCell: v => String(v || "—") },
+                { field: "folder", header: "Folder", renderCell: v => String(v || "—") },
+                { field: "date", header: "Date", renderCell: (v, row) => formatDate(String(v ?? (row as { createdAt?: string }).createdAt ?? "")) },
+              ]}
+              queryKey={["clients", "mails", clientId]}
+              queryFn={(p: GridParams) => clientsApi.getMails(String(clientId), p)}
+              zebraStriping
             />
           ),
         },
         {
           label: "Finance Contacts",
           content: (
-            <DataGrid
-              columns={[
-                { field: "name", header: "Name" },
-                { field: "email", header: "Email" },
-                { field: "contactNumber", header: "Contact Number" },
-                { field: "primary", header: "Primary", renderCell: v => v ? "Yes" : "No" },
-              ]}
-              queryKey={["clients", "finance-contacts", clientId]}
-              queryFn={(p: GridParams) => clientsApi.getFinanceContacts(String(clientId), p)}
-            />
+            <Box>
+              <Box sx={{ mb: 1.5, display: "flex", justifyContent: "flex-end" }}>
+                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setFinanceOpen(true)}>Add Contact</Button>
+              </Box>
+              <DataGrid
+                columns={[
+                  { field: "name", header: "Name" },
+                  { field: "email", header: "Email" },
+                  { field: "contactNumber", header: "Contact Number" },
+                  { field: "primary", header: "Primary", renderCell: v => v ? "Yes" : "No" },
+                ]}
+                queryKey={["clients", "finance-contacts", clientId]}
+                queryFn={(p: GridParams) => clientsApi.getFinanceContacts(String(clientId), p)}
+                zebraStriping
+              />
+            </Box>
           ),
         },
         {
-          label: "Invoices",
+          label: "Financials",
           content: (
             <DataGrid
               columns={[
@@ -326,8 +401,13 @@ export default function ClientDetailPage() {
               queryKey={["clients", "invoices", clientId]}
               queryFn={(p: GridParams) => clientsApi.getInvoices(String(clientId), p)}
               detailPath={row => `/billings/${String((row as { id?: string }).id ?? "")}`}
+              zebraStriping
             />
           ),
+        },
+        {
+          label: "Documents",
+          content: <DocumentsTab relatedTo="CLIENT" relatedToId={String(clientId)} />,
         },
       ]} />
 
@@ -339,6 +419,36 @@ export default function ClientDetailPage() {
           setEditOpen(false)
           qc.invalidateQueries({ queryKey: ["clients", "detail", clientId] })
           toast.success("Client updated")
+        }}
+      />
+      <FinanceContactDrawer
+        open={financeOpen}
+        onClose={() => setFinanceOpen(false)}
+        clientId={String(clientId)}
+        onSuccess={() => {
+          setFinanceOpen(false)
+          qc.invalidateQueries({ queryKey: ["clients", "finance-contacts", clientId] })
+          toast.success("Finance contact added")
+        }}
+      />
+      <AllotBankAccountDrawer
+        open={bankOpen}
+        onClose={() => setBankOpen(false)}
+        clientId={String(clientId)}
+        onSuccess={() => {
+          setBankOpen(false)
+          qc.invalidateQueries({ queryKey: ["clients", "detail", clientId] })
+          toast.success("Bank account allotted")
+        }}
+      />
+      <AssignCreditCategoryDrawer
+        open={creditOpen}
+        onClose={() => setCreditOpen(false)}
+        clientId={String(clientId)}
+        onSuccess={() => {
+          setCreditOpen(false)
+          qc.invalidateQueries({ queryKey: ["clients", "detail", clientId] })
+          toast.success("Credit category assigned")
         }}
       />
       <ConfirmDialog

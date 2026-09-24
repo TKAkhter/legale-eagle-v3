@@ -294,4 +294,51 @@ export const clientsApi = {
     const res = await axiosClient.get("/api/invoice/client/revenue/v2", { params: { clientId } })
     return res.data?.data ?? res.data ?? {}
   },
+
+  async getLeads(clientId: string, p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf([
+        { id: "l1", name: "Al Rashid Holdings", status: "CONVERTED", practiceArea: "Litigation", createdAt: "2025-01-10" },
+      ], p)
+    }
+    const res = await axiosClient.post("/api/report/lead/filter", { clientIds: [clientId] }, {
+      params: { pageNumber: p.page, pageSize: p.pageSize, clientId },
+    })
+    return unwrapPage(res.data?.data ?? res.data, p)
+  },
+
+  async getMails(clientId: string, p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf([
+        { id: "mail1", subject: "Retainer agreement", from: "sarah@firm.com", date: "2026-08-01", folder: "Sent" },
+      ], p)
+    }
+    const res = await axiosClient.get("/api/mail/by/client", {
+      params: { clientId, pageNumber: p.page, pageSize: p.pageSize },
+    })
+    return unwrapPage(res.data?.data ?? res.data, p)
+  },
+
+  async getAdminDocuments(clientId: string, p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf([
+        { id: "ad1", documentName: "Trade License", docType: "License", uploadedAt: "2026-06-01", uploadedBy: "Admin" },
+      ], p)
+    }
+    const res = await axiosClient.post("/api/document/get/type", null, {
+      params: {
+        documentRelatedTo: "CLIENT",
+        documentRelatedToId: clientId,
+        pageNumber: p.page,
+        pageSize: p.pageSize,
+      },
+    })
+    return unwrapPage(res.data?.data ?? res.data, p)
+  },
+
+  async createFinanceContact(clientId: string, payload: Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) return "Contact created"
+    const res = await axiosClient.post("/api/client/finance-contacts/create", { ...payload, clientId })
+    return String(res.data?.message ?? res.data?.Msg ?? "Contact created")
+  },
 }

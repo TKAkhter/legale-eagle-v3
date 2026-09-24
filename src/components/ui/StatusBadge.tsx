@@ -32,10 +32,13 @@ const COLOR_MAP: Record<string, 'success'|'error'|'warning'|'info'|'default'> = 
   Review:'info', REVIEW:'info',
 }
 
-interface Props { status: string; size?: 'small'|'medium' }
+interface Props { status?: string | null; size?: 'small'|'medium' }
 
 export function StatusBadge({ status, size='small' }: Props) {
-  const color = COLOR_MAP[status] ?? 'default'
-  const label = status.replace(/_/g,' ').replace(/([A-Z])/g, ' $1').trim()
+  const raw = status == null ? '' : String(status)
+  const color = COLOR_MAP[raw] ?? 'default'
+  const label = raw
+    ? raw.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim()
+    : '—'
   return <Chip label={label} color={color} size={size} variant="outlined" sx={{ fontWeight: 500, fontSize: size === 'small' ? 11 : 13 }} />
 }

@@ -320,6 +320,15 @@ export const SETTINGS_TILES: MasterConfig[] = [
     section: "masters",
   },
   {
+    key: "meeting-time",
+    title: "Meeting Time",
+    description: "Configure default meeting hours and slots",
+    href: "/admin/settings/meeting-time",
+    getUrl: "", addUrl: "", deleteUrl: "", nameField: "",
+    section: "settings",
+    keywords: "meeting calendar slot",
+  },
+  {
     key: "zoho-id",
     title: "Zoho Id Configuration",
     description: "Configure Zoho config id to clients",

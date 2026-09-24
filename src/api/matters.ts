@@ -230,17 +230,15 @@ export const mattersApi = {
       return unwrapMatter(res.data?.data ?? res.data)
     }
   },
-  async close(matterId: string, payload: { closeDate?: string; closeReason?: string; closingNote?: string } | string): Promise<void> {
+  async close(matterId: string, payload: Record<string, unknown> | string): Promise<void> {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 500)); return }
     const body = typeof payload === "string"
-      ? { matterId, reason: payload }
-      : {
-          matterId,
-          closeDate: payload.closeDate,
-          reason: payload.closeReason ?? "",
-          note: payload.closingNote ?? "",
-        }
-    await axiosClient.post("/api/matter/close", body, { params: { matterId } })
+      ? { matterId, reason: payload, note: payload }
+      : { matterId, ...payload, note: payload.note ?? payload.closingNote ?? "", reason: payload.reason ?? payload.closeReason ?? "" }
+    const res = await axiosClient.post("/api/matter/close", body, { params: { matterId } })
+    if (String(res.data?.code) === "403" || (Number(res.data?.code) >= 400)) {
+      throw new Error(res.data?.Msg ?? "Failed to close matter")
+    }
   },
   async reopen(matterId: string): Promise<string> {
     if (env.USE_STATIC_DATA) {
@@ -492,6 +490,23 @@ export const mattersApi = {
     return unwrapPage(res.data?.data ?? res.data, p)
   },
 
+  async getEmailById(emailId: string) {
+    if (env.USE_STATIC_DATA) {
+      return {
+        emailId,
+        subject: "Re: Matter correspondence",
+        from: "counsel@example.com",
+        to: ["team@demo.local"],
+        cc: [],
+        body: "<p>Static matter email body.</p>",
+        date: new Date().toISOString(),
+        webLink: "",
+      }
+    }
+    const res = await axiosClient.get("/api/emails/get", { params: { emailId } })
+    return res.data?.data ?? res.data ?? {}
+  },
+
   async getStatusTimeline(matterId: string) {
     if (env.USE_STATIC_DATA) {
       const { matterStatusTimeline } = await import("@/data/static")
@@ -510,6 +525,59 @@ export const mattersApi = {
     const res = await axiosClient.get("/api/matter-team/get/by-matter", { params: { matterId } })
     const { unwrapAxiosList } = await import("@lib/utils/unwrap")
     return unwrapAxiosList(res.data)
+  },
+
+  async getConflictChecks(matterId: string, p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf([
+        { id: "mcc1", partyName: "Opposing LLC", matchType: "Matter", status: "Cleared", details: "No conflict" },
+      ], p)
+    }
+    const res = await axiosClient.get("/api/conflict/check/matter/search", { params: { matterId } })
+    const list = (Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : []) as Record<string, unknown>[]
+    return pageOf(list, p)
+  },
+
+  async getTransactions(matterId: string, bankAccountId: string, p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf([
+        { id: "mtx1", transactionDate: "2026-08-01", description: "Retainer deposit", debit: 0, credit: 25000, balance: 25000 },
+        { id: "mtx2", transactionDate: "2026-08-20", description: "Invoice payment", debit: 5000, credit: 0, balance: 20000 },
+      ], p)
+    }
+    const res = await axiosClient.get("/api/account/transaction/by/matter", {
+      params: { matterId, bankAccountId, pageNumber: p.page, pageSize: p.pageSize },
+    })
+    return unwrapPage(res.data?.data ?? res.data, p)
+  },
+
+  async getStopWorkingReasons(): Promise<{ id: string; name: string }[]> {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "sw1", name: "Awaiting client instructions" },
+        { id: "sw2", name: "Court adjournment" },
+        { id: "sw3", name: "Conflict review" },
+      ]
+    }
+    const res = await axiosClient.get("/api/matter-stop-working/get")
+    const list = res.data?.data ?? res.data ?? []
+    return (Array.isArray(list) ? list : [])
+      .filter((r: { status?: boolean }) => r.status !== false)
+      .map((r: { id?: string; name?: string }) => ({ id: String(r.id), name: String(r.name ?? r.id) }))
+  },
+
+  async updateStopWorking(
+    matterId: string,
+    payload: { stopWorkingEnabled: boolean; stopWorkingReasonId?: string; sendEmail?: boolean },
+  ) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return }
+    const res = await axiosClient.post("/api/matter/update-stop-working", {
+      matterId,
+      ...payload,
+    })
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "Failed to update stop working")
+    }
   },
 
 }

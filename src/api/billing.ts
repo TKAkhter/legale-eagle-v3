@@ -114,6 +114,34 @@ export const billingApi = {
     return res.data?.data ?? res.data
   },
 
+  async update(invoiceId: string, data: Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    await axiosClient.post("/api/invoice/edit/invoice", data, { params: { invoiceId } })
+  },
+
+  /** Unbilled / unpaid activities for a matter (LMS GenerateBill seed). */
+  async getUnpaidByMatter(matterId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "a1", activity: "Legal research", entryDate: "2026-08-10", billing: 750, hours: 3, minutes: 0, rate: 250, billingType: "Hourly" },
+        { id: "a2", activity: "Drafting", entryDate: "2026-08-12", billing: 500, hours: 2, minutes: 0, rate: 250, billingType: "Hourly" },
+      ]
+    }
+    try {
+      const res = await axiosClient.get("/api/activity/get/unpaid/matter/mini", {
+        params: { matterId, pageNumber: 0, pageSize: 200 },
+      })
+      const d = res.data?.data ?? res.data ?? {}
+      return (Array.isArray(d) ? d : d.content ?? []) as Record<string, unknown>[]
+    } catch {
+      const res = await axiosClient.post("/api/report/activity/filter/m/v3", {}, {
+        params: { matterId, revenueStatus: "APPROVED", pageNumber: 0, pageSize: 200 },
+      })
+      const d = res.data?.data ?? res.data ?? {}
+      return (Array.isArray(d) ? d : d.content ?? []) as Record<string, unknown>[]
+    }
+  },
+
   async recordPayment(invoiceId: string, data: Record<string, unknown>) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
     await axiosClient.post("/api/invoice/pay", { invoiceId, ...data })
@@ -400,6 +428,42 @@ export const billingApi = {
     })
     const d = res.data?.data ?? res.data
     return Array.isArray(d) ? d : (d?.content ?? [])
+  },
+
+  async getWriteCreditHistory(p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return {
+        content: [
+          { id: "wch1", invoiceId: "inv1", taxInvoiceNo: "INV-1001", clientName: "Al Rashid Holdings", matterTitle: "260303", type: "WriteOff", amount: 1500, reason: "Goodwill", createdBy: "Admin", createdAt: "2026-08-20" },
+          { id: "wch2", invoiceId: "inv2", taxInvoiceNo: "INV-1002", clientName: "KM Group", matterTitle: "260293", type: "CreditNote", amount: 500, reason: "Billing error", createdBy: "Sarah Johnson", createdAt: "2026-09-01" },
+        ],
+        totalElements: 2, totalPages: 1, number: 0, size: p.pageSize, first: true, last: true, empty: false,
+      }
+    }
+    const f = p.filters ?? {}
+    const res = await axiosClient.get("/api/invoice/write/credit/history", {
+      params: {
+        clientId: f.clientId ?? "",
+        matterId: f.matterId ?? "",
+        fromDate: f.fromDate ?? "",
+        toDate: f.toDate ?? "",
+        pageNumber: p.page,
+        pageSize: p.pageSize,
+      },
+    })
+    const d = res.data?.data ?? res.data ?? {}
+    const content = (Array.isArray(d) ? d : d.content ?? []) as Record<string, unknown>[]
+    return {
+      content,
+      totalElements: Number(d.totalElements ?? content.length),
+      totalPages: Number(d.totalPages ?? 1),
+      number: p.page,
+      size: p.pageSize,
+      first: p.page === 0,
+      last: true,
+      empty: content.length === 0,
+    }
   },
 }
 

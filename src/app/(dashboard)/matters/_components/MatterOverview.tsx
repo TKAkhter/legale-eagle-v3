@@ -4,17 +4,8 @@ import { mattersApi } from "@/api/matters"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { formatDate } from "@lib/utils/formatDate"
 import { StatusBadge } from "@/components/ui/StatusBadge"
-
-function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
-  return (
-    <Box sx={{ mb: 1.5 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        {label}
-      </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.25 }}>{value ?? "—"}</Typography>
-    </Box>
-  )
-}
+import { DetailInfoRow } from "@/components/detail/DetailInfoRow"
+import { SubMattersPanel } from "./SubMattersPanel"
 
 function personName(value: unknown): string {
   const p = value as { firstName?: string; lastName?: string; name?: string } | null
@@ -82,22 +73,22 @@ export function MatterOverview({ matter, matterId }: Props) {
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>Matter Info</Typography>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 1 }}>
-          <InfoRow label="Client" value={client?.companyName || client?.firstName || "—"} />
-          <InfoRow label="Title" value={String(matter.title ?? "—")} />
-          <InfoRow label="Location" value={String(matter.location ?? "—")} />
-          <InfoRow label="Status" value={<StatusBadge status={String(matter.status ?? "")} />} />
-          <InfoRow label="LFA No" value={lfaNo} />
-          <InfoRow label="LFA Type" value={lfaType} />
-          <InfoRow label="Department" value={typeof department === "string" ? department : department?.name ?? "—"} />
-          <InfoRow label="Practice Area" value={typeof pa === "string" ? pa : pa?.name ?? "—"} />
-          <InfoRow label="Open Date" value={formatDate(String(matter.openDate ?? ""))} />
-          <InfoRow label="Applicable Laws" value={String(matter.applicableLaws ?? matter.applicableLawName ?? matter.applicableLaw ?? "—")} />
-          <InfoRow label="Responsible Lawyer" value={personName(matter.responsibleAttorney)} />
-          <InfoRow label="Email Unique Id" value={String(matter.emailUniqueId ?? matter.emailUnique ?? "—")} />
-          <InfoRow label="Billing Type" value={String(matter.billingType ?? "—")} />
-          <InfoRow label="Estimate" value={matter.estimate != null ? formatCurrency(Number(matter.estimate)) : "—"} />
-          <InfoRow label="Cap" value={capDisplay} />
-          <InfoRow label="Scope" value={String(matter.description ?? matter.matterSubject ?? "—")} />
+          <DetailInfoRow label="Client" value={client?.companyName || client?.firstName || "—"} />
+          <DetailInfoRow label="Title" value={String(matter.title ?? "—")} />
+          <DetailInfoRow label="Location" value={String(matter.location ?? "—")} />
+          <DetailInfoRow label="Status" value={<StatusBadge status={String(matter.status ?? "")} />} />
+          <DetailInfoRow label="LFA No" value={lfaNo} />
+          <DetailInfoRow label="LFA Type" value={lfaType} />
+          <DetailInfoRow label="Department" value={typeof department === "string" ? department : department?.name ?? "—"} />
+          <DetailInfoRow label="Practice Area" value={typeof pa === "string" ? pa : pa?.name ?? "—"} />
+          <DetailInfoRow label="Open Date" value={formatDate(String(matter.openDate ?? ""))} />
+          <DetailInfoRow label="Applicable Laws" value={String(matter.applicableLaws ?? matter.applicableLawName ?? matter.applicableLaw ?? "—")} />
+          <DetailInfoRow label="Responsible Lawyer" value={personName(matter.responsibleAttorney)} />
+          <DetailInfoRow label="Email Unique Id" value={String(matter.emailUniqueId ?? matter.emailUnique ?? "—")} />
+          <DetailInfoRow label="Billing Type" value={String(matter.billingType ?? "—")} />
+          <DetailInfoRow label="Estimate" value={matter.estimate != null ? formatCurrency(Number(matter.estimate)) : "—"} />
+          <DetailInfoRow label="Cap" value={capDisplay} />
+          <DetailInfoRow label="Scope" value={String(matter.description ?? matter.matterSubject ?? "—")} />
         </Box>
       </Paper>
 
@@ -158,6 +149,11 @@ export function MatterOverview({ matter, matterId }: Props) {
         ))}
         {!checklist.length && <Typography variant="body2" color="text.secondary">No checklist items</Typography>}
       </Paper>
+
+      <SubMattersPanel
+        matterId={matterId}
+        subMatters={Array.isArray(matter.subMatters) ? matter.subMatters as Record<string, unknown>[] : []}
+      />
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Status Timeline</Typography>

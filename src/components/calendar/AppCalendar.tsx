@@ -10,7 +10,7 @@ import type { AppCalendarProps, CalendarEvent } from './types'
 import type { ColumnDef } from '@components/data-grid/types'
 
 export function AppCalendar<TEntry extends Record<string,unknown>>({
-  queryFn, entryQueryFn, entryColumns=[], onEventClick,
+  queryFn, entryQueryFn, entryColumns=[], onEventClick, onAddEntry, onEditEntry,
   views=['dayGridMonth','timeGridWeek','timeGridDay'], initialView='dayGridMonth'
 }: AppCalendarProps<TEntry>) {
   const [range, setRange] = useState({ start:'', end:'' })
@@ -38,8 +38,15 @@ export function AppCalendar<TEntry extends Record<string,unknown>>({
         dateClick={handleDateClick} eventClick={handleEventClick}
         datesSet={(info)=>setRange({ start:info.startStr, end:info.endStr })}
         height="auto" />
-      <CalendarDayPopover anchorEl={anchor} date={selectedDate} onClose={()=>setAnchor(null)}
-        entryQueryFn={entryQueryFn} columns={entryColumns as ColumnDef<Record<string,unknown>>[]} />
+      <CalendarDayPopover
+        anchorEl={anchor}
+        date={selectedDate}
+        onClose={()=>setAnchor(null)}
+        entryQueryFn={entryQueryFn}
+        columns={entryColumns as ColumnDef<Record<string,unknown>>[]}
+        onAddEntry={onAddEntry}
+        onEditEntry={onEditEntry as ((row: Record<string, unknown>, date: string) => void) | undefined}
+      />
     </Paper>
   )
 }

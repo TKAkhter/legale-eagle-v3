@@ -131,7 +131,11 @@ export function transformLead(raw: RawLead): Lead {
       : String(raw.createdAt)
     : ""
   const opposing = Array.isArray(raw.partyOpposing)
-    ? raw.partyOpposing.map(p => p.firstName || p.name || "").filter(Boolean).join(", ")
+    ? raw.partyOpposing.map(p => {
+        if (!p) return ""
+        if (typeof p === "string") return p
+        return String(p.firstName || p.name || "").trim()
+      }).filter(Boolean).join(", ")
     : String(raw.partyOpposing ?? "")
   const department = typeof raw.department === "object" ? (raw.department?.name ?? "") : String(raw.department ?? "")
 

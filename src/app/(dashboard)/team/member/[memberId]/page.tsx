@@ -1,11 +1,11 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link as RouterLink, useParams, useSearchParams } from "react-router-dom"
 import { Button, Paper, Tab, Tabs } from "@mui/material"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
 import { teamsApi } from "@/api/teams"
-import { useState } from "react"
+import { formatDateTime } from "@lib/utils/formatDate"
 import type { GridParams } from "@/types/common.types"
 
 export default function TeamMemberPage() {
@@ -30,15 +30,16 @@ export default function TeamMemberPage() {
       ]}
     >
       <Paper variant="outlined" sx={{ borderRadius: 2, mb: 2 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 1 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 1 }} variant="scrollable" allowScrollButtonsMobile>
           <Tab label="Matters" />
           <Tab label="Pending Tasks" />
           <Tab label="Completed Tasks" />
           <Tab label="Re-Submit Tasks" />
+          <Tab label="Hearings" />
         </Tabs>
       </Paper>
 
-      {tab === 0 ? (
+      {tab === 0 && (
         <DataGrid
           columns={[
             { field: "title", header: "Matter", renderCell: (v, row) => (
@@ -52,7 +53,9 @@ export default function TeamMemberPage() {
           queryKey={["teams", "member", memberId, "matters"]}
           queryFn={(p: GridParams) => teamsApi.getMemberMatters(memberId, p)}
         />
-      ) : (
+      )}
+
+      {tab >= 1 && tab <= 3 && (
         <DataGrid
           columns={[
             { field: "title", header: "Task" },
@@ -61,6 +64,22 @@ export default function TeamMemberPage() {
           ]}
           queryKey={["teams", "member", memberId, "tasks", taskStatus]}
           queryFn={(p: GridParams) => teamsApi.getMemberTasks(memberId, taskStatus, p)}
+        />
+      )}
+
+      {tab === 4 && (
+        <DataGrid
+          columns={[
+            { field: "matterTitle", header: "Matter", renderCell: (v, row) => String(v ?? (row as { matterNo?: string }).matterNo ?? "—") },
+            { field: "clientName", header: "Client", renderCell: v => String(v || "—") },
+            { field: "caseNo", header: "Case No", renderCell: v => String(v || "—") },
+            { field: "hearingDate", header: "Date", renderCell: v => v ? formatDateTime(String(v)) : "—" },
+            { field: "location", header: "Location", renderCell: v => String(v || "—") },
+            { field: "note", header: "Note", renderCell: v => String(v || "—") },
+          ]}
+          queryKey={["teams", "member", memberId, "hearings"]}
+          queryFn={(p: GridParams) => teamsApi.getMemberHearings(memberId, p)}
+          zebraStriping
         />
       )}
     </PageShell>

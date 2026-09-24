@@ -1,7 +1,7 @@
 import { PageShell } from '@/components/ui/PageShell'
 import { env } from '@/config/env'
 import { useState } from 'react'
-import { Box, Typography, Paper, Button, Alert, Chip, CircularProgress, IconButton } from '@mui/material'
+import { Box, Typography, Paper, Button, Alert, Chip, CircularProgress, IconButton, FormControlLabel, Switch } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import SearchIcon from '@mui/icons-material/Search'
@@ -10,7 +10,16 @@ import ErrorIcon from '@mui/icons-material/Error'
 import { axiosClient } from '@lib/api/axios'
 
 interface CheckEntry { name: string; phone: string; email: string; partyOpposing: string }
-interface ConflictResult { name?: string; conflictStatus?: string; existingClient?: boolean; existingMatter?: string; existingLead?: boolean }
+interface ConflictResult {
+  name?: string
+  conflictStatus?: string
+  existingClient?: boolean
+  existingMatter?: string
+  existingLead?: boolean
+  matchType?: string
+  details?: string
+  aiSummary?: string
+}
 
 const EMPTY = (): CheckEntry => ({ name: '', phone: '', email: '', partyOpposing: '' })
 
@@ -24,6 +33,7 @@ export default function ConflictCheckPage() {
   const [results, setResults] = useState<ConflictResult[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [useAi, setUseAi] = useState(true)
 
   function update(idx: number, field: keyof CheckEntry, value: string) {
     setEntries(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e))
@@ -32,12 +42,29 @@ export default function ConflictCheckPage() {
   async function runCheck() {
     setLoading(true); setError(''); setResults(null)
     try {
-      if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)) }
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 400))
+        setResults([
+          { name: entries[0]?.name || 'Sample Party', conflictStatus: 'Cleared', matchType: 'Client', details: 'No match' },
+          { name: 'Opposing LLC', conflictStatus: 'Conflicted', existingClient: true, existingMatter: '260303', aiSummary: 'Name similarity with active client matter.' },
+        ])
+        return
+      }
       const payload = { conflictCheckDTOList: entries.filter(e => e.name || e.phone || e.email).map(e => ({ ...e })) }
-      const res = await axiosClient.post('/api/conflict/check/multiple/mini/v2', payload)
-      setResults(res.data?.data ?? res.data ?? [])
-    } catch { setError('Conflict check failed. Please try again.') }
-    finally { setLoading(false) }
+      const endpoint = useAi ? '/api/conflict/check/multiple/mini/v3' : '/api/conflict/check/multiple/mini/v2'
+      const res = await axiosClient.post(endpoint, payload)
+      const raw = res.data?.data ?? res.data ?? []
+      setResults(Array.isArray(raw) ? raw : raw.results ?? raw.conflicts ?? [])
+    } catch {
+      // Fall back to v2 if v3 unavailable
+      try {
+        const payload = { conflictCheckDTOList: entries.filter(e => e.name || e.phone || e.email).map(e => ({ ...e })) }
+        const res = await axiosClient.post('/api/conflict/check/multiple/mini/v2', payload)
+        setResults(res.data?.data ?? res.data ?? [])
+      } catch {
+        setError('Conflict check failed. Please try again.')
+      }
+    } finally { setLoading(false) }
   }
 
   const hasConflict = results?.some(r => r.conflictStatus === 'Conflicted')
@@ -66,8 +93,12 @@ export default function ConflictCheckPage() {
             </IconButton>
           </Box>
         ))}
-        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <Button size="small" startIcon={<AddIcon />} onClick={() => setEntries(p => [...p, EMPTY()])}>Add party</Button>
+          <FormControlLabel
+            control={<Switch size="small" checked={useAi} onChange={e => setUseAi(e.target.checked)} />}
+            label="AI-enhanced (v3)"
+          />
           <Box sx={{ flex: 1 }} />
           <Button variant="contained" startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SearchIcon />}
             onClick={runCheck} disabled={loading}>
@@ -97,6 +128,14 @@ export default function ConflictCheckPage() {
               {r.existingClient  && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>⚠ Existing client on record</Typography>}
               {r.existingMatter  && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>⚠ Related matter: {r.existingMatter}</Typography>}
               {r.existingLead    && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>⚠ Existing lead on record</Typography>}
+              {!!r.matchType && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>Match type: {r.matchType}</Typography>}
+              {!!r.details && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{r.details}</Typography>}
+              {!!r.aiSummary && (
+                <Alert severity="info" sx={{ mt: 1 }} icon={false}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>AI analysis</Typography>
+                  <Typography variant="body2">{r.aiSummary}</Typography>
+                </Alert>
+              )}
             </Box>
           ))}
         </Paper>

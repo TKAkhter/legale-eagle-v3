@@ -68,9 +68,9 @@ export default function MyLeadsPage() {
           hasFilters
           syncWithUrl
           isSortingBackend={false}
-          detailPath={row => `/leads/${String((row as { id?: string }).id ?? "")}`}
+          detailPath={row => `/my-leads/${String((row as { id?: string }).id ?? "")}`}
           rowMenuItems={row => [
-            { label: "Details", onClick: () => navigate(`/leads/${String((row as { id?: string }).id ?? "")}`) },
+            { label: "Details", onClick: () => navigate(`/my-leads/${String((row as { id?: string }).id ?? "")}`) },
           ]}
         />
       )}

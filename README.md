@@ -141,6 +141,7 @@ Full English + Arabic translations. Toggle via the flag button in the toolbar. A
 | 43–45 | PageShell on all pages, charts on all reports, auth fix, 420 i18n keys |
 | 46–47 | Profile with avatar upload, LFA signing, time entry detail |
 | 48 | Production config, PWA manifest, README |
+| 49+ | LMS depth: detail tabs (docs/bank/credit/sub-matters/financials), hearings, payment, reports hub, convert wizards, stop-working, invoice approval review |
 
 ---
 
