@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import {
-  Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
   LinearProgress, MenuItem, Paper, TextField, Typography,
 } from "@mui/material"
 import { useQuery } from "@tanstack/react-query"
@@ -35,6 +35,29 @@ export default function RetainerBillingPage() {
     [rows, selected],
   )
 
+  const selectedHours = useMemo(
+    () => selectedRows.reduce(
+      (s, r) => s + Number(r.totalHours ?? ((Number(r.hours ?? 0) + Number(r.minutes ?? 0) / 60))),
+      0,
+    ),
+    [selectedRows],
+  )
+
+  const first = selectedRows[0]
+  const stmtClientId = String(first?.clients ?? first?.clientId ?? (first?.client as { id?: string } | undefined)?.id ?? clientId ?? "")
+  const stmtLfaId = String(first?.lfaId ?? (first?.lfa as { id?: string } | undefined)?.id ?? "")
+
+  const summaryQ = useQuery({
+    queryKey: ["billings", "retainer", "statement-summary", stmtClientId, stmtLfaId],
+    queryFn: () => billingApi.getRetainerStatementSummary(stmtClientId, stmtLfaId),
+    enabled: stmtOpen && !!stmtClientId && !!stmtLfaId,
+  })
+
+  const maxHours = Number(summaryQ.data?.maxRetainerHours ?? 0)
+  const generatedHours = Number(summaryQ.data?.generatedHours ?? 0)
+  const remainingHours = Number(summaryQ.data?.remainingHours ?? 0)
+  const overCap = maxHours > 0 && selectedHours > remainingHours + 0.001
+
   function toggle(id: string) {
     setSelected(prev => {
       const next = new Set(prev)
@@ -51,15 +74,25 @@ export default function RetainerBillingPage() {
 
   async function generateStatement() {
     if (!selectedRows.length) { toast.error("Select at least one activity"); return }
+    if (overCap) {
+      toast.error(`Selected hours (${selectedHours.toFixed(2)}) exceed remaining retainer hours (${remainingHours.toFixed(2)})`)
+      return
+    }
     setGenerating(true)
     try {
-      const first = selectedRows[0]
+      const row0 = selectedRows[0]
       const url = await billingApi.generateRetainerStatement({
-        clientId: first.clients ?? first.clientId ?? clientId,
-        lfaId: first.lfaId,
-        matterId: matterId || first.matterId,
+        clientId: row0.clients ?? row0.clientId ?? clientId,
+        lfaId: row0.lfaId ?? (row0.lfa as { id?: string } | undefined)?.id,
+        matterId: matterId || row0.matterId,
         activityIds: selectedRows.map(r => r.id ?? r.activityId),
         activities: selectedRows,
+        hours: Math.floor(selectedHours),
+        minutes: Math.round((selectedHours % 1) * 60),
+        maxRetainerHours: maxHours,
+        totalHours: selectedHours,
+        generatedHours,
+        remainingHours,
       })
       toast.success("Retainer statement generated")
       setStmtOpen(false)
@@ -189,20 +222,41 @@ export default function RetainerBillingPage() {
 
       <Dialog open={stmtOpen} onClose={() => !generating && setStmtOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Generate Retainer Statement</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <Typography variant="body2" color="text.secondary">
             Create a retainer statement for {selected.size} selected time activit{selected.size === 1 ? "y" : "ies"}.
           </Typography>
-          <Typography variant="body2">
-            Total hours:{" "}
-            <strong>
-              {selectedRows.reduce((s, r) => s + Number(r.totalHours ?? ((Number(r.hours ?? 0) + Number(r.minutes ?? 0) / 60))), 0).toFixed(2)}
-            </strong>
-          </Typography>
+          {summaryQ.isFetching && <LinearProgress />}
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Selected hours</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>{selectedHours.toFixed(2)}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Max retainer hours</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>{maxHours || "—"}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Already generated</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>{generatedHours.toFixed(2)}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Remaining</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>{maxHours ? remainingHours.toFixed(2) : "—"}</Typography>
+            </Box>
+          </Box>
+          {overCap && (
+            <Alert severity="warning">
+              Selected hours exceed remaining retainer capacity. Reduce the selection before generating.
+            </Alert>
+          )}
+          {!stmtLfaId && stmtOpen && (
+            <Alert severity="info">No LFA linked on selected activities — cap hours unavailable.</Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setStmtOpen(false)} disabled={generating}>Cancel</Button>
-          <Button variant="contained" onClick={generateStatement} disabled={generating}>
+          <Button variant="contained" onClick={() => { void generateStatement() }} disabled={generating || overCap}>
             {generating ? "Generating…" : "Generate"}
           </Button>
         </DialogActions>

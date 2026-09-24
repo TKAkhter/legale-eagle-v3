@@ -19,6 +19,11 @@ import { ClientSelectFilter } from '@components/filters/ClientSelectFilter'
 import { MatterSelectFilter } from '@components/filters/MatterSelectFilter'
 import { DateRangeFilter } from '@components/filters/DateRangeFilter'
 import { InvoiceFormDrawer } from './_components/InvoiceFormDrawer'
+import { InvoiceSendForApprovalDialog } from './_components/InvoiceSendForApprovalDialog'
+import { InvoiceSendEmailDialog } from './_components/InvoiceSendEmailDialog'
+import { CancelWithCreditDialog } from './_components/CancelWithCreditDialog'
+import SendIcon from '@mui/icons-material/Send'
+import EmailIcon from '@mui/icons-material/Email'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams, InvoiceStatus } from '@/types/common.types'
 import { billingApi } from '@/api/billing'
@@ -65,7 +70,10 @@ export default function BillingsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const [cancelId, setCancelId] = useState<string>()
+  const [cancelCreditId, setCancelCreditId] = useState<string>()
   const [writeOffId, setWriteOffId] = useState<string>()
+  const [approveId, setApproveId] = useState<string>()
+  const [emailTarget, setEmailTarget] = useState<{ id: string; emails: string[] }>()
   const [gridKey, setGridKey] = useState(0)
 
   useEffect(() => {
@@ -83,12 +91,28 @@ export default function BillingsPage() {
     }
   }
 
-  async function downloadPdf(id: string, invoiceNo?: string) {
+  async function downloadPdf(id: string, invoiceNo?: string, opts?: { language?: string; targetCurrency?: string }) {
     try {
-      downloadBlob(await billingApi.downloadPdf(id), `invoice-${invoiceNo ?? id}.pdf`)
+      const suffix = [opts?.language, opts?.targetCurrency].filter(Boolean).join("-")
+      downloadBlob(
+        await billingApi.downloadPdf(id, opts),
+        `invoice-${invoiceNo ?? id}${suffix ? `-${suffix}` : ""}.pdf`,
+      )
     } catch {
       toast.error("PDF download failed")
     }
+  }
+
+  function clientEmailsFromRow(row: Record<string, unknown>): string[] {
+    const client = (row.client ?? row.clientMini) as Record<string, unknown> | undefined
+    const raw = (client?.email ?? client?.emails ?? row.clientEmails ?? []) as unknown
+    const list = Array.isArray(raw) ? raw : typeof raw === "string" && raw ? [raw] : []
+    const emails = list.map(e => {
+      if (typeof e === "string") return e.trim()
+      const o = e as { emailId?: string; email?: string }
+      return String(o.emailId ?? o.email ?? "").trim()
+    }).filter(Boolean)
+    return Array.from(new Set(emails))
   }
 
   return (
@@ -163,13 +187,26 @@ export default function BillingsPage() {
         isSortingBackend={false}
         detailPath={(row) => `/billings/${String((row as { id?: string }).id ?? '')}`}
         rowMenuItems={(row) => {
-          const r = row as { id?: string; invoiceNo?: string; invoiceStatus?: string }
+          const r = row as Record<string, unknown> & { id?: string; invoiceNo?: string; invoiceStatus?: string; paymentStaus?: string }
           const id = String(r.id ?? '')
+          const status = String(r.invoiceStatus ?? r.paymentStaus ?? '').toUpperCase()
+          const canSendApproval = !['APPROVAL', 'PAID', 'VOID', 'CANCELED', 'CANCELLED', 'WRITE_OFF'].includes(status)
           return [
             { label: 'View', onClick: () => navigate(`/billings/${id}`) },
             { label: 'Download PDF', icon: <FileDownloadIcon fontSize="small" />, onClick: () => downloadPdf(id, r.invoiceNo) },
-            { label: 'Record Payment', icon: <PaidIcon fontSize="small" />, onClick: () => navigate(`/billings/${id}`) },
+            { label: 'PDF (Arabic)', onClick: () => downloadPdf(id, r.invoiceNo, { language: 'ar' }) },
+            { label: 'PDF (USD)', onClick: () => downloadPdf(id, r.invoiceNo, { targetCurrency: 'USD' }) },
+            {
+              label: 'Send Email',
+              icon: <EmailIcon fontSize="small" />,
+              onClick: () => setEmailTarget({ id, emails: clientEmailsFromRow(r) }),
+            },
+            { label: 'Record Payment', icon: <PaidIcon fontSize="small" />, onClick: () => navigate(`/payment?invoiceId=${id}`) },
+            ...(canSendApproval
+              ? [{ label: 'Send for Approval', icon: <SendIcon fontSize="small" />, onClick: () => setApproveId(id) }]
+              : []),
             { label: 'Cancel', icon: <CancelIcon fontSize="small" />, onClick: () => setCancelId(id) },
+            { label: 'Cancel (Credit/Refund)', onClick: () => setCancelCreditId(id) },
             { label: 'Write Off', onClick: () => setWriteOffId(id) },
           ]
         }}
@@ -205,6 +242,33 @@ export default function BillingsPage() {
         message="Are you sure you want to write off this invoice?"
         confirmLabel="Write Off"
         severity="warning"
+      />
+      <InvoiceSendForApprovalDialog
+        open={!!approveId}
+        invoiceId={String(approveId ?? '')}
+        onClose={() => setApproveId(undefined)}
+        onSent={() => {
+          setApproveId(undefined)
+          setGridKey(k => k + 1)
+          qc.invalidateQueries({ queryKey: ['invoices', 'list'] })
+        }}
+      />
+      <InvoiceSendEmailDialog
+        open={!!emailTarget}
+        invoiceId={String(emailTarget?.id ?? '')}
+        suggestedEmails={emailTarget?.emails ?? []}
+        onClose={() => setEmailTarget(undefined)}
+        onSent={() => setEmailTarget(undefined)}
+      />
+      <CancelWithCreditDialog
+        open={!!cancelCreditId}
+        invoiceId={String(cancelCreditId ?? '')}
+        onClose={() => setCancelCreditId(undefined)}
+        onDone={() => {
+          setCancelCreditId(undefined)
+          setGridKey(k => k + 1)
+          qc.invalidateQueries({ queryKey: ['invoices', 'list'] })
+        }}
       />
     </PageShell>
   )

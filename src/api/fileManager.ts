@@ -25,6 +25,7 @@ export interface FileItem {
   size:     number | null
   modified: string
   mimeType: string | null
+  webUrl?:  string
 }
 
 // In-memory state for static mode mutations
@@ -110,7 +111,12 @@ export const fileManagerApi = {
       body: file,
     })
     const data = await r.json()
-    return { id: data.id, name: data.name, type: "file", parentId, size: data.size, modified: data.lastModifiedDateTime, mimeType: file.type }
+    return {
+      id: data.id, name: data.name, type: "file" as const, parentId,
+      size: data.size ?? null, modified: String(data.lastModifiedDateTime ?? ""),
+      mimeType: (data.file as { mimeType?: string })?.mimeType ?? file.type,
+      webUrl: String(data.webUrl ?? ""),
+    }
   },
 
   /** Rename a file or folder */

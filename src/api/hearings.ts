@@ -108,6 +108,24 @@ export const hearingsApi = {
     return res.data?.data ?? res.data
   },
 
+  /** Reopen a closed hearing (LMS OpenHearings → PUT /hearing/open/:id). */
+  async openHearing(hearingId: string, data: { openingDate?: string; decision?: string }) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return { id: hearingId }
+    }
+    const res = await axiosClient.put(`/api/hearing/open/${hearingId}`, { hearingId, ...data })
+    return res.data?.data ?? res.data
+  },
+
+  async getByMatterAndId(matterId: string, hearingId: string) {
+    if (env.USE_STATIC_DATA) {
+      return STATIC.find(h => h.id === hearingId) ?? STATIC[0]
+    }
+    const res = await axiosClient.get(`/api/hearing/get/${matterId}/${hearingId}`)
+    return res.data?.data ?? res.data
+  },
+
   async getParentChild(parentId: string) {
     if (env.USE_STATIC_DATA) return []
     const res = await axiosClient.get("/api/hearing/get/parent/child", { params: { parentId } })

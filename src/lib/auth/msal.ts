@@ -24,7 +24,9 @@ function buildMsalConfig(): Configuration {
 export const MSAL_SCOPES = {
   login: ['openid', 'profile', 'email', 'User.Read'],
   oneDrive: ['Files.ReadWrite'],
-  full: ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite'],
+  /** Graph calendar create/update for hearing Outlook sync */
+  calendar: ['Calendars.ReadWrite'],
+  full: ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite', 'Calendars.ReadWrite'],
 }
 
 let _msalInstance: PublicClientApplication | null = null
@@ -56,6 +58,7 @@ export async function msalSignOut(): Promise<void> {
 }
 
 export async function getOneDriveToken(): Promise<string> { return acquireTokenSilent(MSAL_SCOPES.oneDrive) }
+export async function getCalendarToken(): Promise<string> { return acquireTokenSilent(MSAL_SCOPES.calendar) }
 export async function getMicrosoftProfile() {
   const token = await acquireTokenSilent(MSAL_SCOPES.login)
   const r = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${token}` } })

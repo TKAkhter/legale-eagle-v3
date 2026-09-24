@@ -394,8 +394,9 @@ export const mattersApi = {
       : Array.isArray(data) ? data
       : []) as Record<string, unknown>[]
     // Old LMS flattens content[0].designationEstimates into table rows.
-    const estimates = Array.isArray(content[0]?.designationEstimates)
-      ? (content[0].designationEstimates as Record<string, unknown>[])
+    const carrier = content[0] as Record<string, unknown> | undefined
+    const estimates = Array.isArray(carrier?.designationEstimates)
+      ? (carrier!.designationEstimates as Record<string, unknown>[])
       : content
     const mapped = estimates.map((row, index) => {
       const hours = Number(row.hours ?? row.projectedHours ?? 0)
@@ -403,11 +404,18 @@ export const mattersApi = {
       const balance = Number(row.balance ?? row.balanceHours ?? (hours - used))
       return {
         id: String(row.id ?? row.designationId ?? index),
-        designation: row.designationName ?? row.designation ?? "—",
+        designationId: String(row.designationId ?? ""),
+        designation: String(row.designationName ?? row.designation ?? "—"),
         projectedHours: hours,
         usedHours: used,
         balanceHours: balance,
         usagePercent: hours > 0 ? Math.round((used / hours) * 100) : 0,
+        templateId: String(
+          carrier?.templateId ?? carrier?.templateID ?? (carrier?.template as { id?: string } | undefined)?.id ?? "",
+        ),
+        templateName: String(
+          carrier?.templateName ?? (carrier?.template as { templateName?: string } | undefined)?.templateName ?? "",
+        ),
         ...row,
       }
     })
@@ -421,6 +429,82 @@ export const mattersApi = {
       last: true,
       empty: mapped.length === 0,
     }
+  },
+
+  async getEstimateHourTemplates() {
+    if (env.USE_STATIC_DATA) {
+      return [{ id: "et1", templateName: "Litigation Default", name: "Litigation Default" }]
+    }
+    const res = await axiosClient.get("/api/estimate-hours-by-designation/get/template", {
+      params: { pageNumber: 0, pageSize: 50, isActiveFilter: true },
+    })
+    const d = res.data?.data ?? res.data ?? {}
+    return (Array.isArray(d.content) ? d.content : Array.isArray(d) ? d : []) as Record<string, unknown>[]
+  },
+
+  async getEstimateHourTemplateById(id: string) {
+    if (env.USE_STATIC_DATA) {
+      return {
+        id,
+        designationDetails: [
+          { designationId: "d1", designationName: "Partner", hours: 20 },
+          { designationId: "d2", designationName: "Associate", hours: 40 },
+        ],
+      }
+    }
+    const res = await axiosClient.get(`/api/estimate-hours-by-designation/get/template/${id}`)
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+  },
+
+  async saveProjectedHours(payload: {
+    matterId: string
+    designationEstimates: { designationId: string; designationName?: string; hours: number }[]
+    update?: boolean
+    templateId?: string
+    applyFromTemplate?: boolean
+  }) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    if (payload.update) {
+      const res = await axiosClient.put("/api/estimate-hours-by-designation/update", {
+        matterId: payload.matterId,
+        designationEstimates: payload.designationEstimates,
+      })
+      if (String(res.data?.code) === "403") throw new Error(res.data?.Msg ?? "Failed to update projected hours")
+      return
+    }
+    const body: Record<string, unknown> = {
+      applyFromTemplate: Boolean(payload.applyFromTemplate),
+      designationEstimates: payload.designationEstimates,
+      matterId: payload.matterId,
+    }
+    if (payload.templateId) body.templateId = payload.templateId
+    const res = await axiosClient.post("/api/estimate-hours-by-designation/add", body)
+    if (String(res.data?.code) === "403") throw new Error(res.data?.Msg ?? "Failed to add projected hours")
+  },
+
+  async getHourlyRates(matterId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "hr1", userId: { id: "u1", firstName: "Sarah", lastName: "Johnson" }, rate: 1200 },
+        { id: "hr2", userId: { id: "u3", firstName: "Priya", lastName: "Sharma" }, rate: 800 },
+      ]
+    }
+    const res = await axiosClient.get("/api/matter/get/hourly/rate", { params: { matterId } })
+    const data = res.data?.data ?? res.data ?? []
+    return (Array.isArray(data) ? data : []) as Record<string, unknown>[]
+  },
+
+  async updateHourlyRatesBulk(
+    matterId: string,
+    HourlyRateMatter: { userId: string; rate: number; hourlyRateMatterId?: string }[],
+  ) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    const res = await axiosClient.post(
+      "/api/matter/update/hourly/rate/bulk",
+      { HourlyRateMatter },
+      { params: { matterId } },
+    )
+    if (String(res.data?.code) === "403") throw new Error(res.data?.Msg ?? "Failed to update hourly rates")
   },
 
   async getSnapshots(matterId: string, p: GridParams) {
@@ -507,6 +591,56 @@ export const mattersApi = {
     return res.data?.data ?? res.data ?? {}
   },
 
+  /** Create/link matter mailbox folder (LMS POST /matter/email/attach). */
+  async attachMailbox(matterId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Attached successfully."
+    }
+    const res = await axiosClient.post("/api/matter/email/attach", null, {
+      params: { matterId },
+    })
+    return String(res.data?.Msg ?? res.data?.message ?? "Attached successfully.")
+  },
+
+  async enableEnforcement(matterId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Enforcement activated."
+    }
+    const res = await axiosClient.put(`/api/matter/active/enforcement/${matterId}`)
+    return String(res.data?.Msg ?? res.data?.message ?? "Enforcement activated.")
+  },
+
+  async activateContingent(lfaId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Contingent activated."
+    }
+    const res = await axiosClient.get("/api/lfa/active/contingent", { params: { lfaId } })
+    return String(res.data?.Msg ?? res.data?.message ?? "Contingent activated.")
+  },
+
+  async activateNonContingent(lfaId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Non-contingent activated."
+    }
+    const res = await axiosClient.get("/api/lfa/active/non/contingent", { params: { lfaId } })
+    return String(res.data?.Msg ?? res.data?.message ?? "Non-contingent activated.")
+  },
+
+  async activateSuccessRate(lfaId: string, matterId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Success rate activated."
+    }
+    const res = await axiosClient.get("/api/lfa/active/success/rate", {
+      params: { lfaId, matterId },
+    })
+    return String(res.data?.Msg ?? res.data?.message ?? "Success rate activated.")
+  },
+
   async getStatusTimeline(matterId: string) {
     if (env.USE_STATIC_DATA) {
       const { matterStatusTimeline } = await import("@/data/static")
@@ -525,6 +659,131 @@ export const mattersApi = {
     const res = await axiosClient.get("/api/matter-team/get/by-matter", { params: { matterId } })
     const { unwrapAxiosList } = await import("@lib/utils/unwrap")
     return unwrapAxiosList(res.data)
+  },
+
+  /** Full matter-team record (id + users) for edit. */
+  async getMatterTeamRecord(matterId: string): Promise<{
+    id: string
+    matterId: string
+    matterTitle: string
+    description: string
+    teamTemplateId: string
+    users: { userId: string; teamRoleId: string; userName?: string; roleName?: string }[]
+  } | null> {
+    if (env.USE_STATIC_DATA) {
+      return {
+        id: "mt1",
+        matterId,
+        matterTitle: "",
+        description: "",
+        teamTemplateId: "",
+        users: [
+          { userId: "u1", teamRoleId: "tr1", userName: "Sarah Johnson", roleName: "Handling Work" },
+        ],
+      }
+    }
+    const res = await axiosClient.get("/api/matter-team/get/by-matter", { params: { matterId } })
+    const raw = res.data?.data ?? res.data
+    const record = Array.isArray(raw) ? raw[0] : raw
+    if (!record || typeof record !== "object") return null
+    const usersRaw = (record as { users?: unknown[]; members?: unknown[] }).users
+      ?? (record as { members?: unknown[] }).members
+      ?? []
+    const users = (Array.isArray(usersRaw) ? usersRaw : []).map((raw) => {
+      const m = raw as Record<string, unknown>
+      const user = (m.user ?? {}) as Record<string, unknown>
+      const role = (m.teamRole ?? m.role ?? {}) as Record<string, unknown>
+      return {
+        userId: String(m.userId ?? user.id ?? ""),
+        teamRoleId: String(m.teamRoleId ?? m.roleId ?? role.id ?? ""),
+        userName: String(
+          m.userName
+          ?? `${user.firstName ?? m.firstName ?? ""} ${user.lastName ?? m.lastName ?? ""}`.trim()
+          ?? "",
+        ),
+        roleName: String(m.roleName ?? m.teamRoleDescription ?? role.description ?? role.name ?? ""),
+      }
+    }).filter(u => u.userId && u.teamRoleId)
+    return {
+      id: String((record as { id?: string; _id?: string }).id ?? (record as { _id?: string })._id ?? ""),
+      matterId: String((record as { matterId?: string }).matterId ?? matterId),
+      matterTitle: String((record as { matterTitle?: string; title?: string }).matterTitle ?? (record as { title?: string }).title ?? ""),
+      description: String((record as { description?: string }).description ?? ""),
+      teamTemplateId: String(
+        (record as { teamTemplateId?: string; templateId?: string }).teamTemplateId
+        ?? (record as { templateId?: string }).templateId
+        ?? ((record as { teamTemplate?: { id?: string } }).teamTemplate?.id ?? ""),
+      ),
+      users,
+    }
+  },
+
+  async getTeamRoles() {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "tr1", description: "Handling Work", name: "Handling Work" },
+        { id: "tr2", description: "Supervisor", name: "Supervisor" },
+        { id: "tr3", description: "Associate", name: "Associate" },
+      ]
+    }
+    const res = await axiosClient.get("/api/team-role/get/all", { params: { page: 0, pageSize: 1000 } })
+    const d = res.data?.data ?? res.data ?? []
+    const list = Array.isArray(d) ? d : Array.isArray(d.content) ? d.content : []
+    return (list as Record<string, unknown>[]).filter(r => {
+      if (typeof r.active === "boolean") return r.active
+      if (typeof r.status === "boolean") return r.status
+      return true
+    })
+  },
+
+  async getTeamTemplates() {
+    if (env.USE_STATIC_DATA) {
+      return [{ id: "tt1", name: "Litigation Default" }]
+    }
+    const res = await axiosClient.get("/api/team-template/get/all", {
+      params: { page: 0, pageSize: 1000, sortBy: "name", sortDirection: "asc" },
+    })
+    const d = res.data?.data ?? res.data ?? []
+    const list = Array.isArray(d) ? d : Array.isArray(d.content) ? d.content : []
+    return (list as Record<string, unknown>[]).map(t => ({
+      ...t,
+      id: String(t.id ?? t._id ?? t.templateId ?? ""),
+    }))
+  },
+
+  async getTeamTemplateById(id: string) {
+    if (env.USE_STATIC_DATA) {
+      return {
+        id,
+        users: [{ userId: "u1", teamRoleId: "tr1" }],
+      }
+    }
+    const res = await axiosClient.get("/api/team-template/get", { params: { id } })
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+  },
+
+  async saveMatterTeam(payload: {
+    matterId: string
+    matterTitle?: string
+    description?: string
+    users: { userId: string; teamRoleId: string }[]
+    id?: string
+    teamTemplateId?: string
+  }) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    const body: Record<string, unknown> = {
+      matterId: payload.matterId,
+      matterTitle: payload.matterTitle ?? "",
+      description: payload.description ?? "",
+      users: payload.users.filter(u => u.userId && u.teamRoleId),
+    }
+    if (payload.id) body.id = payload.id
+    if (payload.teamTemplateId) body.teamTemplateId = payload.teamTemplateId
+    const path = payload.id ? "/api/matter-team/update" : "/api/matter-team/add"
+    const res = await axiosClient.post(path, body)
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "Failed to save matter team")
+    }
   },
 
   async getConflictChecks(matterId: string, p: GridParams) {
@@ -578,6 +837,19 @@ export const mattersApi = {
     if (String(res.data?.code) === "403" || res.data?.success === false) {
       throw new Error(res.data?.Msg ?? "Failed to update stop working")
     }
+  },
+
+  /** LMS PATCH /matter/update/estimate — estimate must be 0 or ≥ 500. */
+  async updateEstimate(matterId: string, estimate: number): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Estimate updated successfully."
+    }
+    const res = await axiosClient.patch("/api/matter/update/estimate", { matterId, estimate })
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "You are not allowed to update the estimate.")
+    }
+    return res.data?.Msg ?? res.data?.message ?? "Estimate updated successfully."
   },
 
 }

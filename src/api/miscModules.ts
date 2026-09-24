@@ -38,6 +38,19 @@ function unwrap(data: unknown, p: GridParams): PageResponse<Record<string, unkno
   return pg(content, p)
 }
 
+export interface ReferralCommissionRow extends Record<string, unknown> {
+  id: string
+  clientId: string
+  clientName: string
+  referralUserName: string
+  invoiceNo: string
+  lfaNo: string
+  invoiceAmount: number
+  commissionPercentage: number
+  commissionAmount: number
+  createdAt: string
+}
+
 export const miscModulesApi = {
   async getTransfers(p: GridParams, status: "pending" | "completed" = "pending") {
     if (env.USE_STATIC_DATA) {
@@ -121,6 +134,11 @@ export const miscModulesApi = {
         status: "PROPOSAL",
         leadSource: "Referral",
         practiceArea: "Litigation",
+        description: "Corporate dispute SOW",
+        phones: [{ phoneNo: "555-0100", primary: true }],
+        email: [{ emailId: "pending@example.com" }],
+        convertedAt: "2026-08-20",
+        referredBy: "Internal Desk",
         createdAt: "2026-09-01",
       }], p)
     }
@@ -139,6 +157,25 @@ export const miscModulesApi = {
     return unwrap(res.data?.data ?? res.data, p)
   },
 
+  /** LMS Email Excel — GET returns Msg/URL toast, not a blob download. */
+  async exportPendingMatters(filters: Record<string, unknown> = {}): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Excel will be emailed shortly."
+    }
+    const res = await axiosClient.get("/api/reports/export-excel/pending-matter-creation", {
+      params: {
+        clientId: filters.clientId ?? "",
+        stage: filters.stage ?? "",
+        leadSource: filters.leadSource ?? "",
+        fromDate: filters.fromDate ?? "",
+        toDate: filters.toDate ?? "",
+        departmentId: filters.departmentId ?? "",
+      },
+    })
+    return String(res.data?.Msg ?? res.data?.message ?? "Excel export requested.")
+  },
+
   async getReferralPartners(p: GridParams) {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 200))
@@ -154,6 +191,78 @@ export const miscModulesApi = {
       params: { pageNumber: p.page, pageSize: p.pageSize },
     })
     return unwrap(res.data?.data ?? res.data, p)
+  },
+
+  /** LFA agreements available for referral commission filter (dropdown source). */
+  async getMyReferralAgreements(): Promise<{ id: string; agreementNo: string; billingType?: string }[]> {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "lfa1", agreementNo: "LFA-1001", billingType: "Hourly" },
+        { id: "lfa2", agreementNo: "LFA-1002", billingType: "Fixed" },
+      ]
+    }
+    const res = await axiosClient.get("/api/lfa/my/referral")
+    const d = res.data?.data ?? res.data ?? []
+    const list = Array.isArray(d) ? d : (d?.content ?? [])
+    return (list as Record<string, unknown>[]).map(r => ({
+      id: String(r.id ?? ""),
+      agreementNo: String(r.agreementNo ?? r.lfaNo ?? r.id ?? ""),
+      billingType: r.billingType != null ? String(r.billingType) : undefined,
+    })).filter(r => r.id)
+  },
+
+  /** Commission rows for a selected LFA agreement. */
+  async getReferralCommissions(lfaId: string, limitValue: number): Promise<ReferralCommissionRow[]> {
+    if (env.USE_STATIC_DATA) {
+      const all: ReferralCommissionRow[] = [
+        {
+          id: "rc1",
+          clientId: "c1",
+          clientName: "Al Rashid Holdings",
+          referralUserName: "Mohammad Ovesh",
+          invoiceNo: "INV-9001",
+          lfaNo: "LFA-1001",
+          invoiceAmount: 12000,
+          commissionPercentage: 10,
+          commissionAmount: 1200,
+          createdAt: "2026-08-15",
+        },
+        {
+          id: "rc2",
+          clientId: "c2",
+          clientName: "KM Group",
+          referralUserName: "Mohammad Ovesh",
+          invoiceNo: "INV-9002",
+          lfaNo: "LFA-1001",
+          invoiceAmount: 8000,
+          commissionPercentage: 10,
+          commissionAmount: 800,
+          createdAt: "2026-08-20",
+        },
+      ]
+      return limitValue === 0 ? all : all.slice(0, limitValue)
+    }
+    const res = await axiosClient.get(`/api/commission/get/${lfaId}`, {
+      params: { limitValue },
+    })
+    const raw = res.data?.data ?? res.data ?? []
+    const list = Array.isArray(raw) ? raw : []
+    return list.map((row: Record<string, unknown>, i: number) => {
+      const invoice = (row.invoice ?? {}) as Record<string, unknown>
+      const client = (invoice.clientMini ?? invoice.client ?? {}) as Record<string, unknown>
+      return {
+        id: String(row.id ?? `${lfaId}-${i}`),
+        clientId: String(client.id ?? client.clientId ?? ""),
+        clientName: String(client.companyName ?? client.name ?? client.clientName ?? "—"),
+        referralUserName: String(row.referralUserName ?? "—"),
+        invoiceNo: String(invoice.invoiceNo ?? "—"),
+        lfaNo: String(invoice.lfaNo ?? "—"),
+        invoiceAmount: Number(row.invoiceAmount ?? 0),
+        commissionPercentage: Number(row.commissionPercentage ?? 0),
+        commissionAmount: Number(row.commissionAmount ?? 0),
+        createdAt: String(row.createdAt ?? ""),
+      }
+    })
   },
 
   async getShortMatters(p: GridParams) {
@@ -199,10 +308,18 @@ export const miscModulesApi = {
       await new Promise(r => setTimeout(r, 200))
       return pg([{
         id: "daa1",
+        activityApprovalId: "daa1",
+        activity: "Document Review",
         activityName: "Document Review",
         matterTitle: "260303",
+        matter: { title: "260303" },
+        client: { companyName: "Al Rashid Holdings" },
+        responsiblePerson: { firstName: "Sarah", lastName: "Johnson" },
         userName: "Sarah Johnson",
-        hours: 3.5,
+        totalHours: 3.5,
+        billing: 3500,
+        entryDate: "2026-07-01",
+        revenueStatus: "PRE_APPROVAL",
         status: "Pending",
       }], p)
     }
@@ -211,6 +328,7 @@ export const miscModulesApi = {
       params: {
         pageNumber: p.page,
         pageSize: p.pageSize,
+        matterId: f.matterId ?? "",
         fromDate: f.fromDate ?? "",
         toDate: f.toDate ?? "",
       },

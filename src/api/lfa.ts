@@ -113,6 +113,70 @@ export const lfaApi = {
     return res.data?.data ?? res.data ?? []
   },
 
+  /** Seed session rates (LMS /util/get/session/rate). */
+  async getDefaultSessionRates() {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "s1", typeName: "Court Hearing", rate: 1500 },
+        { id: "s2", typeName: "Consultation", rate: 800 },
+      ]
+    }
+    const res = await axiosClient.get("/api/util/get/session/rate")
+    return res.data?.data ?? res.data ?? []
+  },
+
+  /** Active LFA title masters (LMS /util/list/lfa/title). */
+  async getLfaTitles() {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "t1", name: "Standard Retainer", status: true },
+        { id: "t2", name: "Litigation Agreement", status: true },
+      ]
+    }
+    const res = await axiosClient.get("/api/util/list/lfa/title")
+    const list = res.data?.data ?? res.data ?? []
+    return (Array.isArray(list) ? list : []).filter((t: { status?: boolean }) => t.status !== false)
+  },
+
+  /** Fixed breakdown categories (LMS /util/list/break/down). */
+  async getBreakdownTypes() {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "bd1", name: "Filing Fees", status: true },
+        { id: "bd2", name: "Professional Fees", status: true },
+      ]
+    }
+    const res = await axiosClient.get("/api/util/list/break/down")
+    const list = res.data?.data ?? res.data ?? []
+    return (Array.isArray(list) ? list : []).filter((b: { status?: boolean }) => b.status !== false)
+  },
+
+  /** Referral partners (LMS /util/list/refer/client). */
+  async getReferralPartners() {
+    if (env.USE_STATIC_DATA) {
+      return [{ id: "rp1", name: "Partner Firm LLC" }]
+    }
+    const res = await axiosClient.get("/api/util/list/refer/client")
+    return res.data?.data ?? res.data ?? []
+  },
+
+  /** Upload LFA PDF/doc (LMS POST /util/fileUpload). */
+  async uploadAgreementFile(file: File, clientUuid: string) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return { url: "https://example.com/lfa.pdf", name: file.name }
+    }
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("folderName", "Matter")
+    formData.append("uuid", clientUuid)
+    const res = await axiosClient.post("/api/util/fileUpload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    const data = res.data?.data ?? res.data
+    return Array.isArray(data) ? data[0] : data
+  },
+
   async getDefaults(p: GridParams) {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 150))

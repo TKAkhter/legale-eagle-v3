@@ -17,10 +17,13 @@ import { formatCurrency } from '@lib/utils/formatCurrency'
 import { downloadBlob } from '@lib/utils/downloadBlob'
 import { RecordPaymentDialog } from '../_components/RecordPaymentDialog'
 import { InvoiceFormDrawer } from '../_components/InvoiceFormDrawer'
+import { InvoiceSendForApprovalDialog } from '../_components/InvoiceSendForApprovalDialog'
+import { InvoiceSendEmailDialog } from '../_components/InvoiceSendEmailDialog'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import EmailIcon from '@mui/icons-material/Email'
 import DescriptionIcon from '@mui/icons-material/Description'
 import PaidIcon from '@mui/icons-material/Paid'
+import SendIcon from '@mui/icons-material/Send'
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -37,7 +40,8 @@ export default function InvoiceDetailPage() {
   const [downloading, setDownloading] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const [emailing, setEmailing] = useState(false)
+  const [approveOpen, setApproveOpen] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
   const [dlWord, setDlWord] = useState(false)
 
   const { data: invoice, isLoading } = useQuery({
@@ -67,11 +71,6 @@ export default function InvoiceDetailPage() {
     },
   })
 
-  async function emailInvoice() {
-    setEmailing(true)
-    try { if (!env.USE_STATIC_DATA) await axiosClient.post('/api/invoice/send/email', null, { params: { invoiceId } }); else await new Promise(r=>setTimeout(r,500)) }
-    finally { setEmailing(false) }
-  }
 
   async function downloadWord() {
     setDlWord(true)
@@ -95,9 +94,21 @@ export default function InvoiceDetailPage() {
 
   const client = invoice?.client as Record<string,string> | undefined
   const matter = invoice?.matter as Record<string,string> | undefined
-  const balance = Number(invoice?.balanceAmount ?? 0)
+  const balance = Math.max(
+    0,
+    Number(
+      (
+        Number(invoice?.dueAmount ?? invoice?.balanceAmount ?? 0)
+        - Number(invoice?.paidAmount ?? 0)
+        - Number(invoice?.writeOffAmount ?? 0)
+        - Number(invoice?.creditNoteAmount ?? 0)
+      ).toFixed(2),
+    ),
+  )
+  const availableCreditNote = Number(invoice?.creditNoteAmount ?? 0)
   const status = String(invoice?.invoiceStatus ?? '')
   const canEdit = /draft|approval|pending/i.test(status)
+  const canSendApproval = !/approval|paid|void|canceled|cancelled|write_off/i.test(status)
 
   const invNo = (invoice as Record<string,unknown>)?.invoiceNo ?? invoiceId
   return (
@@ -116,14 +127,19 @@ export default function InvoiceDetailPage() {
               Edit
             </Button>
           )}
+          {canSendApproval && (
+            <Button variant="outlined" startIcon={<SendIcon />} onClick={() => setApproveOpen(true)}>
+              Send for Approval
+            </Button>
+          )}
           <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadPdf} disabled={downloading}>
             {downloading ? 'Downloading…' : 'PDF'}
           </Button>
           <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={downloadWord} disabled={dlWord}>
             {dlWord ? 'Exporting…' : 'Word'}
           </Button>
-          <Button variant="outlined" startIcon={<EmailIcon />} onClick={emailInvoice} disabled={emailing}>
-            {emailing ? 'Sending…' : 'Email'}
+          <Button variant="outlined" startIcon={<EmailIcon />} onClick={() => setEmailOpen(true)}>
+            Email
           </Button>
           {balance > 0 && (
             <Button variant="contained" color="success" startIcon={<PaidIcon />} onClick={() => setPayOpen(true)}>
@@ -204,6 +220,8 @@ export default function InvoiceDetailPage() {
         invoiceId={invoiceId ?? ''}
         invoiceNo={invoice?.invoiceNo ?? ''}
         balance={balance}
+        availableCreditNote={availableCreditNote}
+        defaultBankAccountId={String((client as { bankAccount?: { id?: string } } | undefined)?.bankAccount?.id ?? "")}
       />
       <InvoiceFormDrawer
         open={editOpen}
@@ -214,8 +232,32 @@ export default function InvoiceDetailPage() {
           toast.success('Invoice updated')
         }}
       />
-    </Box>
-  )
+      <InvoiceSendForApprovalDialog
+        open={approveOpen}
+        invoiceId={String(invoiceId ?? '')}
+        onClose={() => setApproveOpen(false)}
+        onSent={() => {
+          setApproveOpen(false)
+          qc.invalidateQueries({ queryKey: ['invoices', 'detail', invoiceId] })
+          qc.invalidateQueries({ queryKey: ['invoices', 'list'] })
+        }}
+      />
+      <InvoiceSendEmailDialog
+        open={emailOpen}
+        invoiceId={String(invoiceId ?? '')}
+        suggestedEmails={(() => {
+          const c = invoice?.client as Record<string, unknown> | undefined
+          const raw = (c?.email ?? c?.emails ?? []) as unknown
+          const list = Array.isArray(raw) ? raw : typeof raw === 'string' && raw ? [raw] : []
+          return list.map(e => {
+            if (typeof e === 'string') return e.trim()
+            const o = e as { emailId?: string; email?: string }
+            return String(o.emailId ?? o.email ?? '').trim()
+          }).filter(Boolean)
+        })()}
+        onClose={() => setEmailOpen(false)}
+      />
+      </Box>
     </PageShell>
   )
 }

@@ -100,11 +100,23 @@ export const adminApi = {
   async getMenuList() {
     if (env.USE_STATIC_DATA) {
       return [
-        { id: "m1", menuName: "Matters", parent: "0" },
-        { id: "m2", menuName: "Clients", parent: "0" },
-        { id: "m3", menuName: "Billing", parent: "0" },
-        { id: "m4", menuName: "Reports", parent: "0" },
-        { id: "m5", menuName: "Admin", parent: "0" },
+        {
+          menuId: "m1", menuName: "Matters",
+          submenu: [
+            { submenuId: "m1-s1", submenuName: "All Matters" },
+            { submenuId: "m1-s2", submenuName: "Pending" },
+          ],
+        },
+        { menuId: "m2", menuName: "Clients", submenu: [] },
+        {
+          menuId: "m3", menuName: "Billing",
+          submenu: [
+            { submenuId: "m3-s1", submenuName: "Invoices" },
+            { submenuId: "m3-s2", submenuName: "Payments" },
+          ],
+        },
+        { menuId: "m4", menuName: "Reports", submenu: [] },
+        { menuId: "m5", menuName: "Admin", submenu: [{ submenuId: "m5-s1", submenuName: "Settings" }] },
       ]
     }
     const res = await axiosClient.get("/api/menu/menulist")
@@ -138,15 +150,29 @@ export const adminApi = {
       return {
         id: "co1",
         companyName: "Legal Eagle Demo",
+        companySize: "51-200",
+        dateFormatAllow: "DD/MM/YYYY",
         address: "Dubai, UAE",
         phone: "+971 4 000 0000",
         email: "info@demo.local",
         currency: "AED",
         tax: 5,
         taxName: "VAT",
+        taxNumber: "TRN-000",
         invoicePrefix: "INV",
         dueDate: 30,
         timeZone: "GMT+04:00",
+        matterSeq: 1,
+        lfaSeq: 1,
+        proformaSeq: 1,
+        taxInvoiceSeq: 1,
+        oneDrive: true,
+        favClient: false,
+        favClientLimit: false,
+        maxFavClient: 5,
+        autoLogout: false,
+        autoLogoutMin: 30,
+        logo: "",
       }
     }
     const res = await axiosClient.get("/api/util/company/info")
@@ -156,6 +182,42 @@ export const adminApi = {
   async updateCompany(companyId: string, data: Record<string, unknown>) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 400)); return }
     await axiosClient.post("/api/util/edit/company", data, { params: { companyId } })
+  },
+
+  /** LMS POST /util/upload/logo — multipart company branding. */
+  async uploadCompanyLogo(file: File) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 400))
+      return { logo: URL.createObjectURL(file) }
+    }
+    const form = new FormData()
+    form.append("file", file)
+    const res = await axiosClient.post("/api/util/upload/logo", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+  },
+
+  async activateFavClient(params: { favClientLimit: boolean; maxFavClient: number }) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    await axiosClient.put("/api/util/fav/client/active", {}, {
+      params: { favClient: true, favClientLimit: params.favClientLimit, maxFavClient: params.maxFavClient },
+    })
+  },
+
+  async deactivateFavClient() {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    await axiosClient.put("/api/util/fav/client/deactivate")
+  },
+
+  async activateAutoLogout(minutes: number) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    await axiosClient.put("/api/util/auto/logout/active", {}, { params: { minutes } })
+  },
+
+  async deactivateAutoLogout() {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    await axiosClient.put("/api/util/auto/logout/de-active")
   },
 
   async getPracticeAreas() {

@@ -48,6 +48,17 @@ const STATIC_HIERARCHY = {
 }
 
 export const teamsApi = {
+  async getAllTeams(p?: GridParams): Promise<PageResponse<Record<string, unknown>>> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      const rows = STATIC_TEAMS as unknown as Record<string, unknown>[]
+      return p ? pageOf(rows, p) : pageOf(rows, { page: 0, pageSize: 50, filters: {} })
+    }
+    const res = await axiosClient.get("/api/teams")
+    const rows = (Array.isArray(res.data) ? res.data : res.data?.data ?? []) as Record<string, unknown>[]
+    return p ? pageOf(rows, p) : pageOf(rows, { page: 0, pageSize: 200, filters: {} })
+  },
+
   async getMyTeams(p?: GridParams): Promise<PageResponse<Record<string, unknown>>> {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 200))
@@ -59,13 +70,89 @@ export const teamsApi = {
     return p ? pageOf(rows, p) : pageOf(rows, { page: 0, pageSize: 200, filters: {} })
   },
 
+  /** Normalize OLD `{ team, members }` and flat roots into a single tree shape. */
   async getHierarchy(teamId: string) {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 200))
       return { ...STATIC_HIERARCHY, id: teamId }
     }
     const res = await axiosClient.get(`/api/teams/hierarchy/${teamId}`)
+    const raw = res.data?.data ?? res.data ?? {}
+    if (raw.team && Array.isArray(raw.members)) {
+      const team = raw.team as { id?: string; name?: string; hod?: { id?: string; firstName?: string; lastName?: string } }
+      const hod = team.hod
+      const hodName = hod
+        ? `${hod.firstName ?? ""} ${hod.lastName ?? ""}`.trim() || "HOD"
+        : team.name ?? "Team"
+      return {
+        id: team.id ?? teamId,
+        name: team.name ?? "Team",
+        memberId: hod?.id,
+        memberName: hodName,
+        members: raw.members as unknown[],
+      }
+    }
+    return raw
+  },
+
+  async createTeam(data: { name: string; hod: string }) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return { id: "t-new", ...data }
+    }
+    const res = await axiosClient.post("/api/teams", data)
     return res.data?.data ?? res.data
+  },
+
+  async getNonMembers(teamId: string): Promise<{
+    members: Record<string, unknown>[]
+    nonMembers: Record<string, unknown>[]
+  }> {
+    if (env.USE_STATIC_DATA) {
+      return {
+        members: [
+          { id: "u1", firstName: "Sarah", lastName: "Johnson", fullName: "Sarah Johnson" },
+          { id: "u2", firstName: "James", lastName: "Williams", fullName: "James Williams" },
+        ],
+        nonMembers: [
+          { id: "u6", firstName: "New", lastName: "Hire", fullName: "New Hire" },
+        ],
+      }
+    }
+    const res = await axiosClient.get(`/api/team/members/not/${teamId}`)
+    const d = res.data?.data ?? res.data ?? {}
+    return {
+      members: (d.members ?? []) as Record<string, unknown>[],
+      nonMembers: (d.nonMembers ?? []) as Record<string, unknown>[],
+    }
+  },
+
+  async addMember(payload: { team: string; user: string; supervisor: string }) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return STATIC_HIERARCHY
+    }
+    const res = await axiosClient.post("/api/team/members", payload)
+    return res.data?.data ?? res.data
+  },
+
+  async removeMember(teamId: string, memberId: string) {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return STATIC_HIERARCHY
+    }
+    const res = await axiosClient.delete(`/api/team/members/${teamId}/${memberId}`)
+    return res.data?.data ?? res.data
+  },
+
+  async submitHodRating(payload: { activityId: string; rating: number; teamId: string }): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Rating submitted."
+    }
+    const res = await axiosClient.post("/api/task/hod/rating", payload)
+    if (res.data?.code === "403") throw new Error(res.data?.Msg ?? "Not allowed")
+    return res.data?.Msg ?? res.data?.message ?? "Rating submitted."
   },
 
   async getMemberMatters(attorneyId: string, p: GridParams) {

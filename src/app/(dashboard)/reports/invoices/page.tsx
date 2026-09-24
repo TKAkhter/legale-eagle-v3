@@ -9,6 +9,7 @@ export default function InvoicesReportPage() {
       description="Invoice listing by client and matter"
       queryKey={["reports", "invoices"]}
       queryFn={p => reportsApi.getInvoicesReport(p)}
+      emailExcelFn={f => reportsApi.requestInvoicesReportExcel(f)}
       filters={{ showClient: true, showMatter: true, showDateRange: true }}
       columns={[
         { field: "invoiceNo", header: "Invoice", sortKey: "invoiceNo", renderCell: (v, row) => String(v ?? (row as { invoiceNumber?: string }).invoiceNumber ?? "—") },

@@ -20,7 +20,7 @@ const schema = z.object({
   companyUserType: z.enum(['ATTORNEY','NONATTORNEY','LAWYER','LAWYER_USER']),
   departmentId:    z.string().optional(),
   designationId:   z.string().optional(),
-  groupId:         z.string().optional(),
+  groupId:         z.string().min(1, 'Permission group is required'),
 })
 type Form = z.infer<typeof schema>
 
@@ -90,7 +90,7 @@ export function InviteUserDrawer({ open, onClose, onSuccess }: Props) {
           ]} />
         <ControlledAsyncSelect name="departmentId" control={control} label="Department" options={deptOpts} />
         <ControlledAsyncSelect name="designationId" control={control} label="Designation" options={desgOpts} />
-        <ControlledAsyncSelect name="groupId" control={control} label="Permission Group" options={groupOpts} />
+        <ControlledAsyncSelect name="groupId" control={control} label="Permission Group" options={groupOpts} required />
       </FormSection>
     </FormDrawer>
   )

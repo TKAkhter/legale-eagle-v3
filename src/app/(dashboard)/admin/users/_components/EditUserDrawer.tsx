@@ -23,6 +23,7 @@ export function EditUserDrawer({ open, onClose, userId, onSuccess }: Props) {
       firstName: '', lastName: '', email: '', phone: '',
       companyUserType: 'ATTORNEY',
       departmentId: '', designationId: '', reportingPersonId: '',
+      accessPermission: '',
       leadSourceEntry: false, practiceAreaEntry: false,
       departmentInvoiceApproval: false, departmentActivitiesReview: false,
       backEntry: false,
@@ -43,6 +44,7 @@ export function EditUserDrawer({ open, onClose, userId, onSuccess }: Props) {
         departmentId:                 u?.department?.id ?? '',
         designationId:                u?.designation?.id ?? '',
         reportingPersonId:            u?.reportingPerson?.id ?? '',
+        accessPermission:             u?.accessPermission ?? u?.group?.id ?? u?.groupId ?? '',
         leadSourceEntry:              u?.leadSourceEntry ?? false,
         practiceAreaEntry:            u?.practiceAreaEntry ?? false,
         departmentInvoiceApproval:    u?.departmentInvoiceApproval ?? false,
@@ -59,10 +61,15 @@ export function EditUserDrawer({ open, onClose, userId, onSuccess }: Props) {
   const { data: users = [] } = useQuery({ queryKey: QK.users.mini(), queryFn: () => axiosClient.get('/api/user/get/min').then(r => r.data?.data ?? []) })
   const { data: depts = [] }  = useQuery({ queryKey: QK.departments.list(), queryFn: () => axiosClient.get('/api/util/list/department').then(r => r.data?.data ?? []) })
   const { data: desgs = [] }  = useQuery({ queryKey: QK.designations.list(), queryFn: () => axiosClient.get('/api/util/get/designation').then(r => r.data?.data ?? []) })
+  const { data: groups = [] } = useQuery({ queryKey: QK.groups.list(), queryFn: () => axiosClient.get('/api/group/get').then(r => r.data?.data ?? []), enabled: open })
 
   const userOpts = (users as Record<string,string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))
   const deptOpts = (depts  as Record<string,string>[]).map(d => ({ value: d.id, label: d.name }))
   const desgOpts = (desgs  as Record<string,string>[]).map(d => ({ value: d.id, label: d.name }))
+  const groupOpts = (groups as Record<string, unknown>[]).map(g => ({
+    value: String(g.id ?? ""),
+    label: String(g.name ?? g.groupName ?? g.id ?? ""),
+  }))
 
   async function onSubmit(data: Record<string, unknown>) {
     setSubmitError(null)
@@ -75,6 +82,7 @@ export function EditUserDrawer({ open, onClose, userId, onSuccess }: Props) {
         email:         data.email,
         phone:         data.phone,
         companyUserType: data.companyUserType,
+        accessPermission: data.accessPermission || undefined,
         department:    data.departmentId ? { id: data.departmentId }   : undefined,
         designation:   data.designationId ? { id: data.designationId } : undefined,
         reportingPerson: data.reportingPersonId ? { id: data.reportingPersonId } : undefined,
@@ -122,6 +130,7 @@ export function EditUserDrawer({ open, onClose, userId, onSuccess }: Props) {
             { value: 'LAWYER', label: 'Lawyer' },
             { value: 'LAWYER_USER', label: 'Lawyer User' },
           ]} />
+        <ControlledAsyncSelect name="accessPermission" control={control} label="Permission Group" options={groupOpts} />
         <ControlledAsyncSelect name="departmentId"     control={control} label="Department"      options={deptOpts} />
         <ControlledAsyncSelect name="designationId"    control={control} label="Designation"     options={desgOpts} />
         <ControlledAsyncSelect name="reportingPersonId" control={control} label="Reporting Person" options={userOpts} />

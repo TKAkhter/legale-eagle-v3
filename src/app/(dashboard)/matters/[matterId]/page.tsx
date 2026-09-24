@@ -26,9 +26,13 @@ import { MatterCloseDialog } from "../_components/MatterCloseDialog"
 import PauseCircleOutlineOutlinedIcon from "@mui/icons-material/PauseCircleOutlineOutlined"
 import { MatterFormDrawer } from "../_components/MatterFormDrawer"
 import { ActivityFormDrawer } from "../../time-log-entries/_components/ActivityFormDrawer"
+import LinkIcon from "@mui/icons-material/Link"
+import { MatterActivationMenu } from "../_components/MatterActivationMenu"
 import { DocumentsTab } from "@/components/detail/DocumentsTab"
 import { StopWorkingDrawer } from "../_components/StopWorkingDrawer"
 import { MatterFinancialsTab } from "../_components/MatterFinancialsTab"
+import { MatterHourlyRatesTab } from "../_components/MatterHourlyRatesTab"
+import { MatterProjectedHoursTab } from "../_components/MatterProjectedHoursTab"
 import { useStopwatchStore, getActiveMatterTimers, setActiveMatterTimers, MAX_MATTER_TIMERS } from "@lib/store/stopwatchStore"
 import { useAuthStore } from "@lib/store/authStore"
 import { formatDate } from "@lib/utils/formatDate"
@@ -66,6 +70,7 @@ export default function MatterDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [stopWorkingOpen, setStopWorkingOpen] = useState(false)
   const [startingTimer, setStartingTimer] = useState(false)
+  const [attachingMail, setAttachingMail] = useState(false)
 
   const { data: matter, isLoading, isError } = useQuery({
     queryKey: ["matters", "detail", matterId],
@@ -218,6 +223,29 @@ export default function MatterDetailPage() {
           {canEdit && isOpen && <Button size="small" variant="outlined" color="error" startIcon={<CloseIcon />} onClick={() => setCloseOpen(true)}>Close</Button>}
           {canEdit && status === "CLOSE" && <Button size="small" variant="outlined" startIcon={<RestartAltIcon />} onClick={() => setReopenOpen(true)}>Reopen</Button>}
           <Button size="small" variant="outlined" startIcon={<PrintIcon />} onClick={() => window.open(`/matters/print?matterId=${matterId}`, "_blank")}>Print</Button>
+          {canEdit && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<LinkIcon />}
+              disabled={attachingMail}
+              onClick={async () => {
+                if (!matterId) return
+                setAttachingMail(true)
+                try {
+                  toast.success(await mattersApi.attachMailbox(matterId))
+                  qc.invalidateQueries({ queryKey: ["matters", "detail", matterId] })
+                  qc.invalidateQueries({ queryKey: ["matters", "mails", matterId] })
+                } catch {
+                  toast.error("Failed to attach mailbox")
+                } finally {
+                  setAttachingMail(false)
+                }
+              }}
+            >
+              Attach Mailbox
+            </Button>
+          )}
         </Box>
       )}
     >
@@ -232,11 +260,12 @@ export default function MatterDetailPage() {
               <Typography variant="body2" color="text.secondary">{String(m.matterSubject ?? "")}</Typography>
             </Box>
           </Box>
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
             <StatusBadge status={status} />
             {stopWorkingEnabled && <Chip size="small" color="warning" label="Stop Working" />}
             <Chip size="small" label={String(m.billingType ?? "")} variant="outlined" />
             {!!pa && <Chip size="small" label={pa} variant="outlined" />}
+            {canEdit && isOpen && <MatterActivationMenu matter={m} matterId={id} />}
           </Box>
         </Box>
         <Divider sx={{ my: 2 }} />
@@ -429,19 +458,11 @@ export default function MatterDetailPage() {
         },
         {
           label: "Projected Hours",
-          content: (
-            <DataGrid
-              columns={[
-                { field: "designation", header: "Designation" },
-                { field: "projectedHours", header: "Projected Hours", align: "right" },
-                { field: "usedHours", header: "Used Hours", align: "right" },
-                { field: "balanceHours", header: "Balance", align: "right" },
-                { field: "usagePercent", header: "Usage %", align: "right", renderCell: v => `${Number(v ?? 0)}%` },
-              ]}
-              queryKey={["matters", "projected-hours", matterId]}
-              queryFn={(p: GridParams) => mattersApi.getProjectedHours(id, p)}
-            />
-          ),
+          content: <MatterProjectedHoursTab matterId={id} canEdit={canEdit && isOpen} />,
+        },
+        {
+          label: "Hourly Rates",
+          content: <MatterHourlyRatesTab matterId={id} canEdit={canEdit && isOpen} />,
         },
         {
           label: "Finance Contacts",

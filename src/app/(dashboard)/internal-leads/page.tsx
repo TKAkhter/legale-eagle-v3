@@ -13,6 +13,24 @@ import { formatDate } from "@lib/utils/formatDate"
 import { toast } from "@/lib/toast"
 import type { GridParams } from "@/types/common.types"
 
+function primaryPhone(row: Record<string, unknown>): string {
+  const phones = row.phones as { phoneNo?: string; primary?: boolean }[] | undefined
+  if (Array.isArray(phones) && phones.length) {
+    const p = phones.find(x => x.primary) ?? phones[0]
+    return String(p.phoneNo ?? "—")
+  }
+  return String(row.phone ?? "—")
+}
+
+function primaryEmail(row: Record<string, unknown>): string {
+  const emails = (row.email ?? row.emails) as { emailId?: string }[] | string | undefined
+  if (Array.isArray(emails) && emails.length) {
+    return String(emails[0]?.emailId ?? "—")
+  }
+  if (typeof emails === "string" && emails) return emails
+  return "—"
+}
+
 export default function InternalLeadsPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -32,8 +50,14 @@ export default function InternalLeadsPage() {
       <DataGrid
         columns={[
           {
+            field: "leadType",
+            header: "Type",
+            width: 110,
+            renderCell: (v, row) => String(v || (row as Record<string, unknown>).type || "—"),
+          },
+          {
             field: "name",
-            header: "Lead",
+            header: "Name",
             renderCell: (v, row) => String(
               v
               || (row as Record<string, unknown>).companyName
@@ -42,18 +66,36 @@ export default function InternalLeadsPage() {
             ),
           },
           {
-            field: "leadType",
-            header: "Type",
-            renderCell: (v, row) => String(v || (row as Record<string, unknown>).type || "—"),
+            field: "phones",
+            header: "Phone",
+            width: 150,
+            renderCell: (_v, row) => primaryPhone(row as Record<string, unknown>),
+          },
+          {
+            field: "email",
+            header: "Email",
+            renderCell: (_v, row) => primaryEmail(row as Record<string, unknown>),
           },
           {
             field: "status",
             header: "Status",
+            width: 120,
             renderCell: v => <StatusBadge status={String(v ?? "Internal")} />,
+          },
+          {
+            field: "conflictCheckStatus",
+            header: "Conflict",
+            width: 140,
+            renderCell: (v, row) => String(
+              v
+              || (row as Record<string, unknown>).conflictStatus
+              || "—",
+            ),
           },
           {
             field: "createdAt",
             header: "Created",
+            width: 120,
             renderCell: v => formatDate(String(v ?? "")),
           },
         ]}
@@ -73,6 +115,7 @@ export default function InternalLeadsPage() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         leadId={editId}
+        internal
         onSaved={() => {
           setFormOpen(false)
           setEditId(undefined)

@@ -8,6 +8,7 @@ export default function MattersReportPage() {
       description="Matter listing with status and billing type"
       queryKey={["reports", "matters"]}
       queryFn={p => reportsApi.getMattersReport(p)}
+      emailExcelFn={f => reportsApi.requestMattersReportExcel(f)}
       filters={{ showClient: true, showDepartment: true, showDateRange: true }}
       columns={[
         { field: "title", header: "Matter", sortKey: "title", renderCell: (v, row) => String(v ?? (row as { matterTitle?: string }).matterTitle ?? "—") },

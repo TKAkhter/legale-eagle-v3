@@ -77,6 +77,9 @@ export const internalLeadsApi = {
           companyName: "Internal Desk",
           status: "Internal",
           leadType: "Company",
+          phones: [{ phoneNo: "555-0100", primary: true }],
+          email: [{ emailId: "desk@internal.example" }],
+          conflictCheckStatus: "No_Conflict",
           createdAt: "2026-08-05",
         },
       ]

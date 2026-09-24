@@ -14,19 +14,19 @@ import { toast } from "@/lib/toast"
 const SEED: Record<FeeBillKind, (row: Record<string, unknown>) => { name: string; rate: number }> = {
   Contingent: (row) => ({
     name: "Contingent",
-    rate: Number(row.contingent ?? 0) - Number(row.billedAmount ?? 0),
+    rate: Number(row.remainingAmount ?? (Number(row.contingent ?? 0) - Number(row.billedAmount ?? 0))),
   }),
   NonContingent: (row) => ({
     name: "Non Contingent",
-    rate: Number(row.nonContingent ?? 0),
+    rate: Number(row.remainingAmount ?? row.nonContingent ?? 0),
   }),
   SuccessRate: (row) => ({
     name: "Success Rate",
-    rate: Number(row.finalFixedFees ?? 0) - Number(row.successRateBilledAmount ?? 0),
+    rate: Number(row.remainingAmount ?? (Number(row.finalFixedFees ?? 0) - Number(row.successRateBilledAmount ?? 0))),
   }),
   Enforcement: (row) => ({
     name: "Enforcement",
-    rate: Number(row.enforcementAmount ?? 0),
+    rate: Number(row.remainingAmount ?? row.enforcementAmount ?? 0),
   }),
 }
 

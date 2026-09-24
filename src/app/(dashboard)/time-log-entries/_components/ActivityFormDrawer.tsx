@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Box, Alert } from '@mui/material'
+import { Box, Alert, Button, FormControl, InputLabel, Select, MenuItem, Typography } from '@mui/material'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient } from '@lib/api/axios'
 import { FormDrawer } from '@components/ui/FormDrawer'
@@ -14,23 +14,26 @@ import { ControlledCheckbox } from '@components/forms/ControlledCheckbox'
 import { QK } from '@lib/query/keys'
 import { activitySchema, type ActivityForm } from '@lib/validations/activity.schema'
 import { timelogsApi } from '@/api/timelogs'
+import { adminApi } from '@/api/admin'
+import { fileManagerApi } from '@/api/fileManager'
 import { env } from '@/config/env'
+import { toast } from '@/lib/toast'
 
 const BILLING_OPTS = [
   'Hourly', 'Fixed', 'Session', 'Expense', 'Contingent', 'NonContingent',
 ].map(v => ({ value: v, label: v }))
 
-const DISBURSEMENT_TYPES = [
+const PAYMENT_TYPES = [
+  { value: 'PASS_TO_CLIENT', label: 'Pass to Client' },
+  { value: 'ABSORBED', label: 'Absorbed' },
+]
+
+const FALLBACK_DISBURSEMENT_TYPES = [
   { value: 'OTHER_EXPENSES', label: 'Other Expenses' },
   { value: 'COURIER', label: 'Courier' },
   { value: 'TRANSLATION', label: 'Translation' },
   { value: 'COURT_FEES', label: 'Court Fees' },
   { value: 'TRAVEL', label: 'Travel' },
-]
-
-const PAYMENT_TYPES = [
-  { value: 'PASS_TO_CLIENT', label: 'Pass to Client' },
-  { value: 'ABSORBED', label: 'Absorbed' },
 ]
 
 interface Props {
@@ -51,6 +54,8 @@ export function ActivityFormDrawer({
   const qc = useQueryClient()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [clientSearch, setClientSearch] = useState('')
+  const [receiptLabel, setReceiptLabel] = useState('')
+  const receiptRef = useRef<HTMLInputElement>(null)
   const isEdit = !!activityId
   const today = new Date().toISOString().slice(0, 10)
 
@@ -132,6 +137,69 @@ export function ActivityFormDrawer({
     enabled: open,
   })
 
+  const { data: disbursementTypes = FALLBACK_DISBURSEMENT_TYPES } = useQuery({
+    queryKey: ['disbursement-types'],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) return FALLBACK_DISBURSEMENT_TYPES
+      try {
+        const r = await axiosClient.get('/api/invoice/disbursement-types')
+        const raw = r.data?.data ?? r.data ?? []
+        const list = Array.isArray(raw) ? raw : []
+        const mapped = list.map((item: unknown) => {
+          if (typeof item === 'string') return { value: item, label: item.replace(/_/g, ' ') }
+          const o = item as { value?: string; code?: string; name?: string; label?: string; id?: string }
+          const value = String(o.value ?? o.code ?? o.id ?? o.name ?? '')
+          const label = String(o.label ?? o.name ?? value.replace(/_/g, ' '))
+          return { value, label }
+        }).filter((x: { value: string }) => x.value)
+        return mapped.length ? mapped : FALLBACK_DISBURSEMENT_TYPES
+      } catch {
+        return FALLBACK_DISBURSEMENT_TYPES
+      }
+    },
+    enabled: open && isExpense,
+    staleTime: 5 * 60_000,
+  })
+
+  const { data: absorptionEnabled = false } = useQuery({
+    queryKey: ['disbursement-absorption'],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) return true
+      try {
+        const r = await axiosClient.get('/api/settings/disbursement-absorption')
+        const data = r.data?.data ?? r.data
+        const first = Array.isArray(data) ? data[0] : data
+        return Boolean(first?.disbursementAbsorptionEnabled)
+      } catch {
+        return false
+      }
+    },
+    enabled: open && isExpense,
+    staleTime: 5 * 60_000,
+  })
+
+  const { data: expenseRateCards = [] } = useQuery({
+    queryKey: ['rate-cards', 'Expense'],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) {
+        return [{ id: 'arc3', title: 'Filing Fee', rate: 100 }]
+      }
+      const r = await axiosClient.post('/api/rate/card/get/by/type', null, {
+        params: { activityType: 'Expense' },
+      })
+      return r.data?.data ?? r.data ?? []
+    },
+    enabled: open && isExpense,
+  })
+
+  const { data: companyInfo } = useQuery({
+    queryKey: ['company-info', 'onedrive-flag'],
+    queryFn: () => adminApi.getCompanyInfo() as Promise<Record<string, unknown>>,
+    enabled: open && isExpense,
+    staleTime: 5 * 60_000,
+  })
+  const oneDriveEnabled = Boolean(companyInfo?.oneDrive)
+
   const clientOpts = (clients as Record<string, string>[]).map(c => ({
     value: c.id,
     label: c.companyName ?? c.name ?? c.id,
@@ -144,10 +212,17 @@ export function ActivityFormDrawer({
     value: u.id,
     label: u.fullName ?? (`${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.id),
   }))
+  const rateCardOpts = (expenseRateCards as { id?: string; title?: string; rate?: number }[]).map(c => ({
+    value: String(c.id ?? ''),
+    label: `${c.title ?? c.id}${c.rate != null ? ` (${c.rate})` : ''}`,
+  }))
+  const disbursementTypeOpts = disbursementTypes as { value: string; label: string }[]
 
   useEffect(() => {
     if (!open) {
       reset()
+      setReceiptLabel('')
+      if (receiptRef.current) receiptRef.current.value = ''
       return
     }
     if (isEdit && detailQ.data) {
@@ -200,6 +275,48 @@ export function ActivityFormDrawer({
     }
   }, [activityType, open, isEdit, setValue])
 
+  async function ensureDisbursementFolder(activityId: string) {
+    const root = await fileManagerApi.listFolder('')
+    let disbursements = root.find(f => f.type === 'folder' && f.name === 'Disbursements')
+    if (!disbursements) {
+      disbursements = await fileManagerApi.createFolder('', 'Disbursements')
+    }
+    const children = await fileManagerApi.listFolder(disbursements.id)
+    let activityFolder = children.find(f => f.type === 'folder' && f.name === activityId)
+    if (!activityFolder) {
+      activityFolder = await fileManagerApi.createFolder(disbursements.id, activityId)
+    }
+    return activityFolder
+  }
+
+  async function uploadReceiptsToOneDrive(activityId: string) {
+    const files = receiptRef.current?.files
+    if (!files?.length || !oneDriveEnabled || env.USE_STATIC_DATA) return
+    try {
+      const folder = await ensureDisbursementFolder(activityId)
+      const uploaded: Record<string, unknown>[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files.item(i)!
+        const item = await fileManagerApi.uploadFile(folder.id, file)
+        uploaded.push({
+          activityId,
+          oneDriveItemId: item.id,
+          fileId: item.id,
+          fileName: item.name,
+          fileSize: item.size,
+          mimeType: item.mimeType ?? file.type,
+          webUrl: item.webUrl ?? '',
+        })
+      }
+      if (uploaded.length) {
+        await axiosClient.post('/api/file/attachments/add', uploaded)
+        toast.success('Receipts uploaded to OneDrive Disbursements folder')
+      }
+    } catch {
+      toast.error('Expense saved, but OneDrive receipt upload failed')
+    }
+  }
+
   async function onSubmit(data: ActivityForm) {
     setSubmitError(null)
     try {
@@ -218,10 +335,25 @@ export function ActivityFormDrawer({
       }
       if (isExpense) {
         payload.disbursementType = data.disbursementType ?? 'OTHER_EXPENSES'
-        payload.disbursementPaymentType = data.disbursementPaymentType ?? 'PASS_TO_CLIENT'
+        if (absorptionEnabled) {
+          payload.disbursementPaymentType = data.disbursementPaymentType ?? 'PASS_TO_CLIENT'
+        }
       }
-      if (isEdit) await timelogsApi.edit({ ...payload, id: activityId })
-      else await timelogsApi.create(payload)
+      let created: unknown
+      if (isEdit) created = await timelogsApi.edit({ ...payload, id: activityId })
+      else created = await timelogsApi.create(payload)
+
+      if (isExpense && !isEdit) {
+        const createdId = String(
+          (created as { id?: string })?.id
+          ?? (created as { data?: { id?: string } })?.data?.id
+          ?? '',
+        )
+        if (createdId && receiptRef.current?.files?.length) {
+          await uploadReceiptsToOneDrive(createdId)
+        }
+      }
+
       qc.invalidateQueries({ queryKey: ['activities'] })
       qc.invalidateQueries({ queryKey: ['timelogs'] })
       qc.invalidateQueries({ queryKey: ['calendar'] })
@@ -280,10 +412,71 @@ export function ActivityFormDrawer({
 
       {isExpense ? (
         <FormSection title="Expense">
-          <ControlledSelect name="disbursementType" control={control} label="Disbursement Type" options={DISBURSEMENT_TYPES} />
-          <ControlledSelect name="disbursementPaymentType" control={control} label="Payment Type" options={PAYMENT_TYPES} />
+          <ControlledSelect
+            name="disbursementType"
+            control={control}
+            label="Disbursement Type"
+            options={disbursementTypeOpts}
+            required
+          />
+          {absorptionEnabled && (
+            <ControlledSelect
+              name="disbursementPaymentType"
+              control={control}
+              label="Payment Type"
+              options={PAYMENT_TYPES}
+              required
+            />
+          )}
+          {rateCardOpts.length > 0 && (
+            <FormControl size="small" fullWidth sx={{ mb: 0 }}>
+              <InputLabel>Rate Card Template</InputLabel>
+              <Select
+                label="Rate Card Template"
+                defaultValue=""
+                onChange={e => {
+                  const value = String(e.target.value)
+                  const card = (expenseRateCards as { id?: string; title?: string; rate?: number }[])
+                    .find(c => String(c.id) === value)
+                  if (card) {
+                    if (card.title) setValue('activity', String(card.title))
+                    if (card.rate != null) setValue('rate', Number(card.rate))
+                  }
+                }}
+              >
+                <MenuItem value="">Custom amount</MenuItem>
+                {rateCardOpts.map(o => (
+                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <ControlledInput name="rate" control={control} label="Amount" type="number" required />
           <ControlledCheckbox name="billable" control={control} label="Billable" />
+          {!isEdit && (
+            <Box>
+              <Button variant="outlined" component="label" size="small">
+                Attach receipts
+                <input
+                  ref={receiptRef}
+                  hidden
+                  type="file"
+                  multiple
+                  accept="image/*,application/pdf"
+                  onChange={e => {
+                    const files = e.target.files
+                    setReceiptLabel(files?.length ? `${files.length} file(s) selected` : '')
+                  }}
+                />
+              </Button>
+              {receiptLabel && (
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  {receiptLabel}
+                  {oneDriveEnabled ? ' · will upload to OneDrive Disbursements' : ''}
+                </Typography>
+              )}
+            </Box>
+          )}
         </FormSection>
       ) : (
         <FormSection title="Time & Rate">

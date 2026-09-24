@@ -39,6 +39,7 @@ export function CloseHearingDrawer({ open, onClose, matterId, hearingId, onSucce
         decision: String(data.decision ?? ""),
       })
       qc.invalidateQueries({ queryKey: ["matters", "hearings", matterId] })
+      qc.invalidateQueries({ queryKey: ["hearings"] })
       onSuccess?.()
       onClose()
     } catch (e: unknown) {

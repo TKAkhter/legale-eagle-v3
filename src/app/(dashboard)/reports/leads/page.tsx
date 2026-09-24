@@ -9,6 +9,7 @@ export default function LeadsReportPage() {
       description="Lead pipeline status and value"
       queryKey={["reports", "leads"]}
       queryFn={p => reportsApi.getLeadsReport(p)}
+      emailExcelFn={f => reportsApi.requestLeadsReportExcel(f)}
       filters={{ showUser: true, showDateRange: true }}
       columns={[
         { field: "leadName", header: "Lead", sortKey: "leadName", renderCell: (v, row) => String(v ?? (row as { companyName?: string }).companyName ?? "—") },

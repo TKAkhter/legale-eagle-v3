@@ -9,6 +9,7 @@ export default function DuesReportPage() {
       description="Outstanding dues by client and matter"
       queryKey={["reports", "dues"]}
       queryFn={p => reportsApi.getDues(p)}
+      emailExcelFn={f => reportsApi.requestDuesExcel(f)}
       filters={{ showClient: true, showMatter: true }}
       columns={[
         { field: "clientName", header: "Client", sortKey: "clientName" },

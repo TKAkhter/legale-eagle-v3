@@ -144,13 +144,24 @@ export const billingApi = {
 
   async recordPayment(invoiceId: string, data: Record<string, unknown>) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
-    await axiosClient.post("/api/invoice/pay", { invoiceId, ...data })
+    // LMS: POST /invoice/pay?invoiceId=
+    await axiosClient.post("/api/invoice/pay", data, { params: { invoiceId } })
   },
 
   async cancel(invoiceId: string, reason?: string): Promise<string> {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Invoice canceled." }
     const res = await axiosClient.post("/api/invoice/cancel", { invoiceId, reason })
     return res.data?.Msg ?? res.data?.message ?? "Invoice canceled."
+  },
+
+  /** LMS POST /invoice/ap/send — { invoiceId, approval }. */
+  async sendForApproval(invoiceId: string, approval: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return "Invoice sent for approval."
+    }
+    const res = await axiosClient.post("/api/invoice/ap/send", { invoiceId, approval })
+    return res.data?.Msg ?? res.data?.message ?? "Invoice sent for approval."
   },
 
   async writeOff(invoiceId: string, reason?: string): Promise<string> {
@@ -280,6 +291,52 @@ export const billingApi = {
     return res.data?.data ?? null
   },
 
+  /** Prior retainer statements + LFA max hours (LMS CalculateHours). */
+  async getRetainerStatementSummary(clientId: string, lfaId: string) {
+    if (env.USE_STATIC_DATA) {
+      return {
+        maxRetainerHours: 40,
+        generatedHours: 12,
+        remainingHours: 28,
+        statements: [{ id: "rs1", totalHours: 10, totalMinutes: 0 }],
+        lfa: { retainerMaximumHr: 40, agreementNo: "LFA-001" },
+      }
+    }
+    const res = await axiosClient.get("/api/activity/get/retainer/statement", {
+      params: { clientId, lfaId },
+    })
+    const data = res.data?.data ?? res.data
+    if (Array.isArray(data)) {
+      const lfa = (data[0] as { lfa?: Record<string, unknown> } | undefined)?.lfa ?? {}
+      const max = Number(lfa.retainerMaximumHr ?? 0)
+      let generatedHours = 0
+      let generatedMinutes = 0
+      for (const item of data as { totalHours?: number; totalMinutes?: number }[]) {
+        generatedHours += Number(item.totalHours ?? 0)
+        generatedMinutes += Number(item.totalMinutes ?? 0)
+      }
+      const generated = Number((generatedHours + generatedMinutes / 60).toFixed(2))
+      return {
+        maxRetainerHours: max,
+        generatedHours: generated,
+        remainingHours: max ? Number((max - generated).toFixed(2)) : 0,
+        statements: data,
+        lfa,
+      }
+    }
+    if (data && typeof data === "object") {
+      const max = Number((data as { retainerMaximumHr?: number }).retainerMaximumHr ?? 0)
+      return {
+        maxRetainerHours: max,
+        generatedHours: 0,
+        remainingHours: max,
+        statements: [],
+        lfa: data as Record<string, unknown>,
+      }
+    }
+    return { maxRetainerHours: 0, generatedHours: 0, remainingHours: 0, statements: [], lfa: {} }
+  },
+
   async getRetainerStatements(filters: Record<string, unknown> = {}, page = 0, pageSize = 20) {
     if (env.USE_STATIC_DATA) {
       return {
@@ -324,14 +381,38 @@ export const billingApi = {
     return res.data?.Msg ?? res.data?.message ?? "Excel export requested."
   },
 
-  async sendEmail(invoiceId: string) {
-    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
-    await axiosClient.post("/api/invoice/send/email", null, { params: { invoiceId } })
+  async sendEmail(invoiceId: string, emails?: string[]) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return "Email sent." }
+    const res = await axiosClient.post(
+      "/api/invoice/send/email",
+      emails?.length ? { emails } : null,
+      { params: { invoiceId } },
+    )
+    return res.data?.Msg ?? res.data?.message ?? "Email sent."
   },
 
-  async downloadPdf(invoiceId: string): Promise<Blob> {
+  /** LMS PUT /invoice/cancel/{id}/{true|false} — true=Credit Note, false=Refund. */
+  async cancelWithCredit(invoiceId: string, creditNote: boolean): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return creditNote ? "Canceled with credit note." : "Canceled with refund."
+    }
+    const res = await axiosClient.put(`/api/invoice/cancel/${invoiceId}/${creditNote}`)
+    return res.data?.Msg ?? res.data?.message ?? "Invoice canceled."
+  },
+
+  async downloadPdf(
+    invoiceId: string,
+    opts?: { language?: string; targetCurrency?: string },
+  ): Promise<Blob> {
     if (env.USE_STATIC_DATA) return new Blob(["%PDF mock"], { type: "application/pdf" })
-    const res = await axiosBlob.get("/api/invoice/convert/pdf", { params: { invoiceId } })
+    const res = await axiosBlob.get("/api/invoice/convert/pdf", {
+      params: {
+        invoiceId,
+        ...(opts?.language ? { language: opts.language } : {}),
+        ...(opts?.targetCurrency ? { targetCurrency: opts.targetCurrency } : {}),
+      },
+    })
     return res.data as Blob
   },
 
@@ -387,7 +468,7 @@ export const billingApi = {
     const cfg = FEE_BILL_ENDPOINTS[kind]
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 200))
-      return STATIC_FEE_ROWS[kind]
+      return normalizeFeeTypeRows(kind, STATIC_FEE_ROWS[kind])
     }
     const res = await axiosClient.get(cfg.path, {
       params: {
@@ -396,11 +477,11 @@ export const billingApi = {
         agreementId: filters.agreementId ?? "",
         fromDate: filters.fromDate ?? "",
         toDate: filters.toDate ?? "",
-        ...(kind === "Enforcement" ? {} : {}),
       },
     })
     const d = res.data?.data ?? res.data
-    return Array.isArray(d) ? d : (d?.content ?? [])
+    const rows = Array.isArray(d) ? d : (d?.content ?? [])
+    return normalizeFeeTypeRows(kind, rows as Record<string, unknown>[])
   },
 
   async getMattersByClientLfa(clientId: string, lfaId: string) {
@@ -417,17 +498,91 @@ export const billingApi = {
     await axiosClient.get("/api/invoice/enforcement/billing/complete", { params: { enforcementBillingId } })
   },
 
-  async getReceipts(filters: Record<string, unknown> = {}) {
+  async getReceipts(p: GridParams): Promise<PageResponse<Record<string, unknown>>> {
     if (env.USE_STATIC_DATA) {
-      return [
-        { id: "rc1", receiptNo: "RCPT-001", clientName: "Al Rashid Holdings", amount: 5000, receiptDate: "2026-08-01", status: "Active" },
+      await new Promise(r => setTimeout(r, 150))
+      const rows = [
+        {
+          id: "rc1",
+          invoiceNo: "INV-1001",
+          invoicePrefix: "TAX",
+          dueAmount: 10000,
+          amount: 5000,
+          createdAt: "2026-08-01",
+          attachment: "receipt-1001.pdf",
+          type: "Paid",
+        },
+        {
+          id: "rc2",
+          invoiceNo: "INV-1002",
+          invoicePrefix: "TAX",
+          dueAmount: 3000,
+          amount: 3000,
+          createdAt: "2026-08-15",
+          attachment: "",
+          type: "Paid",
+        },
       ]
+      return {
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: p.pageSize,
+        first: true,
+        last: true,
+        empty: false,
+      }
     }
+    const f = p.filters ?? {}
     const res = await axiosClient.get("/api/report/collections", {
-      params: { clientId: filters.clientId ?? "", matterId: filters.matterId ?? "" },
+      params: {
+        clientId: f.clientId ?? "",
+        matterId: f.matterId ?? "",
+      },
     })
-    const d = res.data?.data ?? res.data
-    return Array.isArray(d) ? d : (d?.content ?? [])
+    const d = res.data?.data ?? res.data ?? {}
+    // LMS typo: reciepts
+    const raw = (d.reciepts ?? d.receipts ?? d.content ?? (Array.isArray(d) ? d : [])) as Record<string, unknown>[]
+    const content = raw
+      .filter(r => String(r.type ?? "") !== "Canceled")
+      .map(r => {
+        const inv = (r.invoice as Record<string, unknown> | undefined) ?? {}
+        return {
+          ...r,
+          id: String(r.id ?? r.receiptId ?? ""),
+          invoiceNo: (() => {
+            const composed = `${String(inv.invoicePrefix ?? r.invoicePrefix ?? "")}${String(inv.invoiceNo ?? "")}`
+            return String(r.invoiceNo ?? (composed || "—"))
+          })(),
+          dueAmount: Number(r.dueAmount ?? inv.dueAmount ?? 0),
+          amount: Number(r.amount ?? r.paidAmount ?? 0),
+          createdAt: String(r.createdAt ?? r.payDate ?? r.receiptDate ?? ""),
+          attachment: String(r.attachment ?? r.fileName ?? r.file ?? ""),
+          attachmentUrl: String(r.attachmentUrl ?? r.fileUrl ?? r.url ?? ""),
+        }
+      })
+    return {
+      content,
+      totalElements: content.length,
+      totalPages: 1,
+      number: 0,
+      size: content.length || p.pageSize,
+      first: true,
+      last: true,
+      empty: content.length === 0,
+    }
+  },
+
+  async cancelReceipt(receiptId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Receipt canceled."
+    }
+    const res = await axiosClient.post("/api/invoice/cancel/receipt", null, {
+      params: { receiptId },
+    })
+    return res.data?.Msg ?? res.data?.message ?? "Receipt canceled."
   },
 
   async getWriteCreditHistory(p: GridParams) {
@@ -445,6 +600,7 @@ export const billingApi = {
     const res = await axiosClient.get("/api/invoice/write/credit/history", {
       params: {
         clientId: f.clientId ?? "",
+        type: f.type ?? "WriteOff",
         matterId: f.matterId ?? "",
         fromDate: f.fromDate ?? "",
         toDate: f.toDate ?? "",
@@ -476,17 +632,105 @@ const FEE_BILL_ENDPOINTS: Record<FeeBillKind, { path: string }> = {
   Enforcement:   { path: "/api/lfa/enforcement/billing" },
 }
 
+/** LMS success-rate / contingent remaining-amount parity. */
+export function computeSuccessFinalFees(row: Record<string, unknown>): number {
+  const billingType = String(row.billingType ?? "")
+  const successRate = Number(row.successRate ?? 0)
+  const successRateType = String(row.successRateType ?? "")
+  const fixedFee = Number(row.fixedFee ?? row.fixedBillingAmount ?? 0)
+  if (billingType !== "Fixed") return successRate
+  if (successRateType === "Flat" || successRateType === "Amount") return successRate
+  return fixedFee * (successRate / 100)
+}
+
+function normalizeFeeTypeRows(kind: FeeBillKind, rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return rows.map((raw, i) => {
+    if (kind === "Enforcement") {
+      const lfa = (raw.lfa ?? raw) as Record<string, unknown>
+      const clients = (lfa.clients ?? lfa.client ?? raw.clients ?? raw.client) as Record<string, unknown> | undefined
+      return {
+        ...raw,
+        ...lfa,
+        id: String(lfa.id ?? raw.id ?? `en-${i}`),
+        agreementNo: lfa.agreementNo ?? raw.agreementNo,
+        clients,
+        client: clients,
+        enforcementAmount: Number(raw.enforcementAmount ?? lfa.enforcementAmount ?? 0),
+        enforcementBillingId: String(raw.id ?? raw.enforcementBillingId ?? ""),
+        remainingAmount: Number(raw.enforcementAmount ?? lfa.enforcementAmount ?? 0),
+        matterId: raw.matterId ?? lfa.matterId,
+      }
+    }
+
+    if (kind === "SuccessRate") {
+      const finalFixedFees = Number(raw.finalFixedFees ?? computeSuccessFinalFees(raw))
+      const billed = Number(raw.successRateBilledAmount ?? 0)
+      const remainingAmount = finalFixedFees - billed
+      return {
+        ...raw,
+        finalFixedFees,
+        successRateBilledAmount: billed,
+        remainingAmount,
+      }
+    }
+
+    if (kind === "Contingent") {
+      const total = Number(raw.contingent ?? 0)
+      const billed = Number(raw.billedAmount ?? raw.contingentBilledAmount ?? 0)
+      return {
+        ...raw,
+        remainingAmount: total - billed,
+        billedAmount: billed,
+      }
+    }
+
+    if (kind === "NonContingent") {
+      const total = Number(raw.nonContingent ?? 0)
+      const billed = Number(raw.billedAmount ?? raw.nonContingentBilledAmount ?? 0)
+      return {
+        ...raw,
+        remainingAmount: total - billed,
+        billedAmount: billed,
+      }
+    }
+
+    return raw
+  })
+}
+
 const STATIC_FEE_ROWS: Record<FeeBillKind, Record<string, unknown>[]> = {
   Contingent: [
-    { id: "ct1", agreementNo: "LFA-001", contingent: 25000, billedAmount: 5000, clients: { id: "c1", companyName: "Al Rashid Holdings" } },
+    { id: "ct1", agreementNo: "LFA-001", contingent: 25000, billedAmount: 5000, billingType: "Fixed", clients: { id: "c1", companyName: "Al Rashid Holdings" }, agreementDate: "2026-01-01", scope: "Litigation" },
   ],
   NonContingent: [
-    { id: "nc1", agreementNo: "LFA-002", nonContingent: 12000, clients: { id: "c2", firstName: "Emily", lastName: "Harper" } },
+    { id: "nc1", agreementNo: "LFA-002", nonContingent: 12000, billedAmount: 0, clients: { id: "c2", firstName: "Emily", lastName: "Harper" }, agreementDate: "2026-02-01", scope: "Advisory" },
   ],
   SuccessRate: [
-    { id: "sr1", agreementNo: "LFA-003", finalFixedFees: 40000, successRateBilledAmount: 10000, clients: { id: "c1", companyName: "Al Rashid Holdings" } },
+    {
+      id: "sr1",
+      agreementNo: "LFA-003",
+      billingType: "Fixed",
+      successRateType: "Percentage",
+      successRate: 10,
+      fixedFee: 400000,
+      successRateBilledAmount: 10000,
+      clients: { id: "c1", companyName: "Al Rashid Holdings" },
+      agreementDate: "2026-03-01",
+      scope: "Dispute",
+    },
   ],
   Enforcement: [
-    { id: "en1", agreementNo: "LFA-004", enforcementAmount: 8000, enforcementBillingId: "enb1", matterId: "m1", clients: { id: "c1", companyName: "Al Rashid Holdings" } },
+    {
+      id: "enb1",
+      enforcementAmount: 8000,
+      matterId: "m1",
+      lfa: {
+        id: "en1",
+        agreementNo: "LFA-004",
+        clients: { id: "c1", companyName: "Al Rashid Holdings" },
+        agreementDate: "2026-04-01",
+        scope: "Enforcement",
+      },
+    },
   ],
 }

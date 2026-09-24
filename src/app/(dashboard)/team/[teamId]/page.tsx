@@ -5,11 +5,30 @@ import { Box, Button, CircularProgress, Paper, Typography } from "@mui/material"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
 import { PageShell } from "@/components/ui/PageShell"
 import { teamsApi } from "@/api/teams"
+import { useAuthStore } from "@lib/store/authStore"
+import { toast } from "@/lib/toast"
 
 type Node = {
   memberId?: string
   memberName?: string
+  supervisor?: string | { id?: string }
   members?: Node[]
+}
+
+/** OLD MyTeams Check(): allow if current user is ancestor supervisor of target, or is the node. */
+function canAccessMember(currentUserId: string, targetId: string, nodes: Node[], ancestors: string[] = []): boolean {
+  for (const n of nodes) {
+    const id = String(n.memberId ?? "")
+    const nextAncestors = id ? [...ancestors, id] : ancestors
+    if (id === targetId) {
+      if (id === currentUserId) return true
+      return ancestors.includes(currentUserId)
+    }
+    if (n.members?.length && canAccessMember(currentUserId, targetId, n.members, nextAncestors)) {
+      return true
+    }
+  }
+  return false
 }
 
 function TreeNode({ node, onSelect }: { node: Node; onSelect: (n: Node) => void }) {
@@ -19,7 +38,7 @@ function TreeNode({ node, onSelect }: { node: Node; onSelect: (n: Node) => void 
         size="small"
         variant="text"
         onClick={() => onSelect(node)}
-        sx={{ textTransform: "none", fontWeight: 600, justify: "text.primary" }}
+        sx={{ textTransform: "none", fontWeight: 600, color: "text.primary" }}
       >
         {node.memberName ?? "—"}
       </Button>
@@ -33,6 +52,7 @@ function TreeNode({ node, onSelect }: { node: Node; onSelect: (n: Node) => void 
 export default function TeamHierarchyPage() {
   const { teamId = "" } = useParams()
   const navigate = useNavigate()
+  const currentUserId = useAuthStore(s => s.user?.id ?? "")
   const { data, isLoading, isError } = useQuery({
     queryKey: ["teams", "hierarchy", teamId],
     queryFn: () => teamsApi.getHierarchy(teamId),
@@ -51,6 +71,11 @@ export default function TeamHierarchyPage() {
 
   function openMember(node: Node) {
     if (!node.memberId) return
+    const tree = root ? [root] : []
+    if (currentUserId && !canAccessMember(currentUserId, String(node.memberId), tree)) {
+      toast.error("You can access only your below members data.")
+      return
+    }
     sessionStorage.setItem("teamMember", JSON.stringify({ memberId: node.memberId, name: node.memberName }))
     navigate(`/team/member/${node.memberId}?teamId=${teamId}`)
   }

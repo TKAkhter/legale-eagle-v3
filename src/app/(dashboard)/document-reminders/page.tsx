@@ -7,8 +7,19 @@ import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { DocumentReminderFormDrawer } from "./_components/DocumentReminderFormDrawer"
 import { miscModulesApi } from "@/api/miscModules"
+import { formatDate } from "@lib/utils/formatDate"
 import { toast } from "@/lib/toast"
 import type { GridParams } from "@/types/common.types"
+
+function text(v: unknown): string {
+  return v == null || v === "" ? "—" : String(v)
+}
+
+function remindTo(row: Record<string, unknown>): string {
+  if (Array.isArray(row.remindPersonName)) return row.remindPersonName.map(String).join(", ") || "—"
+  if (Array.isArray(row.remindTo)) return row.remindTo.map(String).join(", ") || "—"
+  return text(row.remindTo)
+}
 
 export default function DocumentRemindersPage() {
   const qc = useQueryClient()
@@ -27,11 +38,39 @@ export default function DocumentRemindersPage() {
     >
       <DataGrid
         columns={[
-          { field: "documentName", header: "Document", renderCell: (v, row) => String(v ?? (row as { name?: string }).name ?? "—") },
-          { field: "issueDate", header: "Issue Date", renderCell: v => String(v || "—") },
-          { field: "expDate", header: "Expiry", renderCell: (v, row) => String(v ?? (row as { reminderDate?: string }).reminderDate ?? "—") },
-          { field: "reminderBefore", header: "Remind Before (days)", renderCell: v => String(v ?? "—") },
-          { field: "status", header: "Status", renderCell: v => String(v || "—") },
+          { field: "documentName", header: "Document Name", renderCell: (v, row) => text(v ?? (row as { name?: string }).name) },
+          {
+            field: "issueDate",
+            header: "Issue Date",
+            width: 120,
+            renderCell: v => (v ? formatDate(String(v)) : "—"),
+          },
+          {
+            field: "expDate",
+            header: "Expire Date",
+            width: 120,
+            renderCell: (v, row) => {
+              const d = v ?? (row as { reminderDate?: string }).reminderDate
+              return d ? formatDate(String(d)) : "—"
+            },
+          },
+          {
+            field: "reminderBefore",
+            header: "Reminder Period",
+            width: 130,
+            renderCell: v => text(v),
+          },
+          {
+            field: "reminderDate",
+            header: "Reminder Date",
+            width: 130,
+            renderCell: v => (v ? formatDate(String(v)) : "—"),
+          },
+          {
+            field: "remindTo",
+            header: "Remind To",
+            renderCell: (_v, row) => remindTo(row as Record<string, unknown>),
+          },
         ]}
         queryKey={["document-reminders"]}
         queryFn={(p: GridParams) => miscModulesApi.getDocumentReminders(p)}

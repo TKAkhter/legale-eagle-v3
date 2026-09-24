@@ -8,6 +8,7 @@ export default function TasksReportPage() {
       description="Task status, priority, and assignment"
       queryKey={["reports", "tasks"]}
       queryFn={p => reportsApi.getTasksReport(p)}
+      emailExcelFn={f => reportsApi.requestTasksReportExcel(f)}
       filters={{ showClient: true, showUser: true, showDateRange: true }}
       columns={[
         { field: "taskName", header: "Task", sortKey: "taskName", renderCell: (v, row) => String(v ?? (row as { title?: string }).title ?? "—") },

@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Box, Checkbox, Chip, FormControlLabel, Paper, Typography } from "@mui/material"
+import {
+  Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControlLabel, IconButton, Paper, TextField, Typography,
+} from "@mui/material"
+import GroupIcon from "@mui/icons-material/Group"
+import EditIcon from "@mui/icons-material/Edit"
+import { useState } from "react"
 import { mattersApi } from "@/api/matters"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { formatDate } from "@lib/utils/formatDate"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { DetailInfoRow } from "@/components/detail/DetailInfoRow"
 import { SubMattersPanel } from "./SubMattersPanel"
+import { MatterTeamDrawer } from "./MatterTeamDrawer"
+import { toast } from "@/lib/toast"
 
 function personName(value: unknown): string {
   const p = value as { firstName?: string; lastName?: string; name?: string } | null
@@ -18,6 +26,11 @@ interface Props { matter: Record<string, unknown>; matterId: string }
 
 export function MatterOverview({ matter, matterId }: Props) {
   const qc = useQueryClient()
+  const [teamOpen, setTeamOpen] = useState(false)
+  const [estimateOpen, setEstimateOpen] = useState(false)
+  const [estimateValue, setEstimateValue] = useState("")
+  const [estimateError, setEstimateError] = useState("")
+  const [savingEstimate, setSavingEstimate] = useState(false)
   const checklistQuery = useQuery({
     queryKey: ["matters", "checklist", matterId],
     queryFn: () => mattersApi.getChecklist(matterId),
@@ -56,7 +69,20 @@ export function MatterOverview({ matter, matterId }: Props) {
       ? (teamRaw as { content: unknown[] }).content
       : Array.isArray((teamRaw as { team?: unknown[] } | undefined)?.team)
         ? (teamRaw as { team: unknown[] }).team
-        : []) as { id: string; role?: string; primary?: boolean; user?: { firstName?: string; lastName?: string } }[]
+        : Array.isArray((teamRaw as { users?: unknown[] } | undefined)?.users)
+          ? (teamRaw as { users: unknown[] }).users
+          : []) as {
+    id?: string
+    userId?: string
+    role?: string
+    roleName?: string
+    teamRoleDescription?: string
+    primary?: boolean
+    user?: { firstName?: string; lastName?: string }
+    userName?: string
+    firstName?: string
+    lastName?: string
+  }[]
   const timelineRaw = timelineQuery.data as unknown
   const statusTimeline = (Array.isArray(timelineRaw)
     ? timelineRaw
@@ -86,7 +112,27 @@ export function MatterOverview({ matter, matterId }: Props) {
           <DetailInfoRow label="Responsible Lawyer" value={personName(matter.responsibleAttorney)} />
           <DetailInfoRow label="Email Unique Id" value={String(matter.emailUniqueId ?? matter.emailUnique ?? "—")} />
           <DetailInfoRow label="Billing Type" value={String(matter.billingType ?? "—")} />
-          <DetailInfoRow label="Estimate" value={matter.estimate != null ? formatCurrency(Number(matter.estimate)) : "—"} />
+          <DetailInfoRow
+            label="Estimate"
+            value={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="body2" component="span">
+                  {matter.estimate != null ? formatCurrency(Number(matter.estimate)) : "—"}
+                </Typography>
+                <IconButton
+                  size="small"
+                  aria-label="Edit estimate"
+                  onClick={() => {
+                    setEstimateValue(matter.estimate != null ? String(matter.estimate) : "")
+                    setEstimateError("")
+                    setEstimateOpen(true)
+                  }}
+                >
+                  <EditIcon fontSize="inherit" />
+                </IconButton>
+              </Box>
+            }
+          />
           <DetailInfoRow label="Cap" value={capDisplay} />
           <DetailInfoRow label="Scope" value={String(matter.description ?? matter.matterSubject ?? "—")} />
         </Box>
@@ -118,17 +164,29 @@ export function MatterOverview({ matter, matterId }: Props) {
       </Box>
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Team</Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Team</Typography>
+          <Button size="small" startIcon={<GroupIcon />} onClick={() => setTeamOpen(true)}>
+            Manage
+          </Button>
+        </Box>
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-          {team.map(member => (
-            <Chip
-              key={member.id}
-              label={`${personName(member.user)} · ${member.role ?? "Member"}${member.primary ? " (Primary)" : ""}`}
-              variant={member.primary ? "filled" : "outlined"}
-              color={member.primary ? "primary" : "default"}
-              size="small"
-            />
-          ))}
+          {team.map((member, idx) => {
+            const name = personName(member.user)
+              || member.userName
+              || `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim()
+              || "—"
+            const role = member.role ?? member.roleName ?? member.teamRoleDescription ?? "Member"
+            return (
+              <Chip
+                key={String(member.id ?? member.userId ?? idx)}
+                label={`${name} · ${role}${member.primary ? " (Primary)" : ""}`}
+                variant={member.primary ? "filled" : "outlined"}
+                color={member.primary ? "primary" : "default"}
+                size="small"
+              />
+            )
+          })}
           {!team.length && <Typography variant="body2" color="text.secondary">No team assigned</Typography>}
         </Box>
       </Paper>
@@ -167,6 +225,60 @@ export function MatterOverview({ matter, matterId }: Props) {
         ))}
         {!statusTimeline.length && <Typography variant="body2" color="text.secondary">No status history</Typography>}
       </Paper>
+
+      <MatterTeamDrawer
+        open={teamOpen}
+        onClose={() => setTeamOpen(false)}
+        matterId={matterId}
+        matterTitle={String(matter.title ?? "")}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ["matters", "team", matterId] })}
+      />
+
+      <Dialog open={estimateOpen} onClose={() => setEstimateOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Update Estimate</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Estimate amount"
+            type="number"
+            fullWidth
+            size="small"
+            value={estimateValue}
+            onChange={e => setEstimateValue(e.target.value)}
+            error={!!estimateError}
+            helperText={estimateError || "Must be 0 (to clear) or at least 500"}
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEstimateOpen(false)} disabled={savingEstimate}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={savingEstimate}
+            onClick={async () => {
+              const value = parseFloat(estimateValue)
+              if (Number.isNaN(value) || (value !== 0 && value < 500)) {
+                setEstimateError("Estimate must be 0 or 500 and above.")
+                return
+              }
+              setSavingEstimate(true)
+              setEstimateError("")
+              try {
+                toast.success(await mattersApi.updateEstimate(matterId, value))
+                setEstimateOpen(false)
+                qc.invalidateQueries({ queryKey: ["matters", "detail", matterId] })
+              } catch (e) {
+                setEstimateError((e as Error)?.message ?? "Failed to update estimate")
+              } finally {
+                setSavingEstimate(false)
+              }
+            }}
+          >
+            {savingEstimate ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

@@ -28,6 +28,7 @@ function matterRowId(row: Record<string, unknown>): string {
 export default function MattersPage() {
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
+  const [createLeadId, setCreateLeadId] = useState<string | undefined>()
   const [editId, setEditId] = useState<string | undefined>()
   const [closeTarget, setCloseTarget] = useState<{ id: string; title: string } | null>(null)
   const [reopenId, setReopenId] = useState<string | null>(null)
@@ -37,6 +38,8 @@ export default function MattersPage() {
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
+      const fromLead = searchParams.get("leadId") ?? undefined
+      setCreateLeadId(fromLead)
       setCreateOpen(true)
       setSearchParams({}, { replace: true })
     }
@@ -60,7 +63,7 @@ export default function MattersPage() {
       description="All active and closed legal matters"
       action={canEdit && (
         <Button variant="contained" startIcon={<AddIcon />}
-          onClick={() => { setEditId(undefined); setCreateOpen(true) }}>
+          onClick={() => { setEditId(undefined); setCreateLeadId(undefined); setCreateOpen(true) }}>
           New Matter
         </Button>
       )}
@@ -134,7 +137,11 @@ export default function MattersPage() {
       />
 
       {createOpen && !editId && (
-        <NewMatterWizard open={createOpen} onClose={() => setCreateOpen(false)} />
+        <NewMatterWizard
+          open={createOpen}
+          leadId={createLeadId}
+          onClose={() => { setCreateOpen(false); setCreateLeadId(undefined) }}
+        />
       )}
       {createOpen && editId && (
         <MatterFormDrawer

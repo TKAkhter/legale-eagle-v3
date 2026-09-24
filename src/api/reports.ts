@@ -94,6 +94,49 @@ async function excelMsg(path: string, params: Record<string, unknown> = {}, meth
   return res.data?.Msg ?? res.data?.message ?? "Excel export requested."
 }
 
+const ACTIVITY_RELATED_TO_MAP: Record<string, string> = {
+  Admin: "ADMIN",
+  "Business Development": "BUSINESS_DEVELOPMENT",
+  Client: "CLIENT",
+  Lead: "LEAD",
+  Leave: "LEAVE",
+  Matter: "MATTER",
+  "Training And Development": "TRAINING_AND_DEVELOPMENT",
+  ADMIN: "ADMIN",
+  BUSINESS_DEVELOPMENT: "BUSINESS_DEVELOPMENT",
+  CLIENT: "CLIENT",
+  LEAD: "LEAD",
+  LEAVE: "LEAVE",
+  MATTER: "MATTER",
+  TRAINING_AND_DEVELOPMENT: "TRAINING_AND_DEVELOPMENT",
+}
+
+/** Shared filter params for activities report list + email excel (LMS ListV2). */
+function activitiesReportFilterParams(f: Record<string, unknown>): Record<string, unknown> {
+  const rawRelated = String(f.activityRelatedTo ?? f.category ?? "")
+  const activityRelatedTo = !rawRelated || rawRelated === "All"
+    ? ""
+    : (ACTIVITY_RELATED_TO_MAP[rawRelated] ?? rawRelated)
+  const activityBillingType = f.activityBillingType === "All" ? "" : (f.activityBillingType ?? "")
+  const matterBillingType = f.matterBillingType === "All" ? "" : (f.matterBillingType ?? "")
+  return {
+    activityType: f.activityType ?? "",
+    activityRelatedTo,
+    clientId: f.clientId ?? "",
+    matterId: f.matterId ?? "",
+    userId: f.userId ?? "",
+    fromDate: f.fromDate ?? "",
+    toDate: f.toDate ?? "",
+    billable: f.billable ?? "",
+    lfaId: f.lfaId ?? "",
+    activityBillingType,
+    matterBillingType,
+    departmentId: f.departmentId ?? "",
+    sessionType: false,
+    billingStatus: f.billingStatus ?? "",
+  }
+}
+
 export const reportsApi = {
   async getWip(p: GridParams): Promise<PageResponse<Record<string, unknown>>> {
     if (env.USE_STATIC_DATA) {
@@ -410,6 +453,11 @@ export const reportsApi = {
     { id: "d1", clientName: "Al Rashid Holdings", matterTitle: "260303", dueAmount: 12000, overdueDays: 45 },
   ]),
 
+  requestDuesExcel: (filters: Record<string, unknown> = {}) => excelMsg("/api/reports/export-excel/dues", {
+    clientId: filters.clientId ?? "",
+    matterId: filters.matterId ?? "",
+  }),
+
   getMattersReport: (p: GridParams) => reportsApi.fetchReport("/api/report/matter/mini/filter/v2", p, f => ({
     clientId: f.clientId ?? "",
     departmentId: f.departmentId ?? "",
@@ -418,6 +466,13 @@ export const reportsApi = {
   }), [
     { id: "m1", title: "260303 — Building Dispute", status: "Open", clientName: "Al Rashid Holdings", billingType: "Hourly" },
   ], "post"),
+
+  requestMattersReportExcel: (filters: Record<string, unknown> = {}) => excelMsg("/api/reports/export-excel/matter/excel", {
+    clientId: filters.clientId ?? "",
+    departmentId: filters.departmentId ?? "",
+    fromDate: filters.fromDate ?? "",
+    toDate: filters.toDate ?? "",
+  }),
 
   getTasksReport: (p: GridParams) => reportsApi.fetchReport("/api/report/tasks", p, f => ({
     type: f.eventType ?? "ALL",
@@ -428,6 +483,37 @@ export const reportsApi = {
   }), [
     { id: "t1", taskName: "Draft memo", taskStatus: "Pending", priority: "High", assignedTo: "Sarah Johnson" },
   ], "post"),
+
+  requestTasksReportExcel: (filters: Record<string, unknown> = {}) => excelMsg("/api/reports/export-excel/tasks", {
+    clientId: filters.clientId ?? "",
+    userId: filters.userId ?? "",
+    fromDate: filters.fromDate ?? "",
+    toDate: filters.toDate ?? "",
+  }),
+
+  requestHearingsReportExcel: (filters: Record<string, unknown> = {}) => excelMsg("/api/reports/export-excel/hearings", {
+    clientId: filters.clientId ?? "",
+    matterId: filters.matterId ?? "",
+    fromDate: filters.fromDate ?? "",
+    toDate: filters.toDate ?? "",
+  }),
+
+  requestInvoicesReportExcel: (filters: Record<string, unknown> = {}) => excelMsg("/api/reports/export-excel/invoice/filter/all/excel", {
+    clientId: filters.clientId ?? "",
+    matterId: filters.matterId ?? "",
+    fromDate: filters.fromDate ?? "",
+    toDate: filters.toDate ?? "",
+  }),
+
+  requestLeadsReportExcel: (filters: Record<string, unknown> = {}) => excelMsg("/api/reports/export-excel/leads", {
+    userId: filters.userId ?? "",
+    fromDate: filters.fromDate ?? "",
+    toDate: filters.toDate ?? "",
+  }),
+
+  /** Generic email-excel helper for remaining SimpleReportPage shells. */
+  requestReportExcel: (path: string, filters: Record<string, unknown> = {}, method: "get" | "post" = "get") =>
+    excelMsg(path, filters, method),
 
   getHearingsReport: (p: GridParams) => reportsApi.fetchReport("/api/report/hearings/mini/page", p, f => ({
     clientId: f.clientId ?? "",
@@ -518,15 +604,13 @@ export const reportsApi = {
     { id: "ld1", leadName: "Prospect Co", status: "Open", ownerName: "Sarah Johnson", value: 25000 },
   ], "post"),
 
-  getActivitiesReport: (p: GridParams) => reportsApi.fetchReport("/api/report/activity/filter/m/v2", p, f => ({
-    clientId: f.clientId ?? "",
-    matterId: f.matterId ?? "",
-    fromDate: f.fromDate ?? "",
-    toDate: f.toDate ?? "",
-    userId: f.userId ?? "",
-  }), [
-    { id: "act1", activityName: "Document Review", matterTitle: "260303", hours: 3.5, userName: "Sarah Johnson" },
+  getActivitiesReport: (p: GridParams) => reportsApi.fetchReport("/api/report/activity/filter/m/v2", p, f => activitiesReportFilterParams(f), [
+    { id: "act1", activityName: "Document Review", matterTitle: "260303", matterSubject: "Building Dispute", hours: 3, minutes: 30, rate: 1000, billing: 3500, clientName: "Al Rashid Holdings", activityType: "UnBilled", billable: true, responsiblePersonName: "Sarah Johnson", departmentName: "Litigation", lfaNo: "LFA-001", entryDate: "2026-07-01" },
   ], "post"),
+
+  /** Email Excel for time-log activities report (LMS `/reports/export-excel/activity/excel`). */
+  requestActivitiesReportExcel: (filters: Record<string, unknown> = {}) =>
+    excelMsg("/api/reports/export-excel/activity/excel", activitiesReportFilterParams(filters)),
 
   getDepositBalance: (p: GridParams) => reportsApi.fetchReport("/api/report/deposit/balance/amount/v2", p, f => ({
     clientId: f.clientId ?? "",

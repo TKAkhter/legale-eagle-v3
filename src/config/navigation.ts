@@ -538,6 +538,7 @@ export const navigationConfig: NavItem[] = [
       { id: 'cost-cards',   title: 'nav.costCards',   path: '/budgeting/cost-cards',   icon: 'CreditCardOutlined', permission: PERMISSIONS.BUDGETING_VIEW },
       { id: 'budget-cards', title: 'nav.budgetCards', path: '/budgeting/budget-cards', icon: 'SavingsOutlined', permission: PERMISSIONS.BUDGETING_VIEW },
       { id: 'rate-cards',   title: 'nav.rateCards',   path: '/budgeting/rate-cards',   icon: 'PriceChangeOutlined', permission: PERMISSIONS.BUDGETING_VIEW },
+      { id: 'activity-rate-cards', title: 'nav.activityRateCards', path: '/rate-cards', icon: 'FactCheckOutlined', permission: PERMISSIONS.BUDGETING_VIEW },
     ],
   },
   {
@@ -547,6 +548,7 @@ export const navigationConfig: NavItem[] = [
     dividerAfter: true,
     children: [
       { id: 'users',       title: 'nav.manageUsers', path: '/admin/users',       icon: 'ManageAccountsOutlined', permission: PERMISSIONS.USERS_VIEW },
+      { id: 'admin-teams', title: 'nav.adminTeams', path: '/admin/teams', icon: 'GroupsOutlined', permission: PERMISSIONS.TEAM_MANAGE },
       { id: 'bank-accounts', title: 'nav.bankAccounts', path: '/admin/bank-accounts', icon: 'AccountBalanceOutlined', permission: PERMISSIONS.BANK_ACCOUNTS_VIEW },
       { id: 'groups',      title: 'nav.groups',      path: '/admin/groups',      icon: 'GroupWorkOutlined', permission: PERMISSIONS.GROUPS_VIEW },
       { id: 'permissions', title: 'nav.permissions', path: '/admin/permissions', icon: 'LockOutlined', permission: PERMISSIONS.GROUPS_MANAGE },

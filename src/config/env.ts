@@ -43,6 +43,13 @@ export const env = {
   AZURE_REDIRECT_URI: (import.meta.env["VITE_AZURE_REDIRECT_URI"]  as string) ?? "http://localhost:3000",
   ONEDRIVE_CLIENT_ID: (import.meta.env["VITE_ONEDRIVE_CLIENT_ID"]  as string) ?? "",
 
+  // OneDrive SharePoint personal folder links (expense disbursement browse)
+  ONEDRIVE_TENANT:    (import.meta.env["VITE_ONEDRIVE_TENANT"]     as string) ?? "",
+  ONEDRIVE_USER_NEW:  (import.meta.env["VITE_ONEDRIVE_USER_NEW"]   as string) ?? "",
+  ONEDRIVE_USER_OLD:  (import.meta.env["VITE_ONEDRIVE_USER_OLD"]   as string) ?? "",
+  ONEDRIVE_ROOT_NEW:  (import.meta.env["VITE_ONEDRIVE_ROOT_NEW"]   as string) ?? "",
+  ONEDRIVE_ROOT_OLD:  (import.meta.env["VITE_ONEDRIVE_ROOT_OLD"]   as string) ?? "",
+
   // ── App ───────────────────────────────────────────────────────────────────
   APP_ENV: (import.meta.env["VITE_APP_ENV"] as string) ?? "development",
 } as const

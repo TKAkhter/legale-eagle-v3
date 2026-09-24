@@ -1,7 +1,9 @@
-import { useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
-import { Box, Button } from "@mui/material"
-import CheckIcon from "@mui/icons-material/Check"
+/**
+ * Pending timelog approvals browser — LMS `/pending-approval-timelogs` (browse + Email Excel, no approve).
+ */
+import { useMemo, useState } from "react"
+import { Button } from "@mui/material"
+import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { StatusBadge } from "@/components/ui/StatusBadge"
@@ -12,7 +14,12 @@ import { toast } from "@/lib/toast"
 import { timelogsApi } from "@/api/timelogs"
 import type { GridParams } from "@/types/common.types"
 
-const FilterPanel = makeReportFilterPanel({ showClient: true, showMatter: true, showDateRange: true, showUser: true })
+const BaseFilterPanel = makeReportFilterPanel({
+  showClient: true,
+  showMatter: true,
+  showDateRange: true,
+  showUser: true,
+})
 
 function personName(v: unknown): string {
   if (typeof v === "string") return v || "—"
@@ -20,39 +27,76 @@ function personName(v: unknown): string {
   return u ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "—" : "—"
 }
 
-function approvalId(row: Record<string, unknown>): string {
-  return String(row.activityApprovalId ?? row.id ?? "")
-}
-
-/** HOD pending hourly timelog queue (LMS /pending-approval-timelogs). */
 export default function TimelogsPendingPage() {
-  const qc = useQueryClient()
-  const [gridKey, setGridKey] = useState(0)
+  const [emailing, setEmailing] = useState(false)
+  const [lastFilters, setLastFilters] = useState<Record<string, unknown>>({})
 
-  async function approveRows(rows: Record<string, unknown>[]) {
+  const FilterPanel = useMemo(() => {
+    return function PendingFilter(props: {
+      onSearch: (f: Record<string, unknown>) => void
+      onReset: () => void
+      filters: Record<string, unknown>
+    }) {
+      return (
+        <BaseFilterPanel
+          {...props}
+          onSearch={f => {
+            setLastFilters(f)
+            props.onSearch(f)
+          }}
+          onReset={() => {
+            setLastFilters({})
+            props.onReset()
+          }}
+        />
+      )
+    }
+  }, [])
+
+  async function emailExcel() {
+    setEmailing(true)
     try {
-      const items = rows.map(r => ({
-        activityApprovalId: approvalId(r),
-        revenueStatus: "COMPLETED",
-        rejectedReason: "",
+      toast.success(await timelogsApi.requestPendingExcel({
+        clientId: lastFilters.clientId ?? "",
+        matterId: lastFilters.matterId ?? "",
+        responsiblePerson: lastFilters.userId ?? "",
+        startDate: lastFilters.fromDate ?? "",
+        endDate: lastFilters.toDate ?? "",
       }))
-      toast.success(await timelogsApi.approve(items))
-      setGridKey(k => k + 1)
-      qc.invalidateQueries({ queryKey: ["timelogs", "pending"] })
     } catch {
-      toast.error("Approval failed")
+      toast.error("Excel export failed")
+    } finally {
+      setEmailing(false)
     }
   }
 
   return (
-    <PageShell title="Pending Timelog Approvals" description="HOD queue for hourly time entries awaiting approval">
+    <PageShell
+      title="Pending Timelog Approvals"
+      description="Browse hourly time entries awaiting approval"
+      action={(
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={emailing}
+          startIcon={<MarkunreadOutlinedIcon />}
+          onClick={() => { void emailExcel() }}
+        >
+          Email Excel
+        </Button>
+      )}
+    >
       <DataGrid
-        key={gridKey}
         columns={[
           { field: "entryDate", header: "Date", renderCell: v => v ? formatDate(String(v)) : "—" },
           { field: "activity", header: "Activity", renderCell: (v, row) => String(v ?? (row as { activityName?: string }).activityName ?? "—") },
           { field: "matterTitle", header: "Matter", renderCell: (v, row) => String(v ?? (row as { matter?: { title?: string } }).matter?.title ?? "—") },
           { field: "clientName", header: "Client", renderCell: (v, row) => String(v ?? (row as { client?: { companyName?: string } }).client?.companyName ?? "—") },
+          {
+            field: "agreementNo",
+            header: "Agreement",
+            renderCell: (v, row) => String(v ?? (row as { lfaNo?: string }).lfaNo ?? "—"),
+          },
           {
             field: "totalHours",
             header: "Hours",
@@ -67,6 +111,11 @@ export default function TimelogsPendingPage() {
           },
           { field: "billing", header: "Amount", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
           { field: "responsiblePerson", header: "User", renderCell: v => personName(v) },
+          {
+            field: "approverName",
+            header: "Approver",
+            renderCell: (v, row) => personName(v ?? (row as { approver?: unknown }).approver),
+          },
           { field: "revenueStatus", header: "Status", renderCell: (v, row) => <StatusBadge status={String(v ?? (row as { status?: string }).status ?? "Pending")} /> },
         ]}
         queryKey={["timelogs", "pending"]}
@@ -74,21 +123,6 @@ export default function TimelogsPendingPage() {
         FilterPanel={FilterPanel}
         hasFilters
         zebraStriping
-        hasRowSelection
-        bulkActions={[
-          {
-            label: "Approve selected",
-            icon: <CheckIcon fontSize="small" />,
-            onClick: rows => void approveRows(rows as Record<string, unknown>[]),
-          },
-        ]}
-        rowMenuItems={row => [
-          {
-            label: "Approve",
-            icon: <CheckIcon fontSize="small" />,
-            onClick: () => void approveRows([row as Record<string, unknown>]),
-          },
-        ]}
       />
     </PageShell>
   )

@@ -1,13 +1,25 @@
+/**
+ * Approved hourly timelogs — LMS `/approved-timelogs` (browse + Email Excel).
+ */
+import { useMemo, useState } from "react"
+import { Button } from "@mui/material"
+import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { makeReportFilterPanel } from "@/components/filters/ReportFilterPanel"
 import { formatDate } from "@lib/utils/formatDate"
 import { formatCurrency } from "@lib/utils/formatCurrency"
+import { toast } from "@/lib/toast"
 import { timelogsApi } from "@/api/timelogs"
 import type { GridParams } from "@/types/common.types"
 
-const FilterPanel = makeReportFilterPanel({ showClient: true, showMatter: true, showDateRange: true, showUser: true })
+const BaseFilterPanel = makeReportFilterPanel({
+  showClient: true,
+  showMatter: true,
+  showDateRange: true,
+  showUser: true,
+})
 
 function personName(v: unknown): string {
   if (typeof v === "string") return v || "—"
@@ -15,16 +27,81 @@ function personName(v: unknown): string {
   return u ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "—" : "—"
 }
 
-/** Approved hourly timelogs browser (LMS /approved-timelogs). */
 export default function TimelogsApprovedPage() {
+  const [emailing, setEmailing] = useState(false)
+  const [lastFilters, setLastFilters] = useState<Record<string, unknown>>({})
+
+  const FilterPanel = useMemo(() => {
+    return function ApprovedFilter(props: {
+      onSearch: (f: Record<string, unknown>) => void
+      onReset: () => void
+      filters: Record<string, unknown>
+    }) {
+      return (
+        <BaseFilterPanel
+          {...props}
+          onSearch={f => {
+            setLastFilters(f)
+            props.onSearch(f)
+          }}
+          onReset={() => {
+            setLastFilters({})
+            props.onReset()
+          }}
+        />
+      )
+    }
+  }, [])
+
+  async function emailExcel() {
+    setEmailing(true)
+    try {
+      toast.success(await timelogsApi.requestApprovedExcel({
+        clientId: lastFilters.clientId ?? "",
+        matterId: lastFilters.matterId ?? "",
+        responsiblePersonId: lastFilters.userId ?? "",
+        fromDate: lastFilters.fromDate ?? "",
+        toDate: lastFilters.toDate ?? "",
+      }))
+    } catch {
+      toast.error("Excel export failed")
+    } finally {
+      setEmailing(false)
+    }
+  }
+
   return (
-    <PageShell title="Approved Timelogs" description="Browse approved hourly time entries">
+    <PageShell
+      title="Approved Timelogs"
+      description="Browse approved hourly time entries"
+      action={(
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={emailing}
+          startIcon={<MarkunreadOutlinedIcon />}
+          onClick={() => { void emailExcel() }}
+        >
+          Email Excel
+        </Button>
+      )}
+    >
       <DataGrid
         columns={[
           { field: "entryDate", header: "Date", renderCell: v => v ? formatDate(String(v)) : "—" },
           { field: "activity", header: "Activity", renderCell: (v, row) => String(v ?? (row as { activityName?: string }).activityName ?? "—") },
           { field: "matterTitle", header: "Matter", renderCell: (v, row) => String(v ?? (row as { matter?: { title?: string } }).matter?.title ?? "—") },
           { field: "clientName", header: "Client", renderCell: (v, row) => String(v ?? (row as { client?: { companyName?: string } }).client?.companyName ?? "—") },
+          {
+            field: "agreementNo",
+            header: "Agreement",
+            renderCell: (v, row) => String(v ?? (row as { lfaNo?: string }).lfaNo ?? "—"),
+          },
+          {
+            field: "lfaBillingType",
+            header: "LFA Type",
+            renderCell: v => String(v || "—"),
+          },
           {
             field: "totalHours",
             header: "Hours",
@@ -37,8 +114,30 @@ export default function TimelogsApprovedPage() {
               return h || m ? `${h}:${String(m).padStart(2, "0")}` : "0"
             },
           },
+          {
+            field: "purgedHours",
+            header: "Purged",
+            align: "right",
+            renderCell: v => v != null ? Number(v).toFixed(2) : "—",
+          },
+          {
+            field: "discountedHours",
+            header: "Discounted",
+            align: "right",
+            renderCell: v => v != null ? Number(v).toFixed(2) : "—",
+          },
           { field: "billing", header: "Amount", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
           { field: "responsiblePerson", header: "User", renderCell: v => personName(v) },
+          {
+            field: "approvedBy",
+            header: "Approved By",
+            renderCell: (v, row) => personName(v ?? (row as { approvedByName?: string }).approvedByName),
+          },
+          {
+            field: "approvedAt",
+            header: "Approved At",
+            renderCell: v => v ? formatDate(String(v)) : "—",
+          },
           { field: "revenueStatus", header: "Status", renderCell: (v, row) => <StatusBadge status={String(v ?? (row as { status?: string }).status ?? "Approved")} /> },
         ]}
         queryKey={["timelogs", "approved"]}

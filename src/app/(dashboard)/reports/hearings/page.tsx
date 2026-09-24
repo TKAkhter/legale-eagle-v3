@@ -8,6 +8,7 @@ export default function HearingsReportPage() {
       description="Upcoming and past hearings by matter"
       queryKey={["reports", "hearings"]}
       queryFn={p => reportsApi.getHearingsReport(p)}
+      emailExcelFn={f => reportsApi.requestHearingsReportExcel(f)}
       filters={{ showClient: true, showMatter: true, showDateRange: true }}
       columns={[
         { field: "hearingTitle", header: "Hearing", sortKey: "hearingTitle", renderCell: (v, row) => String(v ?? (row as { title?: string }).title ?? "—") },

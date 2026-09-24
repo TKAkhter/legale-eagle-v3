@@ -37,7 +37,9 @@ import ArrowBackIcon    from "@mui/icons-material/ArrowBack"
 import RefreshIcon      from "@mui/icons-material/Refresh"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { emailApi, type Email, type EmailFolder } from "@/api/email"
+import LinkIcon from "@mui/icons-material/Link"
 import { ComposeEmailDrawer } from "./_components/ComposeEmailDrawer"
+import { AttachEmailToMatterDialog } from "./_components/AttachEmailToMatterDialog"
 import { formatDateTime, fromNow } from "@lib/utils/formatDate"
 import { toast }   from "@/lib/toast"
 import { logger }  from "@/lib/logger"
@@ -71,6 +73,7 @@ export default function EmailPage() {
   const [mobilePanel,    setMobilePanel]    = useState(1)
   const [composeOpen, setComposeOpen] = useState(false)
   const [replyTo, setReplyTo] = useState<{ to?: string; subject?: string } | null>(null)
+  const [attachOpen, setAttachOpen] = useState(false)
 
   // Fetch folders
   const { data: folders = [], isLoading: fLoading } = useQuery<EmailFolder[]>({
@@ -269,6 +272,14 @@ export default function EmailPage() {
             >
               Reply
             </Button>
+            <Button
+              size="small"
+              startIcon={<LinkIcon />}
+              variant="outlined"
+              onClick={() => setAttachOpen(true)}
+            >
+              Attach to Matter
+            </Button>
             <Tooltip title="Delete">
               <IconButton size="small" color="error" onClick={() => deleteEmail.mutate(selectedEmail.id)}>
                 <DeleteIcon fontSize="small" />
@@ -322,6 +333,11 @@ export default function EmailPage() {
           toast.success("Email sent")
           void refetch()
         }}
+      />
+      <AttachEmailToMatterDialog
+        open={attachOpen}
+        onClose={() => setAttachOpen(false)}
+        email={selectedEmail}
       />
     </Box>
   )

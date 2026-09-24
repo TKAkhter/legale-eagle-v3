@@ -66,13 +66,15 @@ export default function TimelogsApprovalPage() {
       revenueStatus: "COMPLETED",
       rejectedReason: "",
     }))
-    toast.success(await timelogsApi.approve(items))
+    toast.success(await timelogsApi.approveByApprovals(items))
     await refresh()
   }
 
   async function submitAdjust() {
     if (!adjust) return
-    const body = { hours: Number(hours) || 0, minutes: Number(minutes) || 0 }
+    const h = Number(hours) || 0
+    const m = Number(minutes) || 0
+    const body = { hours: h, minutes: m, billedHours: h, billedMinutes: m }
     try {
       if (adjust.mode === "purge") toast.success(await timelogsApi.purge(adjust.id, body))
       else toast.success(await timelogsApi.discount(adjust.id, body))

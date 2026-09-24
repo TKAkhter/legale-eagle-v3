@@ -26,6 +26,7 @@ import type { GridParams } from "@/types/common.types"
 import { LfaFormDrawer } from "./_components/LfaFormDrawer"
 import { LfaRatesDialog } from "./_components/LfaRatesDialog"
 import { SendForSignatureDialog } from "./_components/SendForSignatureDialog"
+import { SendForApprovalDialog } from "./_components/SendForApprovalDialog"
 
 function LfaFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
   const [f, setF] = useState<Record<string, unknown>>({ status: "Active", ...filters })
@@ -86,6 +87,7 @@ export default function LfaPage() {
   const [editId, setEditId] = useState<string>()
   const [ratesId, setRatesId] = useState<string>()
   const [sigLfa, setSigLfa] = useState<Record<string, unknown> | null>(null)
+  const [approvalLfaId, setApprovalLfaId] = useState<string | null>(null)
   const [gridKey, setGridKey] = useState(0)
 
   const statsQ = useQuery({
@@ -247,12 +249,7 @@ export default function LfaPage() {
               label: "Send for Approval",
               icon: <SendIcon fontSize="small" />,
               hidden: () => status !== "Draft",
-              onClick: async () => {
-                try {
-                  toast.success(await lfaApi.sendForApproval(id, ""))
-                  setGridKey(k => k + 1)
-                } catch { toast.error("Send for approval failed") }
-              },
+              onClick: () => setApprovalLfaId(id),
             },
             {
               label: "Amend",
@@ -320,6 +317,18 @@ export default function LfaPage() {
           onClose={() => setSigLfa(null)}
           lfa={sigLfa}
           onSent={() => setSigLfa(null)}
+        />
+      )}
+      {approvalLfaId && (
+        <SendForApprovalDialog
+          open
+          lfaId={approvalLfaId}
+          onClose={() => setApprovalLfaId(null)}
+          onSent={() => {
+            setApprovalLfaId(null)
+            setGridKey(k => k + 1)
+            qc.invalidateQueries({ queryKey: ["lfa"] })
+          }}
         />
       )}
     </PageShell>

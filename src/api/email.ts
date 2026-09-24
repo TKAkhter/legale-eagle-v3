@@ -28,6 +28,7 @@ export interface Email {
   folderId:       string
   from:           string
   to:             string
+  cc?:            string
   subject:        string
   preview:        string
   body:           string
@@ -35,6 +36,8 @@ export interface Email {
   read:           boolean
   starred:        boolean
   hasAttachments: boolean
+  conversationId?: string
+  internetMessageId?: string
 }
 
 export interface SendEmailPayload {
@@ -72,14 +75,21 @@ export const emailApi = {
     const token = await getOneDriveToken()
     const folderPath = folderId === "inbox" ? "inbox" : `mailFolders/${folderId}`
     const r = await fetch(
-      `https://graph.microsoft.com/v1.0/me/${folderPath}/messages?$top=50&$orderby=receivedDateTime desc`,
+      `https://graph.microsoft.com/v1.0/me/${folderPath}/messages?$top=50&$orderby=receivedDateTime desc` +
+      `&$select=id,subject,from,toRecipients,ccRecipients,bodyPreview,body,receivedDateTime,isRead,flag,hasAttachments,conversationId,internetMessageId`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
     const data = await r.json()
+    const addr = (list: unknown) =>
+      ((list as { emailAddress?: { address?: string } }[]) ?? [])
+        .map(x => x.emailAddress?.address ?? "")
+        .filter(Boolean)
+        .join(", ")
     return (data.value ?? []).map((m: Record<string,unknown>) => ({
-      id:    m.id, folderId,
+      id:    String(m.id ?? ""), folderId,
       from:  (m.from as {emailAddress?:{name?:string;address?:string}})?.emailAddress?.address ?? "",
-      to:    ((m.toRecipients as {emailAddress:{address:string}}[]) ?? [])[0]?.emailAddress?.address ?? "",
+      to:    addr(m.toRecipients),
+      cc:    addr(m.ccRecipients),
       subject: String(m.subject ?? "(No subject)"),
       preview: String(m.bodyPreview ?? ""),
       body:    (m.body as {content?:string})?.content ?? "",
@@ -87,6 +97,8 @@ export const emailApi = {
       read:    Boolean(m.isRead),
       starred: Boolean((m.flag as {flagStatus?:string})?.flagStatus === "flagged"),
       hasAttachments: Boolean(m.hasAttachments),
+      conversationId: String(m.conversationId ?? ""),
+      internetMessageId: String(m.internetMessageId ?? ""),
     }))
   },
 
@@ -133,6 +145,35 @@ export const emailApi = {
         },
       }),
     })
+  },
+
+  /**
+   * Attach a Graph/Outlook message to a matter (LMS POST /emails/add).
+   */
+  async attachToMatter(matterId: string, email: Email): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Email attached to matter."
+    }
+    const { axiosClient } = await import("@lib/api/axios")
+    const emailId = email.internetMessageId || email.id
+    const requestBody = {
+      body: email.body || email.preview || "",
+      cc: email.cc || "",
+      emailId: typeof btoa === "function" ? btoa(unescape(encodeURIComponent(emailId))) : emailId,
+      from: email.from || "",
+      matterIds: [matterId],
+      subject: email.subject || "",
+      to: email.to || "",
+      conversationId: email.conversationId || "",
+      internetMessageId: email.internetMessageId || "",
+      references: "",
+      inReplyTo: "",
+      emailDate: email.date || new Date().toISOString(),
+      attachments: [],
+    }
+    const res = await axiosClient.post("/api/emails/add", requestBody)
+    return String(res.data?.Msg ?? res.data?.message ?? "Email attached to matter.")
   },
 
   /**

@@ -1,49 +1,18 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import {
-  Box, Button, FormControl, InputLabel, MenuItem, Select,
-} from "@mui/material"
 import SendIcon from "@mui/icons-material/Send"
 import UndoIcon from "@mui/icons-material/Undo"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
-import { ClientSelectFilter } from "@components/filters/ClientSelectFilter"
-import { MatterSelectFilter } from "@components/filters/MatterSelectFilter"
-import { DateRangeFilter } from "@components/filters/DateRangeFilter"
 import { formatDate } from "@lib/utils/formatDate"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { toast } from "@/lib/toast"
 import { timelogsApi } from "@/api/timelogs"
 import { PERMISSIONS } from "@config/permissions"
+import { TimelogQueueFilter } from "../_components/TimelogQueueFilter"
 import type { FilterPanelProps } from "@components/data-grid/types"
 import type { GridParams } from "@/types/common.types"
-
-function TimelogQueueFilter({ onSearch, onReset, filters }: FilterPanelProps) {
-  const [f, setF] = useState<Record<string, unknown>>(filters)
-  const set = (k: string, v: unknown) => setF(p => ({ ...p, [k]: v }))
-  return (
-    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-end" }}>
-      <ClientSelectFilter value={String(f.clientId ?? "") || undefined} onChange={v => set("clientId", v)} />
-      <MatterSelectFilter value={String(f.matterId ?? "") || undefined} onChange={v => set("matterId", v)} />
-      <FormControl size="small" sx={{ minWidth: 150 }}>
-        <InputLabel>LFA Billing Type</InputLabel>
-        <Select label="LFA Billing Type" value={String(f.lfaBillingType ?? "")} onChange={e => set("lfaBillingType", e.target.value)}>
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="Session">Session</MenuItem>
-          <MenuItem value="Fixed">Fixed</MenuItem>
-        </Select>
-      </FormControl>
-      <DateRangeFilter
-        fromDate={String(f.fromDate ?? "")}
-        toDate={String(f.toDate ?? "")}
-        onChange={v => setF(p => ({ ...p, ...v }))}
-      />
-      <Button variant="contained" size="small" onClick={() => onSearch(f)}>Fetch</Button>
-      <Button size="small" onClick={() => { setF({}); onReset() }}>Clear</Button>
-    </Box>
-  )
-}
 
 function personName(v: unknown): string {
   const u = v as Record<string, string> | null
@@ -58,10 +27,24 @@ function clientName(v: unknown): string {
 export default function TimelogsPreApprovalPage() {
   const qc = useQueryClient()
   const [gridKey, setGridKey] = useState(0)
+  const actingHodRef = useRef("")
 
   async function refresh() {
     setGridKey(k => k + 1)
     qc.invalidateQueries({ queryKey: ["timelogs"] })
+  }
+
+  function FilterPanel(props: FilterPanelProps) {
+    return (
+      <TimelogQueueFilter
+        {...props}
+        showActingHod
+        onSearch={f => {
+          actingHodRef.current = String(f.actingHodUserId ?? "")
+          props.onSearch(f)
+        }}
+      />
+    )
   }
 
   return (
@@ -86,7 +69,7 @@ export default function TimelogsPreApprovalPage() {
         ]}
         queryKey={["timelogs", "preApproval"]}
         queryFn={(p: GridParams) => timelogsApi.getDrafts(p)}
-        FilterPanel={TimelogQueueFilter}
+        FilterPanel={FilterPanel}
         hasFilters
         syncWithUrl
         hasRowSelection
@@ -99,7 +82,11 @@ export default function TimelogsPreApprovalPage() {
             onClick: async (rows) => {
               try {
                 const ids = rows.map(r => String((r as { id?: string }).id ?? "")).filter(Boolean)
-                toast.success(await timelogsApi.sendForApproval(ids))
+                if (ids.length > 15) {
+                  toast.error("Select at most 15 entries")
+                  return
+                }
+                toast.success(await timelogsApi.sendForApproval(ids, actingHodRef.current || undefined))
                 await refresh()
               } catch {
                 toast.error("Failed to send for approval")
@@ -112,6 +99,10 @@ export default function TimelogsPreApprovalPage() {
             onClick: async (rows) => {
               try {
                 const ids = rows.map(r => String((r as { id?: string }).id ?? "")).filter(Boolean)
+                if (ids.length > 15) {
+                  toast.error("Select at most 15 entries")
+                  return
+                }
                 toast.success(await timelogsApi.undoDraft(ids))
                 await refresh()
               } catch {
@@ -130,7 +121,7 @@ export default function TimelogsPreApprovalPage() {
               permission: PERMISSIONS.TIMELOGS_APPROVE,
               onClick: async () => {
                 try {
-                  toast.success(await timelogsApi.sendForApproval([id]))
+                  toast.success(await timelogsApi.sendForApproval([id], actingHodRef.current || undefined))
                   await refresh()
                 } catch {
                   toast.error("Failed to submit")

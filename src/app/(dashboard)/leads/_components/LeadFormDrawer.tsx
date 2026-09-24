@@ -25,9 +25,16 @@ const schema = z.object({
 })
 type LeadForm = z.infer<typeof schema>
 
-interface Props { open: boolean; onClose: () => void; leadId?: string; onSaved: () => void }
+interface Props {
+  open: boolean
+  onClose: () => void
+  leadId?: string
+  onSaved: () => void
+  /** When true, create payload includes `internal: true` (internal-leads flow). */
+  internal?: boolean
+}
 
-export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
+export function LeadFormDrawer({ open, onClose, leadId, onSaved, internal = false }: Props) {
   const isEdit = !!leadId
   const [error, setError] = useState("")
 
@@ -36,7 +43,12 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
     defaultValues: { leadType: "PERSON" },
   })
 
-  const { hasDraft, loadDraft, clearDraft } = useDraftSave('lead-form', getValues, reset, isEdit)
+  const { hasDraft, loadDraft, clearDraft } = useDraftSave(
+    internal ? "internal-lead-form" : "lead-form",
+    getValues,
+    reset,
+    isEdit,
+  )
 
   const { data: existing } = useQuery({
     queryKey: ["leads","detail",leadId],
@@ -89,6 +101,7 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
     try {
       const payload = {
         ...vals,
+        ...(internal && !isEdit ? { internal: true } : {}),
         emails: vals.email ? [{ emailId: vals.email, type: "Work", primary: true }] : [],
         phones: vals.phone ? [{ phoneNo: vals.phone, type: "Mobile", primary: true }] : [],
         practiceArea: vals.practiceAreaId ? { id: vals.practiceAreaId } : undefined,
@@ -105,8 +118,14 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved }: Props) {
   }
 
   return (
-    <FormDrawer open={open} onClose={onClose} title={isEdit ? "Edit Lead" : "New Lead"}
-      onSubmit={handleSubmit(onSubmit)} isSubmitting={isSubmitting} submitLabel={isEdit ? "Update" : "Create Lead"}>
+    <FormDrawer
+      open={open}
+      onClose={onClose}
+      title={isEdit ? (internal ? "Edit Internal Lead" : "Edit Lead") : (internal ? "New Internal Lead" : "New Lead")}
+      onSubmit={handleSubmit(onSubmit)}
+      isSubmitting={isSubmitting}
+      submitLabel={isEdit ? "Update" : (internal ? "Create Internal Lead" : "Create Lead")}
+    >
       {error && <Alert severity="error" sx={{ mb:2 }} onClose={() => setError("")}>{error}</Alert>}
       {hasDraft && !isEdit && <DraftBanner onRestore={loadDraft} onDiscard={clearDraft} />}
     <FormSection title="Basic Info">
