@@ -1,13 +1,25 @@
+import { useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Box, Button, Chip, LinearProgress, Paper, Typography } from "@mui/material"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
-import { useQuery } from "@tanstack/react-query"
+import EditIcon from "@mui/icons-material/Edit"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PageShell } from "@/components/ui/PageShell"
+import { TeamTemplateFormDrawer } from "../_components/TeamTemplateFormDrawer"
 import { teamTemplatesApi } from "@/api/teamTemplates"
+
+function roleSortOrder(roleName: string): number {
+  const n = roleName.toLowerCase()
+  if (n.includes("handling")) return 0
+  if (n.includes("supervisor")) return 1
+  return 2
+}
 
 export default function TeamTemplateDetailPage() {
   const { templateId = "" } = useParams()
   const navigate = useNavigate()
+  const qc = useQueryClient()
+  const [editOpen, setEditOpen] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ["team-templates", templateId],
@@ -16,7 +28,15 @@ export default function TeamTemplateDetailPage() {
   })
 
   const t = (data ?? {}) as Record<string, unknown>
-  const users = (t.users ?? []) as Record<string, string>[]
+  const users = useMemo(() => {
+    const list = ((t.users ?? []) as Record<string, string>[]).slice()
+    list.sort((a, b) => {
+      const ra = String(a.teamRoleName ?? a.roleName ?? "")
+      const rb = String(b.teamRoleName ?? b.roleName ?? "")
+      return roleSortOrder(ra) - roleSortOrder(rb)
+    })
+    return list
+  }, [t.users])
 
   return (
     <PageShell
@@ -27,7 +47,12 @@ export default function TeamTemplateDetailPage() {
         { label: String(t.name ?? templateId) },
       ]}
       action={(
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/team/templates")}>Back</Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/team/templates")}>Back</Button>
+          <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)} disabled={!templateId}>
+            Edit
+          </Button>
+        </Box>
       )}
     >
       {isLoading && <LinearProgress sx={{ mb: 2 }} />}
@@ -60,6 +85,15 @@ export default function TeamTemplateDetailPage() {
           </Box>
         )}
       </Paper>
+      <TeamTemplateFormDrawer
+        open={editOpen}
+        templateId={templateId}
+        onClose={() => setEditOpen(false)}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["team-templates", templateId] })
+          qc.invalidateQueries({ queryKey: ["team-templates"] })
+        }}
+      />
     </PageShell>
   )
 }

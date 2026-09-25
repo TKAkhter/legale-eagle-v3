@@ -1,22 +1,39 @@
-import { useState } from "react"
-import { Box, Paper, Typography, Chip, Skeleton, Button, Divider } from "@mui/material"
+import { useMemo, useState } from "react"
+import {
+  Box, Button, Chip, Divider, Paper, Skeleton, Tab, Tabs, Typography,
+} from "@mui/material"
 import TrendingUpIcon from "@mui/icons-material/TrendingUp"
 import AccessTimeIcon from "@mui/icons-material/AccessTime"
 import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import { useQuery } from "@tanstack/react-query"
+import { useSearchParams } from "react-router-dom"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
-import { reportsApi } from "@/api/reports"
-import { formatCurrency } from "@lib/utils/formatCurrency"
 import { ApexChart } from "@components/charts/ApexChart"
 import { makeReportFilterPanel } from "@components/filters/ReportFilterPanel"
+import { reportsApi } from "@/api/reports"
+import { formatCurrency } from "@lib/utils/formatCurrency"
 import { toast } from "@/lib/toast"
 import type { GridParams } from "@/types/common.types"
+import { parseWipTab, wipPanels, type WipPanelConfig, type WipTabId } from "./_components/wipPanels"
 
-const FilterPanel = makeReportFilterPanel({ showUser: true, showDepartment: true, showMatter: true, showDateRange: true })
+const OverviewFilterPanel = makeReportFilterPanel({
+  showUser: true,
+  showDepartment: true,
+  showMatter: true,
+  showDateRange: true,
+})
 
-function KpiCard({ label, value, sub, icon, loading }: { label: string; value?: string; sub?: string; icon: React.ReactNode; loading: boolean }) {
+function KpiCard({
+  label, value, sub, icon, loading,
+}: {
+  label: string
+  value?: string
+  sub?: string
+  icon: React.ReactNode
+  loading: boolean
+}) {
   return (
     <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, display: "flex", alignItems: "flex-start", gap: 2 }}>
       <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: "primary.main", color: "white", display: "flex" }}>{icon}</Box>
@@ -29,7 +46,52 @@ function KpiCard({ label, value, sub, icon, loading }: { label: string; value?: 
   )
 }
 
-export default function WipReportPage() {
+function WipReportPanel({ panel }: { panel: WipPanelConfig }) {
+  const FilterPanel = useMemo(() => makeReportFilterPanel(panel.filters), [panel.filters])
+  const [emailing, setEmailing] = useState(false)
+
+  async function handleEmailExcel() {
+    setEmailing(true)
+    try {
+      toast.success(await panel.emailExcelFn({}))
+    } catch {
+      toast.error("Excel export failed")
+    } finally {
+      setEmailing(false)
+    }
+  }
+
+  return (
+    <Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, mb: 2, flexWrap: "wrap" }}>
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{panel.title}</Typography>
+          <Typography variant="body2" color="text.secondary">{panel.description}</Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          disabled={emailing}
+          startIcon={<MarkunreadOutlinedIcon />}
+          onClick={() => { void handleEmailExcel() }}
+        >
+          Email Excel
+        </Button>
+      </Box>
+      <DataGrid
+        columns={panel.columns}
+        queryKey={panel.queryKey}
+        queryFn={panel.queryFn}
+        FilterPanel={FilterPanel}
+        hasFilters
+        syncWithUrl
+        zebraStriping
+      />
+    </Box>
+  )
+}
+
+function OverviewPanel() {
   const { data: summary, isLoading: sl } = useQuery({
     queryKey: ["reports", "wip", "summary"],
     queryFn: () => reportsApi.wipSummary(),
@@ -47,18 +109,27 @@ export default function WipReportPage() {
   }
 
   return (
-    <PageShell
-      title="WIP Report"
-      description="Work in Progress — billable time not yet invoiced"
-      action={(
-        <Button variant="outlined" size="small" startIcon={<MarkunreadOutlinedIcon />} onClick={emailExcel}>
+    <Box>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button variant="outlined" size="small" startIcon={<MarkunreadOutlinedIcon />} onClick={() => { void emailExcel() }}>
           Email Excel
         </Button>
-      )}
-    >
+      </Box>
       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 2, mb: 3 }}>
-        <KpiCard label="Total WIP Value" loading={sl} icon={<TrendingUpIcon sx={{ fontSize: 20 }} />} value={formatCurrency((summary as { totalWip?: number })?.totalWip ?? 0)} sub="Unbilled billable work" />
-        <KpiCard label="Total WIP Hours" loading={sl} icon={<AccessTimeIcon sx={{ fontSize: 20 }} />} value={`${((summary as { totalHours?: number })?.totalHours ?? 0).toFixed(1)} hrs`} sub="Across all fee earners" />
+        <KpiCard
+          label="Total WIP Value"
+          loading={sl}
+          icon={<TrendingUpIcon sx={{ fontSize: 20 }} />}
+          value={formatCurrency((summary as { totalWip?: number })?.totalWip ?? 0)}
+          sub="Unbilled billable work"
+        />
+        <KpiCard
+          label="Total WIP Hours"
+          loading={sl}
+          icon={<AccessTimeIcon sx={{ fontSize: 20 }} />}
+          value={`${((summary as { totalHours?: number })?.totalHours ?? 0).toFixed(1)} hrs`}
+          sub="Across all fee earners"
+        />
       </Box>
       {!sl && byUser.length > 0 && (
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, mb: 3 }}>
@@ -110,12 +181,49 @@ export default function WipReportPage() {
         ]}
         queryKey={["reports", "wip"]}
         queryFn={(p: GridParams) => reportsApi.getWip(p)}
-        FilterPanel={FilterPanel}
+        FilterPanel={OverviewFilterPanel}
         hasFilters
         syncWithUrl
         defaultSortBy="entryDate"
         defaultSortDir="desc"
       />
+    </Box>
+  )
+}
+
+export default function WipReportPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = parseWipTab(searchParams.get("tab"))
+
+  function setTab(next: WipTabId) {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set("tab", next)
+    setSearchParams(nextParams, { replace: true })
+  }
+
+  const activePanel = wipPanels.find(p => p.id === tab)
+
+  return (
+    <PageShell
+      title="WIP Reports"
+      description="Work in Progress — Department, Attorney, and Matter views"
+    >
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2.5 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v: WipTabId) => setTab(v)}
+          variant="scrollable"
+          allowScrollButtonsMobile
+        >
+          <Tab label="Overview" value="overview" />
+          {wipPanels.map(p => (
+            <Tab key={p.id} label={p.label} value={p.id} />
+          ))}
+        </Tabs>
+      </Box>
+
+      {tab === "overview" && <OverviewPanel />}
+      {activePanel && <WipReportPanel key={activePanel.id} panel={activePanel} />}
     </PageShell>
   )
 }

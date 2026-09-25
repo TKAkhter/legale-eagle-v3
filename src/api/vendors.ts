@@ -25,7 +25,12 @@ const STATIC_VENDORS = [
     vendorType: "COMPANY",
     trnNo: "100123456700003",
     active: true,
-    contactPersons: [{ firstName: "Ahmed", lastName: "Hassan", email: { emailId: "ahmed@gulfcourier.ae" }, phone: { phoneNo: "501234567" }, primary: true }],
+    billingAddress: { street: "Sheikh Zayed Rd", city: "Dubai", state: "Dubai", zip: "00000", country: "UAE" },
+    shippingAddress: { street: "Sheikh Zayed Rd", city: "Dubai", state: "Dubai", zip: "00000", country: "UAE" },
+    contactPersons: [
+      { firstName: "Ahmed", lastName: "Hassan", email: { emailId: "ahmed@gulfcourier.ae" }, phone: { codeNo: "+971", phoneNo: "501234567" }, primary: true },
+      { firstName: "Layla", lastName: "Khan", email: { emailId: "layla@gulfcourier.ae" }, phone: { codeNo: "+971", phoneNo: "502222333" } },
+    ],
   },
   {
     id: "v2",
@@ -34,7 +39,9 @@ const STATIC_VENDORS = [
     vendorType: "COMPANY",
     trnNo: "",
     active: true,
-    contactPersons: [{ firstName: "Sara", lastName: "Ali", email: { emailId: "sara@legaltrans.ae" }, phone: { phoneNo: "559876543" }, primary: true }],
+    billingAddress: { street: "Business Bay", city: "Dubai", state: "Dubai", zip: "", country: "UAE" },
+    shippingAddress: { street: "", city: "", state: "", zip: "", country: "" },
+    contactPersons: [{ firstName: "Sara", lastName: "Ali", email: { emailId: "sara@legaltrans.ae" }, phone: { codeNo: "+971", phoneNo: "559876543" }, primary: true }],
   },
 ]
 

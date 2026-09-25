@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { Box, Button, Chip, Typography } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
 import { useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { PageShell } from "@/components/ui/PageShell"
@@ -26,6 +27,7 @@ function matterRowId(row: Record<string, unknown>): string {
 }
 
 export default function MattersPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
   const [createLeadId, setCreateLeadId] = useState<string | undefined>()
@@ -59,8 +61,8 @@ export default function MattersPage() {
 
   return (
     <PageShell
-      title="Matters"
-      description="All active and closed legal matters"
+      title={t("nav.matters")}
+      description={t("pages.mattersDesc")}
       action={canEdit && (
         <Button variant="contained" startIcon={<AddIcon />}
           onClick={() => { setEditId(undefined); setCreateLeadId(undefined); setCreateOpen(true) }}>

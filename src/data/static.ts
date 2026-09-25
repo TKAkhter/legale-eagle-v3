@@ -176,15 +176,17 @@ export const dashboard = {
 // ─── Lookup data ──────────────────────────────────────────────────────────────
 export const lookups = {
   practiceAreas: [
-    { id:"pa1", name:"Corporate" },    { id:"pa2", name:"Family Law" },
-    { id:"pa3", name:"Commercial" },   { id:"pa4", name:"Litigation" },
-    { id:"pa5", name:"Rental" },       { id:"pa6", name:"Criminal" },
-    { id:"pa7", name:"Labour" },       { id:"pa8", name:"IP" },
+    { id:"pa1", name:"Corporate", status:true },    { id:"pa2", name:"Family Law", status:true },
+    { id:"pa3", name:"Commercial", status:true },   { id:"pa4", name:"Litigation", status:true },
+    { id:"pa5", name:"Rental", status:true },       { id:"pa6", name:"Criminal", status:false },
+    { id:"pa7", name:"Labour", status:true },       { id:"pa8", name:"IP", status:true },
   ],
   leadSources: [
-    { id:"ls1", name:"Referral" }, { id:"ls2", name:"Website" },
-    { id:"ls3", name:"LinkedIn" }, { id:"ls4", name:"Cold Call" },
-    { id:"ls5", name:"Walk-in"  },
+    { id:"ls1", sourceName:"Referral", name:"Referral", status:true, nextStep:false },
+    { id:"ls2", sourceName:"Website", name:"Website", status:true, nextStep:true, filed:"textbox" },
+    { id:"ls3", sourceName:"LinkedIn", name:"LinkedIn", status:true, nextStep:false },
+    { id:"ls4", sourceName:"Cold Call", name:"Cold Call", status:true, nextStep:true, filed:"dropdown", dropdownType:"user" },
+    { id:"ls5", sourceName:"Walk-in", name:"Walk-in", status:true, nextStep:false },
   ],
   departments: [
     { id:"d1", name:"Litigation" }, { id:"d2", name:"Corporate" },
@@ -196,10 +198,10 @@ export const lookups = {
     { id:"dg5", name:"Lawyer" },
   ],
   users: [
-    { id:"u1", firstName:"Sarah",  lastName:"Johnson",     email:"sarah@firm.com",  companyUserType:"ATTORNEY",    active:true },
-    { id:"u2", firstName:"James",  lastName:"Williams",    email:"james@firm.com",  companyUserType:"ATTORNEY",    active:true },
-    { id:"u3", firstName:"Priya",  lastName:"Sharma",      email:"priya@firm.com",  companyUserType:"NONATTORNEY", active:true },
-    { id:"u4", firstName:"Talha",  lastName:"Akhter",      email:"talha@firm.com",  companyUserType:"ATTORNEY",    active:true },
+    { id:"u1", firstName:"Sarah",  lastName:"Johnson",     email:"sarah@firm.com",  companyUserType:"ATTORNEY",    active:true, practiceAreaIds:["pa1","pa4"] },
+    { id:"u2", firstName:"James",  lastName:"Williams",    email:"james@firm.com",  companyUserType:"ATTORNEY",    active:true, practiceAreaIds:["pa2"] },
+    { id:"u3", firstName:"Priya",  lastName:"Sharma",      email:"priya@firm.com",  companyUserType:"NONATTORNEY", active:true, practiceAreaIds:[] },
+    { id:"u4", firstName:"Talha",  lastName:"Akhter",      email:"talha@firm.com",  companyUserType:"ATTORNEY",    active:true, practiceAreaIds:["pa1","pa3"] },
   ],
 }
 
@@ -411,19 +413,41 @@ export const billedAmountReport = [
   { id:"r4", departmentName:"Business Support",totalBilled:15000, totalPaid:12000, outstanding:3000  },
 ]
 
+/** Collections report static receipts (LMS `{ invoices, reciepts }` shape flattened for grid). */
 export const collectionsReport = [
-  { id:"c1", clientName:"Al Rashid Holdings", totalInvoiced:20250, totalPaid:15750, collectionRate:77.8, outstanding:4500, lastPaymentDate:"2026-08-07" },
-  { id:"c2", clientName:"Emily Harper",        totalInvoiced:8925,  totalPaid:4000,  collectionRate:44.8, outstanding:4925, lastPaymentDate:"2026-06-15" },
-  { id:"c3", clientName:"KM Properties",       totalInvoiced:5250,  totalPaid:0,     collectionRate:0,    outstanding:5250, lastPaymentDate:""           },
+  { id:"c1", clientName:"Al Rashid Holdings", dueAmount:20250, amount:15750, paymentMode:"Bank Transfer", paymentDate:"2026-08-07", invoiceNo:"INV-2025-001" },
+  { id:"c2", clientName:"Emily Harper",        dueAmount:8925,  amount:4000,  paymentMode:"Cheque",        paymentDate:"2026-06-15", invoiceNo:"INV-2025-002" },
+  { id:"c3", clientName:"KM Properties",       dueAmount:5250,  amount:2500,  paymentMode:"Cash",          paymentDate:"2026-07-20", invoiceNo:"INV-2025-003" },
 ]
 
 export const marginErosionReport = [
-  { id:"m1", matterTitle:"260303 — Building Dispute", billedAmount:15000, cost:8000, margin:7000, marginRate:46.7, billingType:"Hourly" },
-  { id:"m2", matterTitle:"260293 — Rental Dispute",   billedAmount:8500,  cost:5000, margin:3500, marginRate:41.2, billingType:"Hourly" },
-  { id:"m3", matterTitle:"260285 — Corporate Setup",  billedAmount:5000,  cost:1500, margin:3500, marginRate:70.0, billingType:"Fixed"  },
+  {
+    id: "m1", clientId: "c1", clientName: "Al Rashid Holdings", matterId: "m1",
+    matterTitle: "260303 — Building Dispute", billingType: "Hourly",
+    responsiblePersonName: "Sarah Johnson", hourlyUnitTotal: 40,
+    totalCost: 8000, totalRate: 16000, totalBilling: 15000, totalInvoiceBilled: 14000,
+    marginErosionByBilledAmount: 75, fixedFee: 0, estimate: 18000,
+    marginErosion: 6.25, lossOfMargin: 1000,
+  },
+  {
+    id: "m2", clientId: "c2", clientName: "Emily Harper", matterId: "m2",
+    matterTitle: "260293 — Rental Dispute", billingType: "Hourly",
+    responsiblePersonName: "Dory Abi Khalil", hourlyUnitTotal: 22,
+    totalCost: 5000, totalRate: 9000, totalBilling: 8500, totalInvoiceBilled: 8000,
+    marginErosionByBilledAmount: 60, fixedFee: 0, estimate: 10000,
+    marginErosion: 5.55, lossOfMargin: 500,
+  },
+  {
+    id: "m3", clientId: "c3", clientName: "KM Properties", matterId: "m3",
+    matterTitle: "260285 — Corporate Setup", billingType: "Fixed",
+    responsiblePersonName: "Mashood Rafi", hourlyUnitTotal: 12,
+    totalCost: 1500, totalRate: 5000, totalBilling: 5000, totalInvoiceBilled: 5000,
+    marginErosionByBilledAmount: 233, fixedFee: 5000, estimate: 0,
+    marginErosion: 0, lossOfMargin: 0,
+  },
 ]
 
-export const leadDetail = { id:"l1",firstName:"Mohammed",lastName:"Al Rashid",companyName:"Al Rashid Holdings",leadType:"COMPANY",currentStatus:"NEW",emails:[{emailId:"m@holdings.ae",type:"Work",primary:true}],phones:[{phoneNo:"+971501234567",type:"Mobile",codeNo:"+971",primary:true}],practiceArea:{id:"pa1",name:"Corporate"},leadSource:{id:"ls1",name:"Referral"},lawyer:{id:"u1",firstName:"Sarah",lastName:"Johnson"},description:"Corporate restructuring advisory required.",createdAt:"2025-01-15T09:00:00" }
+export const leadDetail = { id:"l1",firstName:"Mohammed",lastName:"Al Rashid",companyName:"Al Rashid Holdings",leadType:"COMPANY",currentStatus:"NEW",clientId:"c1",emails:[{emailId:"m@holdings.ae",type:"Work",primary:true}],phones:[{phoneNo:"+971501234567",type:"Mobile",codeNo:"+971",primary:true}],practiceArea:{id:"pa1",name:"Corporate"},leadSource:{id:"ls1",name:"Referral"},lawyer:{id:"u1",firstName:"Sarah",lastName:"Johnson"},description:"Corporate restructuring advisory required.",createdAt:"2025-01-15T09:00:00" }
 export const leadFollowups = [ {id:"f1",followUpContent:"Initial call — client interested in restructuring advisory",createdAt:"2025-01-16T10:00:00",createdBy:"Sarah Johnson"},{id:"f2",followUpContent:"Sent proposal document via email",createdAt:"2025-01-20T14:00:00",createdBy:"Sarah Johnson"} ]
 export const clientDetail = {
   id:"c1", clientId:"c1", clientExternalId:"CL-1001",
@@ -436,9 +460,34 @@ export const clientDetail = {
   totalInvoiceAmount:25250, createdAt:"2024-06-01T09:00:00",
   username:"alrashid", groupName:"Corporate Clients", bankAccount:"AE070331234567890123456",
   lastActivityDate:"2026-08-07", zohoClientId:"",
-  representativeInfo:[{name:"Mohammed Al Rashid",role:"Director"}],
+  representativeInfo:[{name:"Mohammed Al Rashid",designation:"Director",role:"Director"}],
 }
-export const clientMatters = [ {id:"m1",title:"260303",status:"OPEN",billingType:"Hourly",createdAt:"2026-07-09T17:17:05",practiceArea:"Litigation"},{id:"m2",title:"260285",status:"CLOSED",billingType:"Fixed",createdAt:"2026-06-20T09:00:00",practiceArea:"Corporate"} ]
+export const clientMatters = [
+  {
+    id: "m1",
+    matterId: "m1",
+    title: "260303",
+    status: "OPEN",
+    billingType: "Hourly",
+    createdAt: "2026-07-09T17:17:05",
+    practiceArea: "Litigation",
+    totalSowCount: 1,
+    subMattersList: [
+      { id: "m1-a", matterId: "m1-a", title: "260303-A Boundary claim", status: "OPEN", billingType: "Hourly" },
+    ],
+  },
+  {
+    id: "m2",
+    matterId: "m2",
+    title: "260285",
+    status: "CLOSED",
+    billingType: "Fixed",
+    createdAt: "2026-06-20T09:00:00",
+    practiceArea: "Corporate",
+    totalSowCount: 0,
+    subMattersList: [],
+  },
+]
 export const clientInvoices = [ {id:"inv1",invoiceNo:"INV-2025-001",amount:15000,vatAmount:750,taxableAmount:15750,paidAmount:15750,balanceAmount:0,invoiceStatus:"Paid",issueDate:"2026-03-01",dueDate:"2026-03-31"},{id:"inv3",invoiceNo:"INV-2025-003",amount:5000,vatAmount:250,taxableAmount:5250,paidAmount:0,balanceAmount:5250,invoiceStatus:"Overdue",issueDate:"2026-02-01",dueDate:"2026-02-28"} ]
 export const matterDetail = {
   id:"6a4f9f5e096c2631a41a8193", matterId:"6a4f9f51096c2631a41a8113", title:"260303", matterSeq:"260303",
@@ -450,7 +499,13 @@ export const matterDetail = {
   openDate:"2026-07-09", dueDate:"2026-10-09", closeDate:"",
   description:"Client requires representation in building boundary dispute.",
   applicableLaws:"UAE Civil Code", emailUniqueId:"matter-260303@firm.ae",
-  estimate:25000, cap:50000, lfa:{id:"lfa1",lfaNo:"LFA-2026-014",lfaType:"Hourly"},
+  estimate:25000, cap:50000,
+  lfa:{id:"lfa1",lfaNo:"LFA-2026-014",lfaType:"Hourly",breakDown:true,billingType:"Fixed"},
+  lfaItemsList:[
+    {id:"bd1",name:"Phase 1 — Discovery",invoiceCreated:false,advance:false},
+    {id:"bd2",name:"Phase 2 — Hearing prep",invoiceCreated:false,advance:false},
+    {id:"bd3",name:"Advance retainer",invoiceCreated:false,advance:true},
+  ],
   partyOpposing:[{name:"Gulf Properties LLC",type:"Company",phone:"+971501112233",email:"ops@gulf.ae",relation:"Defendant"}],
   representatives:[{name:"Mohammed Al Rashid",role:"Client contact"}],
   totalTimelogs:2, totalInvoices:1, pendingTasks:1, createdAt:"2026-07-09T17:17:05",

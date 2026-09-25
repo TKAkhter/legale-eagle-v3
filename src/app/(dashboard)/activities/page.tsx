@@ -38,6 +38,7 @@ import { formatDate } from "@lib/utils/formatDate"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { toast } from "@/lib/toast"
 import type { GridParams } from "@/types/common.types"
+import { useTranslation } from "react-i18next"
 import type { FilterPanelProps } from "@components/data-grid/types"
 
 function ActivityFilters({
@@ -159,6 +160,7 @@ async function fetchActivities(p: GridParams) {
 }
 
 export default function ActivitiesPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [formOpen, setFormOpen] = useState(false)
@@ -184,8 +186,8 @@ export default function ActivitiesPage() {
 
   return (
     <PageShell
-      title="Activities"
-      description="Firm-wide time and expense activities"
+      title={t("nav.activities")}
+      description={t("pages.activitiesDesc")}
       action={
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button

@@ -47,6 +47,24 @@ const STATIC_TICKETS: Record<string, unknown>[] = [
     title: "Invoice PDF missing line items",
     url: "/billings/inv-1",
     status: "Initiated",
+    note: "PDF export omits activity line items when invoice has more than 20 rows.",
+    issueImages: [],
+    assignedTo: { id: "u1", firstName: "Sarah", lastName: "Johnson" },
+    comments: [
+      {
+        id: "c1",
+        comment: "Reproduced on Chrome — export truncates after page 1.",
+        createdByName: "Talha Akhter",
+        createdAt: "2026-05-10T11:00:00",
+      },
+      {
+        id: "c2",
+        comment: "Looking into the PDF renderer template.",
+        createdByName: "Sarah Johnson",
+        createdAt: "2026-05-11T09:30:00",
+        parentId: "c1",
+      },
+    ],
   },
   {
     id: "t2",
@@ -56,8 +74,34 @@ const STATIC_TICKETS: Record<string, unknown>[] = [
     title: "Cannot reopen matter",
     url: "/matters/m1",
     status: "UnderProcess",
+    note: "Reopen button stays disabled after close with reason Settled.",
+    issueImages: [],
+    assignedTo: { id: "u2", firstName: "James", lastName: "Williams" },
+    comments: [],
+  },
+  {
+    id: "t3",
+    createdByName: "Priya Sharma",
+    createdDate: "2026-04-01T09:00:00",
+    issueRelatedTo: "Task",
+    title: "Task submit hangs",
+    url: "/tasks/t1",
+    status: "Resolved",
+    note: "Fixed by increasing upload timeout.",
+    issueImages: [],
+    assignedTo: null,
+    comments: [
+      {
+        id: "c3",
+        comment: "Confirmed fixed in prod.",
+        createdByName: "Priya Sharma",
+        createdAt: "2026-04-05T16:00:00",
+      },
+    ],
   },
 ]
+
+export const TICKET_STATUSES = ["Initiated", "UnderProcess", "Resolved", "ReOpen"] as const
 
 export const ticketsApi = {
   async getAll(p: GridParams, completed = false): Promise<PageResponse<Record<string, unknown>>> {
@@ -85,9 +129,87 @@ export const ticketsApi = {
     return unwrapPage(res.data?.data ?? res.data, p)
   },
 
+  async getById(ticketId: string): Promise<Record<string, unknown>> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      const found = STATIC_TICKETS.find(t => String(t.id) === ticketId)
+      if (!found) throw new Error("Ticket not found")
+      return { ...found }
+    }
+    const res = await axiosClient.get("/api/account/ticket/get/details", {
+      params: { ticketId },
+    })
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+  },
+
+  async changeStatus(ticketId: string, ticketStatus: string): Promise<void> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      const row = STATIC_TICKETS.find(t => String(t.id) === ticketId)
+      if (row) row.status = ticketStatus
+      return
+    }
+    await axiosClient.put("/api/account/ticket/change/status", null, {
+      params: { ticketId, ticketStatus },
+    })
+  },
+
+  /** Assign ticket owner (`PUT /api/account/ticket/assign`). */
+  async assign(ticketId: string, userId: string): Promise<void> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      const row = STATIC_TICKETS.find(t => String(t.id) === ticketId)
+      if (row) {
+        row.assignedTo = { id: userId, firstName: "Assigned", lastName: "User" }
+      }
+      return
+    }
+    await axiosClient.put("/api/account/ticket/assign", null, {
+      params: { ticketId, assignTo: userId },
+    })
+  },
+
+  /** Add comment/reply (`POST /api/account/ticket/comment/add`). */
+  async addComment(ticketId: string, comment: string, parentId?: string): Promise<void> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      const row = STATIC_TICKETS.find(t => String(t.id) === ticketId)
+      if (row) {
+        const list = (Array.isArray(row.comments) ? row.comments : []) as Record<string, unknown>[]
+        list.push({
+          id: `c${Date.now()}`,
+          comment,
+          parentId: parentId || undefined,
+          createdByName: "You",
+          createdAt: new Date().toISOString(),
+        })
+        row.comments = list
+      }
+      return
+    }
+    await axiosClient.post("/api/account/ticket/comment/add", {
+      ticketId,
+      comment,
+      parentId: parentId || undefined,
+    })
+  },
+
   async create(data: Record<string, unknown>): Promise<void> {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 300))
+      STATIC_TICKETS.unshift({
+        id: `t${Date.now()}`,
+        createdByName: "You",
+        createdDate: new Date().toISOString(),
+        issueRelatedTo: data.issueRelatedTo ?? "",
+        title: data.title ?? "",
+        url: data.url ?? "",
+        status: "Initiated",
+        note: data.note ?? data.description ?? "",
+        issueImages: data.issueImages ?? [],
+        assignedTo: null,
+        comments: [],
+      })
       return
     }
     await axiosClient.post("/api/account/ticket/add", data)

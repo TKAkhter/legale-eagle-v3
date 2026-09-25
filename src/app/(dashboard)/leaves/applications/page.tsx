@@ -1,35 +1,96 @@
 import { useState } from "react"
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from "@mui/material"
+import {
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, TextField, Typography,
+} from "@mui/material"
+import CheckIcon from "@mui/icons-material/Check"
+import CloseIcon from "@mui/icons-material/Close"
+import VisibilityIcon from "@mui/icons-material/Visibility"
 import { Link as RouterLink } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
+import { StatusFilter } from "@components/filters/StatusFilter"
 import { leavesApi } from "@/api/leaves"
 import { formatDate } from "@lib/utils/formatDate"
 import { toast } from "@/lib/toast"
+import type { FilterPanelProps, RowMenuItem } from "@components/data-grid/types"
 import type { GridParams } from "@/types/common.types"
 
+const LEAVE_STATUS_OPTIONS = [
+  { value: "Submitted", label: "Submitted" },
+  { value: "Accepted", label: "Accepted" },
+  { value: "Rejected", label: "Rejected" },
+]
+
+function LeaveStatusFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
+  const [f, setF] = useState<Record<string, unknown>>(filters)
+  return (
+    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-end" }}>
+      <StatusFilter
+        label="Status"
+        value={String(f.leaveStatus ?? "All")}
+        onChange={v => setF(p => ({ ...p, leaveStatus: v }))}
+        options={LEAVE_STATUS_OPTIONS}
+        includeAll
+      />
+      <Button variant="contained" size="small" onClick={() => onSearch(f)}>Search</Button>
+      <Button size="small" onClick={() => { setF({}); onReset() }}>Clear</Button>
+    </Box>
+  )
+}
+
+function employeeName(row: Record<string, unknown>): string {
+  const name = row.leaveTakenByName
+  if (typeof name === "string" && name.trim()) return name
+  const u = row.leaveTakenBy as Record<string, string> | undefined
+  if (u) return `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "—"
+  return "—"
+}
+
+function leaveTypeLabel(v: unknown): string {
+  if (typeof v === "string") return v || "—"
+  const t = v as { type?: string } | undefined
+  return String(t?.type ?? "—")
+}
+
+type ActionMode = "Accepted" | "Rejected"
+
 export default function LeaveApplicationsPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [gridKey, setGridKey] = useState(0)
-  const [selected, setSelected] = useState<Record<string, unknown> | null>(null)
-  const [status, setStatus] = useState("Accepted")
-  const [note, setNote] = useState("")
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null)
+  const [actionRow, setActionRow] = useState<Record<string, unknown> | null>(null)
+  const [mode, setMode] = useState<ActionMode>("Accepted")
+  const [remarks, setRemarks] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function process() {
-    if (!selected?.id) return
+  function openAction(row: Record<string, unknown>, approve: boolean) {
+    setActionRow(row)
+    setMode(approve ? "Accepted" : "Rejected")
+    setRemarks("")
+    setError(null)
+  }
+
+  async function submitAction() {
+    if (!actionRow?.id) return
+    if (!remarks.trim()) {
+      setError("Remarks are required")
+      toast.error("Add Remarks.")
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
-      toast.success(await leavesApi.process(String(selected.id), {
-        leaveStatus: status,
-        note,
+      toast.success(await leavesApi.process(String(actionRow.id), {
+        leaveStatus: mode,
+        note: remarks.trim(),
       }))
-      setSelected(null)
-      setNote("")
+      setActionRow(null)
+      setRemarks("")
       setGridKey(k => k + 1)
       qc.invalidateQueries({ queryKey: ["leaves"] })
     } catch (e: unknown) {
@@ -45,10 +106,10 @@ export default function LeaveApplicationsPage() {
 
   return (
     <PageShell
-      title="Leave Applications"
-      description="Review and process team leave requests"
+      title={t("nav.leaveApplications")}
+      description={t("pages.leaveApplicationsDesc")}
       breadcrumbs={[
-        { label: "My Leaves", path: "/leaves" },
+        { label: t("nav.myLeaves"), path: "/leaves" },
         { label: "Applications" },
       ]}
       action={(
@@ -63,22 +124,14 @@ export default function LeaveApplicationsPage() {
           {
             field: "leaveTakenByName",
             header: "Employee",
-            renderCell: (v, row) => {
-              if (typeof v === "string" && v) return v
-              const u = (row as Record<string, unknown>).leaveTakenBy as Record<string, string> | undefined
-              return u ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "—" : "—"
-            },
+            renderCell: (_v, row) => employeeName(row as Record<string, unknown>),
           },
           { field: "fromDate", header: "From", renderCell: v => formatDate(String(v ?? "")) },
           { field: "toDate", header: "To", renderCell: v => formatDate(String(v ?? "")) },
           {
             field: "leaveType",
             header: "Type",
-            renderCell: (v) => {
-              const t = v as { type?: string } | string | undefined
-              if (typeof t === "string") return t
-              return String(t?.type ?? "—")
-            },
+            renderCell: (v, row) => leaveTypeLabel(v ?? (row as Record<string, unknown>).leaveType),
           },
           { field: "description", header: "Description", renderCell: v => String(v || "—") },
           {
@@ -89,38 +142,121 @@ export default function LeaveApplicationsPage() {
         ]}
         queryKey={["leaves", "applications"]}
         queryFn={(p: GridParams) => leavesApi.getApplications(p)}
+        hasFilters
+        FilterPanel={LeaveStatusFilterPanel}
         zebraStriping
+        onRowClick={row => setDetail(row as Record<string, unknown>)}
         rowMenuItems={(row) => {
-          const statusVal = String((row as { leaveStatus?: string }).leaveStatus ?? "")
-          if (statusVal !== "Submitted") return []
-          return [
-            { label: "Process", onClick: () => { setSelected(row as Record<string, unknown>); setStatus("Accepted"); setNote("") } },
+          const r = row as Record<string, unknown>
+          const statusVal = String(r.leaveStatus ?? "")
+          const items: RowMenuItem<Record<string, unknown>>[] = [
+            {
+              label: "Details",
+              icon: <VisibilityIcon fontSize="small" />,
+              onClick: () => setDetail(r),
+            },
           ]
+          if (statusVal === "Submitted") {
+            items.push(
+              {
+                label: "Approve",
+                icon: <CheckIcon fontSize="small" />,
+                onClick: () => openAction(r, true),
+              },
+              {
+                label: "Reject",
+                icon: <CloseIcon fontSize="small" />,
+                color: "error",
+                onClick: () => openAction(r, false),
+              },
+            )
+          }
+          return items
         }}
       />
 
-      <Dialog open={!!selected} onClose={() => !submitting && setSelected(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Process Leave Application</DialogTitle>
+      <Dialog open={!!detail} onClose={() => setDetail(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Leave Application</DialogTitle>
         <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-            <TextField
-              select size="small" label="Decision" value={status}
-              onChange={e => setStatus(e.target.value)}
-            >
-              <MenuItem value="Accepted">Accept</MenuItem>
-              <MenuItem value="Rejected">Reject</MenuItem>
-            </TextField>
-            <TextField
-              size="small" label="Note" multiline rows={2}
-              value={note} onChange={e => setNote(e.target.value)}
-            />
-          </Box>
+          {detail && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25, pt: 0.5 }}>
+              <Typography variant="body2"><strong>Employee:</strong> {employeeName(detail)}</Typography>
+              <Typography variant="body2"><strong>Type:</strong> {leaveTypeLabel(detail.leaveType)}</Typography>
+              <Typography variant="body2">
+                <strong>From:</strong> {formatDate(String(detail.fromDate ?? ""))}
+              </Typography>
+              <Typography variant="body2">
+                <strong>To:</strong> {formatDate(String(detail.toDate ?? ""))}
+              </Typography>
+              <Typography variant="body2"><strong>Description:</strong> {String(detail.description || "—")}</Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="body2" component="span"><strong>Status:</strong></Typography>
+                <StatusBadge status={String(detail.leaveStatus ?? "")} />
+              </Box>
+              {detail.note != null && String(detail.note).trim() !== "" && (
+                <Typography variant="body2"><strong>Remarks:</strong> {String(detail.note)}</Typography>
+              )}
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelected(null)} disabled={submitting}>Cancel</Button>
-          <Button variant="contained" onClick={process} disabled={submitting}>
-            {submitting ? "Saving…" : "Confirm"}
+          {detail && String(detail.leaveStatus ?? "") === "Submitted" && (
+            <>
+              <Button
+                color="primary"
+                onClick={() => { setDetail(null); openAction(detail, true) }}
+              >
+                Approve
+              </Button>
+              <Button
+                color="error"
+                onClick={() => { setDetail(null); openAction(detail, false) }}
+              >
+                Reject
+              </Button>
+            </>
+          )}
+          <Button onClick={() => setDetail(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!actionRow} onClose={() => !submitting && setActionRow(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{mode === "Accepted" ? "Approve Leave" : "Reject Leave"}</DialogTitle>
+        <DialogContent>
+          {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+          {actionRow && (
+            <>
+              <Typography variant="body2" sx={{ mb: 1.5 }}>
+                {mode === "Accepted" ? "Approve" : "Reject"}: {employeeName(actionRow)}
+                {" · "}
+                {formatDate(String(actionRow.fromDate ?? ""))}
+                {" – "}
+                {formatDate(String(actionRow.toDate ?? ""))}
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+            </>
+          )}
+          <TextField
+            size="small"
+            fullWidth
+            multiline
+            minRows={4}
+            label="Remarks"
+            required
+            value={remarks}
+            onChange={e => setRemarks(e.target.value)}
+            helperText="Required"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActionRow(null)} disabled={submitting}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={mode === "Accepted" ? "primary" : "error"}
+            onClick={() => void submitAction()}
+            disabled={submitting || !remarks.trim()}
+          >
+            {submitting ? "Saving…" : mode === "Accepted" ? "Approve" : "Reject"}
           </Button>
         </DialogActions>
       </Dialog>

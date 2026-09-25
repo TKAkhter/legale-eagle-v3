@@ -1,103 +1,210 @@
-import { useQuery } from "@tanstack/react-query"
-import { Box, Paper, Typography, Button } from "@mui/material"
+/**
+ * Utilization Report — LMS `/utilization` parity (new UI).
+ * Filters: attorney, department, date range.
+ * Columns: recorded/target/billable/non-billable/admin breakdown + utilization %.
+ */
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Box, Button, Typography } from "@mui/material"
 import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@/components/data-grid/DataGrid"
-import { ApexChart } from "@components/charts/ApexChart"
-import { makeReportFilterPanel } from "@components/filters/ReportFilterPanel"
+import {
+  DateRangeFilter,
+  DepartmentFilter,
+  FilterActions,
+  UserSelectFilter,
+} from "@/components/filters"
 import { reportsApi } from "@/api/reports"
 import { toast } from "@/lib/toast"
+import type { ColumnDef, FilterPanelProps } from "@/components/data-grid/types"
 import type { GridParams } from "@/types/common.types"
 
-const FilterPanel = makeReportFilterPanel({ showUser: true, showDepartment: true, showMatter: true, showDateRange: true })
+function monthStart(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function defaultFilters(): Record<string, unknown> {
+  return { fromDate: monthStart(), toDate: today(), userId: "", departmentId: "" }
+}
+
+function hrs(v: unknown): string {
+  return Number(v ?? 0).toFixed(2)
+}
+
+function pctCell(v: unknown) {
+  const n = Number(v ?? 0)
+  const color = n < 60 ? "error.main" : n < 80 ? "warning.main" : "success.main"
+  return (
+    <Typography variant="body2" sx={{ fontWeight: 700, color }}>
+      {n.toFixed(2)}%
+    </Typography>
+  )
+}
+
+function UtilizationFilters({
+  onSearch,
+  onReset,
+  filters,
+  onApplied,
+}: FilterPanelProps & { onApplied?: (f: Record<string, unknown>) => void }) {
+  const [f, setF] = useState<Record<string, unknown>>(() => ({ ...defaultFilters(), ...filters }))
+  const set = (k: string, v: unknown) => setF(p => ({ ...p, [k]: v }))
+  const bootstrapped = useRef(false)
+
+  useEffect(() => {
+    if (bootstrapped.current) return
+    bootstrapped.current = true
+    const initial = { ...defaultFilters(), ...filters }
+    setF(initial)
+    onApplied?.(initial)
+    onSearch(initial)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
+  }, [])
+
+  function apply(next: Record<string, unknown>) {
+    onApplied?.(next)
+    onSearch(next)
+  }
+
+  return (
+    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-end" }}>
+      <UserSelectFilter
+        value={String(f.userId ?? "") || undefined}
+        onChange={v => set("userId", v ?? "")}
+        label="Attorney"
+      />
+      <DepartmentFilter
+        value={String(f.departmentId ?? "") || undefined}
+        onChange={v => set("departmentId", v ?? "")}
+      />
+      <DateRangeFilter
+        fromDate={String(f.fromDate ?? "")}
+        toDate={String(f.toDate ?? "")}
+        onChange={({ fromDate, toDate }) => {
+          set("fromDate", fromDate ?? "")
+          set("toDate", toDate ?? "")
+        }}
+      />
+      <FilterActions
+        onSearch={() => apply(f)}
+        onClear={() => {
+          const next = defaultFilters()
+          setF(next)
+          onApplied?.(next)
+          onReset()
+          onSearch(next)
+        }}
+      />
+    </Box>
+  )
+}
 
 export default function UtilizationReportPage() {
-  const { data: summary } = useQuery({
-    queryKey: ["reports", "utilization", "summary"],
-    queryFn: () => reportsApi.getUtilization({ page: 0, pageSize: 100, sortBy: "utilizationRate", sortDir: "desc", filters: {} }),
-  })
-  const rows = (summary?.content ?? []) as Record<string, unknown>[]
+  const [applied, setApplied] = useState<Record<string, unknown>>(defaultFilters())
+  const [emailing, setEmailing] = useState(false)
+
+  const columns: ColumnDef<Record<string, unknown>>[] = useMemo(() => [
+    { field: "feeEarner", header: "Attorney", minWidth: 140 },
+    { field: "departmentName", header: "Department", minWidth: 120, renderCell: v => String(v || "—") },
+    { field: "totalHours", header: "Total Recorded Hours", align: "right", renderCell: v => hrs(v) },
+    { field: "targetHours", header: "Target Hours", align: "right", renderCell: v => hrs(v) },
+    { field: "billableHours", header: "Billable Hours", align: "right", renderCell: v => hrs(v) },
+    { field: "nonBillableHours", header: "Non-Billable Hours", align: "right", renderCell: v => hrs(v) },
+    {
+      field: "totalBillableAndNonBillable",
+      header: "Billable & Non-Billables Hours",
+      align: "right",
+      renderCell: v => hrs(v),
+    },
+    { field: "adminHours", header: "Admin Hours (1)", align: "right", renderCell: v => hrs(v) },
+    { field: "bdHours", header: "BD Hours (2)", align: "right", renderCell: v => hrs(v) },
+    { field: "preEngageHours", header: "Pre Engage Hours (3)", align: "right", renderCell: v => hrs(v) },
+    { field: "sickLeaveHours", header: "Sick Leave Hours (4)", align: "right", renderCell: v => hrs(v) },
+    { field: "annualLeaveHours", header: "Annual Leave Hours (5)", align: "right", renderCell: v => hrs(v) },
+    { field: "totalAdminHoursFixed", header: "Total Admin Hours", align: "right", renderCell: v => hrs(v) },
+    {
+      field: "percentOnRecordedHours",
+      header: "Utilization On Recorded Hours %",
+      align: "right",
+      renderCell: pctCell,
+    },
+    {
+      field: "percentOnTargetHours",
+      header: "Utilization On Targeted Hours %",
+      align: "right",
+      renderCell: pctCell,
+    },
+    {
+      field: "adminHoursOnTargetHours",
+      header: "Admin Hours On Target Hours %",
+      align: "right",
+      renderCell: v => `${Number(v ?? 0).toFixed(2)}%`,
+    },
+    {
+      field: "BDHoursOnTargetHours",
+      header: "BD Hours On Target Hours %",
+      align: "right",
+      renderCell: v => `${Number(v ?? 0).toFixed(2)}%`,
+    },
+    {
+      field: "preEngageHoursOnTargetHours",
+      header: "Pre Engage On Target Hours %",
+      align: "right",
+      renderCell: v => `${Number(v ?? 0).toFixed(2)}%`,
+    },
+    {
+      field: "totalAdminHoursOnTargetHours",
+      header: "Total Admin On Target Hours %",
+      align: "right",
+      renderCell: v => `${Number(v ?? 0).toFixed(2)}%`,
+    },
+  ], [])
+
+  const FilterPanel = useMemo(() => {
+    return function Panel(props: FilterPanelProps) {
+      return <UtilizationFilters {...props} onApplied={setApplied} />
+    }
+  }, [])
 
   async function emailExcel() {
+    setEmailing(true)
     try {
-      toast.success(await reportsApi.requestUtilizationExcel())
+      toast.success(await reportsApi.requestUtilizationExcel(applied))
     } catch {
       toast.error("Excel export failed")
+    } finally {
+      setEmailing(false)
     }
   }
 
   return (
     <PageShell
       title="Utilization Report"
-      description="Billable vs total hours by fee earner"
+      description="Billable vs recorded/target hours by fee earner"
       action={(
-        <Button size="small" variant="outlined" startIcon={<MarkunreadOutlinedIcon />} onClick={emailExcel}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<MarkunreadOutlinedIcon />}
+          disabled={emailing}
+          onClick={() => void emailExcel()}
+        >
           Email Excel
         </Button>
       )}
     >
-      {rows.length > 0 && (
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, gap: 2, mb: 3 }}>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Billable vs Non-Billable Hours</Typography>
-            <ApexChart
-              type="bar"
-              height={220}
-              series={[
-                { name: "Billable", data: rows.map(r => Number(r.billableHours ?? r.totalHours ?? 0)) },
-                { name: "Non-Billable", data: rows.map(r => Number(r.nonBillableHours ?? 0)) },
-              ]}
-              options={{
-                chart: { toolbar: { show: false }, stacked: true },
-                xaxis: { categories: rows.map(r => String(r.userName ?? r.name ?? "")), labels: { style: { fontSize: "11px" } } },
-                colors: ["#0F3C6E", "#E2E8F0"],
-                dataLabels: { enabled: false },
-                plotOptions: { bar: { borderRadius: 4, columnWidth: "55%" } },
-                grid: { strokeDashArray: 4 },
-                yaxis: { labels: { formatter: (v: number) => `${v.toFixed(0)}h` } },
-                legend: { position: "top" },
-              }}
-            />
-          </Paper>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 2 }}>
-            {(() => {
-              const avg = rows.length ? rows.reduce((s, r) => s + Number(r.utilizationRate ?? 0), 0) / rows.length : 0
-              const color = avg < 60 ? "error.main" : avg < 80 ? "warning.main" : "success.main"
-              return (
-                <>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.08em" }}>Team Avg Utilization</Typography>
-                  <Typography variant="h2" sx={{ fontWeight: 800, color }}>{avg.toFixed(1)}%</Typography>
-                  <Typography variant="caption" color="text.disabled">Target: 80%</Typography>
-                </>
-              )
-            })()}
-          </Paper>
-        </Box>
-      )}
       <DataGrid
-        columns={[
-          { field: "userName", header: "Fee Earner", sortKey: "userName", renderCell: (v, row) => String(v || (row as Record<string, unknown>).name || "—") },
-          { field: "totalHours", header: "Total Hours", align: "right", renderCell: v => `${Number(v ?? 0).toFixed(1)}h` },
-          { field: "billableHours", header: "Billable", align: "right", renderCell: v => `${Number(v ?? 0).toFixed(1)}h` },
-          {
-            field: "utilizationRate",
-            header: "Utilization",
-            align: "right",
-            renderCell: v => {
-              const n = Number(v ?? 0)
-              const color = n < 60 ? "error.main" : n < 80 ? "warning.main" : "success.main"
-              return <Typography variant="body2" sx={{ fontWeight: 700, color }}>{n.toFixed(1)}%</Typography>
-            },
-          },
-          { field: "billedAmount", header: "Billed Amount", align: "right", renderCell: v => `AED ${Number(v ?? 0).toLocaleString()}` },
-        ]}
+        columns={columns}
         queryKey={["reports", "utilization"]}
         queryFn={(p: GridParams) => reportsApi.getUtilization(p)}
         FilterPanel={FilterPanel}
         hasFilters
         syncWithUrl
-        defaultSortBy="utilizationRate"
-        defaultSortDir="desc"
         zebraStriping
       />
     </PageShell>

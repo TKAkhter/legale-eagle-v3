@@ -12,6 +12,7 @@ import {
 import CloudOutlinedIcon from "@mui/icons-material/CloudOutlined"
 import UploadFileIcon from "@mui/icons-material/UploadFile"
 import RequestPageIcon from "@mui/icons-material/RequestPage"
+import NoteAddOutlinedIcon from "@mui/icons-material/NoteAddOutlined"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { axiosClient } from "@lib/api/axios"
 import { env } from "@/config/env"
@@ -52,7 +53,7 @@ export function DocumentsTab({
   relatedToId,
   label,
 }: {
-  relatedTo: "MATTER" | "CLIENT" | "LEAD"
+  relatedTo: "MATTER" | "CLIENT" | "LEAD" | "HEARING"
   relatedToId: string
   label?: string
 }) {
@@ -62,6 +63,7 @@ export function DocumentsTab({
     [relatedTo, relatedToId],
   )
   const onedriveHref = `/integrations/onedrive?relatedTo=${relatedTo}&relatedToId=${encodeURIComponent(relatedToId)}`
+  const createHref = `/editor?relatedTo=${relatedTo}&relatedToId=${encodeURIComponent(relatedToId)}`
 
   const [uploadOpen, setUploadOpen] = useState(false)
   const [requestOpen, setRequestOpen] = useState(false)
@@ -216,7 +218,15 @@ export function DocumentsTab({
         </Alert>
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button
+            component={RouterLink}
+            to={createHref}
             variant="contained"
+            startIcon={<NoteAddOutlinedIcon />}
+          >
+            Create Document
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={<UploadFileIcon />}
             onClick={() => { resetForm(); setUploadOpen(true) }}
           >

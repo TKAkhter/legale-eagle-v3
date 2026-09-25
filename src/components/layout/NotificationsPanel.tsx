@@ -31,42 +31,19 @@ import { env }                   from '@/config/env'
 import { logger }                from '@/lib/logger'
 import { usePushNotifications }  from '@/hooks/usePushNotifications'
 import { useNotificationStore }  from '@/lib/store/notificationStore'
+import { getNotificationPath, type NotificationLike } from '@/lib/notifications/getNotificationPath'
 
-interface Notification {
-  id:                string
-  title?:            string
-  message?:          string
-  content?:          string
-  read?:             boolean
-  isRead?:           boolean
-  createdAt?:        string
-  notificationType?: string
-  relatedId?:        string
-}
-
-function getNotificationPath(n: Notification): string | null {
-  const type = n.notificationType?.toLowerCase() ?? ''
-  const id   = n.relatedId
-  if (type.includes('matter')    && id) return `/matters/${id}`
-  if (type.includes('lead')      && id) return `/leads/${id}`
-  if (type.includes('task')      && id) return `/tasks/${id}`
-  if (type.includes('invoice')   && id) return `/billings/${id}`
-  if (type.includes('client')    && id) return `/clients/${id}`
-  if (type.includes('hearing')   && id) return `/matters/${id}?tab=hearings`
-  if (type.includes('timelog')   && id) return `/time-log-entries/${id}`
-  if (type.includes('time')      && id) return `/time-log-entries/${id}`
-  if (type.includes('lfa')       && id) return `/lfa/${id}`
-  if (type.includes('approval')  && type.includes('task'))    return '/approvals/task'
-  if (type.includes('approval')  && type.includes('invoice')) return '/approvals/invoice'
-  if (type.includes('approval'))       return '/approvals/task'
-  return null
+interface Notification extends NotificationLike {
+  id: string
 }
 
 const STATIC_NOTIFICATIONS: Notification[] = [
   { id:'n1', title:'Task overdue',           message:'File court documents is past its deadline',                notificationType:'task',     relatedId:'t1',   read:false, createdAt: new Date(Date.now()-600000).toISOString() },
   { id:'n2', title:'Hearing tomorrow',       message:'Building Dispute — First Directions Hearing at 10:00 AM', notificationType:'hearing',  relatedId:'6a4f9f5e096c2631a41a8193', read:false, createdAt: new Date(Date.now()-3600000).toISOString() },
-  { id:'n3', title:'Invoice approved',       message:'INV-2025-001 has been approved for payment',              notificationType:'invoice',  relatedId:'inv1',  read:true,  createdAt: new Date(Date.now()-86400000).toISOString() },
+  { id:'n3', title:'Invoice approval needed', message:'INV-2025-001 awaiting your approval',                     notificationType:'invoice_approval', relatedId:'inv1', link:'/approvals/invoice?invoiceId=inv1', read:false, createdAt: new Date(Date.now()-7200000).toISOString() },
   { id:'n4', title:'New lead assigned',      message:'Mohammed Al Rashid has been assigned to you',             notificationType:'lead',     relatedId:'l1',    read:true,  createdAt: new Date(Date.now()-172800000).toISOString() },
+  { id:'n5', title:'Matter updated',         message:'Corporate restructuring status changed',                  notificationType:'matter',   relatedId:'m1',   path:'/matters/m1', read:true, createdAt: new Date(Date.now()-259200000).toISOString() },
+  { id:'n6', title:'LFA pending signature',  message:'Fee agreement ready for review',                         notificationType:'lfa',      relatedId:'lfa1', url:'/lfa/lfa1', read:false, createdAt: new Date(Date.now()-1800000).toISOString() },
 ]
 
 export function NotificationsPanel() {

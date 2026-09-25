@@ -1,13 +1,15 @@
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { env } from "@/config/env"
 import { Box, Tab, Tabs, Typography } from "@mui/material"
-import { useNavigate } from "react-router-dom"
 import { AppCalendar } from "@components/calendar/AppCalendar"
 import { axiosClient } from "@lib/api/axios"
 import { StatusBadge } from "@components/ui/StatusBadge"
 import { ActivityFormDrawer } from "../time-log-entries/_components/ActivityFormDrawer"
+import { CalendarEventFormDrawer } from "./_components/CalendarEventFormDrawer"
+import { calendarEventsApi, type CalendarEventRow } from "@/api/calendarEvents"
 import type { CalendarEvent } from "@components/calendar/types"
 import type { ColumnDef } from "@components/data-grid/types"
 import { matterHearings } from "@/data/static"
@@ -24,7 +26,7 @@ interface EntryRow extends Record<string, unknown> {
   clientName?: string
 }
 
-async function fetchHearingEvents(_range: { start: string; end: string }): Promise<CalendarEvent[]> {
+async function fetchCalendarEvents(_range: { start: string; end: string }): Promise<CalendarEvent[]> {
   if (env.USE_STATIC_DATA) {
     return matterHearings.map(h => ({
       id: h.id,
@@ -35,15 +37,14 @@ async function fetchHearingEvents(_range: { start: string; end: string }): Promi
       extendedProps: { ...h, matterId: "6a4f9f5e096c2631a41a8193" },
     }))
   }
-  const res = await axiosClient.get("/api/calender/get")
-  const list = res.data?.data ?? res.data ?? []
-  return (Array.isArray(list) ? list : []).map((e: Record<string, unknown>) => ({
+  const list = await calendarEventsApi.list()
+  return list.map(e => ({
     id: String(e.id ?? Math.random()),
     title: String(e.title ?? "Event"),
-    start: String(e.startDateTime ?? e.start ?? ""),
+    start: String(e.startDateTime ?? ""),
     end: e.endDateTime ? String(e.endDateTime) : undefined,
     color: "#0F3C6E",
-    extendedProps: e,
+    extendedProps: e as unknown as Record<string, unknown>,
   }))
 }
 
@@ -126,8 +127,24 @@ const activityColumns: ColumnDef<EntryRow>[] = [
   { field: "note", header: "Note" },
 ]
 
+function mapEventFromClick(event: CalendarEvent): CalendarEventRow {
+  const p = (event.extendedProps ?? {}) as Record<string, unknown>
+  return {
+    id: String(event.id),
+    title: String(event.title ?? p.title ?? ""),
+    eventType: String(p.eventType ?? "") || undefined,
+    clientId: p.clientId != null ? String(p.clientId) : undefined,
+    eventWith: p.eventWith != null ? String(p.eventWith) : (p.meetingWith != null ? String(p.meetingWith) : undefined),
+    meeting: p.meeting === true,
+    location: p.location != null ? String(p.location) : undefined,
+    startDateTime: String(p.startDateTime ?? event.start ?? ""),
+    endDateTime: p.endDateTime != null ? String(p.endDateTime) : (event.end ? String(event.end) : undefined),
+    note: p.note != null ? String(p.note) : undefined,
+  }
+}
+
 export default function CalendarPage() {
-  const navigate = useNavigate()
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [tab, setTab] = useState(0)
   const isActivity = tab === 0
@@ -135,27 +152,37 @@ export default function CalendarPage() {
   const [editActivityId, setEditActivityId] = useState<string | undefined>()
   const [prefillDate, setPrefillDate] = useState<string | undefined>()
 
+  const [eventDrawerOpen, setEventDrawerOpen] = useState(false)
+  const [eventPrefillDate, setEventPrefillDate] = useState<string | undefined>()
+  const [editEvent, setEditEvent] = useState<CalendarEventRow | null>(null)
+
   return (
-    <PageShell title="Calendar" description="Time entries and hearings">
+    <PageShell title={t("nav.calendar")} description={t("pages.calendarDesc")}>
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)}>
           <Tab label="Time Log" />
-          <Tab label="Hearings" />
+          <Tab label="Events" />
         </Tabs>
       </Box>
       <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-        {isActivity ? "Activity Calendar" : "Hearing Calendar"}
+        {isActivity ? "Activity Calendar" : "Event Calendar"}
       </Typography>
       <AppCalendar
-        key={isActivity ? "activity" : "hearing"}
-        queryFn={isActivity ? fetchActivityEvents : fetchHearingEvents}
+        key={isActivity ? "activity" : "events"}
+        queryFn={isActivity ? fetchActivityEvents : fetchCalendarEvents}
         entryQueryFn={isActivity ? fetchActivityEntries : fetchHearingEntries}
         entryColumns={isActivity ? activityColumns : hearingColumns}
-        onAddEntry={isActivity ? (date) => {
-          setEditActivityId(undefined)
-          setPrefillDate(date)
-          setDrawerOpen(true)
-        } : undefined}
+        onAddEntry={(date) => {
+          if (isActivity) {
+            setEditActivityId(undefined)
+            setPrefillDate(date)
+            setDrawerOpen(true)
+            return
+          }
+          setEditEvent(null)
+          setEventPrefillDate(date)
+          setEventDrawerOpen(true)
+        }}
         onEditEntry={isActivity ? (row) => {
           setEditActivityId(String(row.id))
           setPrefillDate(undefined)
@@ -168,8 +195,9 @@ export default function CalendarPage() {
             setDrawerOpen(true)
             return
           }
-          const matterId = (event.extendedProps as Record<string, unknown> | undefined)?.matterId
-          if (matterId) navigate(`/matters/${matterId}`)
+          setEditEvent(mapEventFromClick(event))
+          setEventPrefillDate(undefined)
+          setEventDrawerOpen(true)
         }}
       />
       <ActivityFormDrawer
@@ -177,6 +205,15 @@ export default function CalendarPage() {
         activityId={editActivityId}
         prefillEntryDate={prefillDate}
         onClose={() => { setDrawerOpen(false); setEditActivityId(undefined) }}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["calendar"] })
+        }}
+      />
+      <CalendarEventFormDrawer
+        open={eventDrawerOpen}
+        event={editEvent}
+        initialDate={eventPrefillDate}
+        onClose={() => { setEventDrawerOpen(false); setEditEvent(null) }}
         onSuccess={() => {
           qc.invalidateQueries({ queryKey: ["calendar"] })
         }}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControlLabel, IconButton, Paper, TextField, Typography,
+  FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper, Select, TextField, Typography,
 } from "@mui/material"
 import GroupIcon from "@mui/icons-material/Group"
 import EditIcon from "@mui/icons-material/Edit"
@@ -12,8 +12,33 @@ import { formatDate } from "@lib/utils/formatDate"
 import { StatusBadge } from "@/components/ui/StatusBadge"
 import { DetailInfoRow } from "@/components/detail/DetailInfoRow"
 import { SubMattersPanel } from "./SubMattersPanel"
+import { MatterBillingWidgets } from "./MatterBillingWidgets"
 import { MatterTeamDrawer } from "./MatterTeamDrawer"
+import { MatterStatusUploadDialog } from "./MatterStatusUploadDialog"
 import { toast } from "@/lib/toast"
+
+function timelineStatusLabel(item: Record<string, unknown>): string {
+  const nested = item.status
+  if (nested && typeof nested === "object") {
+    const o = nested as { statusName?: string; name?: string }
+    return String(o.statusName ?? o.name ?? "")
+  }
+  return String(item.statusName ?? item.status ?? "")
+}
+
+function timelineDate(item: Record<string, unknown>): string {
+  return String(item.changedAt ?? item.createdAt ?? item.date ?? item.updatedAt ?? "")
+}
+
+function timelineBy(item: Record<string, unknown>): string {
+  const by = item.changedBy ?? item.createdBy ?? item.user
+  if (by && typeof by === "object") {
+    const o = by as { firstName?: string; lastName?: string; name?: string }
+    if (o.name) return o.name
+    return `${o.firstName ?? ""} ${o.lastName ?? ""}`.trim()
+  }
+  return String(by ?? "")
+}
 
 function personName(value: unknown): string {
   const p = value as { firstName?: string; lastName?: string; name?: string } | null
@@ -22,15 +47,26 @@ function personName(value: unknown): string {
   return `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim() || "—"
 }
 
-interface Props { matter: Record<string, unknown>; matterId: string }
+interface Props { matter: Record<string, unknown>; matterId: string; canEdit?: boolean }
 
-export function MatterOverview({ matter, matterId }: Props) {
+export function MatterOverview({ matter, matterId, canEdit = true }: Props) {
   const qc = useQueryClient()
   const [teamOpen, setTeamOpen] = useState(false)
   const [estimateOpen, setEstimateOpen] = useState(false)
   const [estimateValue, setEstimateValue] = useState("")
   const [estimateError, setEstimateError] = useState("")
   const [savingEstimate, setSavingEstimate] = useState(false)
+  const [capOpen, setCapOpen] = useState(false)
+  const [capEnabled, setCapEnabled] = useState(false)
+  const [capValue, setCapValue] = useState("")
+  const [capType, setCapType] = useState("Flat")
+  const [capError, setCapError] = useState("")
+  const [savingCap, setSavingCap] = useState(false)
+  const [checklistOpen, setChecklistOpen] = useState(false)
+  const [checklistText, setChecklistText] = useState("")
+  const [checklistError, setChecklistError] = useState("")
+  const [savingChecklist, setSavingChecklist] = useState(false)
+  const [statusUploadOpen, setStatusUploadOpen] = useState(false)
   const checklistQuery = useQuery({
     queryKey: ["matters", "checklist", matterId],
     queryFn: () => mattersApi.getChecklist(matterId),
@@ -61,7 +97,14 @@ export function MatterOverview({ matter, matterId }: Props) {
     ? checklistRaw
     : Array.isArray((checklistRaw as { content?: unknown[] } | undefined)?.content)
       ? (checklistRaw as { content: unknown[] }).content
-      : []) as { id: string; title: string; checked: boolean }[]
+      : []).map((row, index) => {
+    const r = row as Record<string, unknown>
+    return {
+      id: String(r.id ?? index),
+      title: String(r.title ?? r.checkList ?? r.checklist ?? ""),
+      checked: !!(r.checked ?? r.completed),
+    }
+  })
   const teamRaw = teamQuery.data as unknown
   const team = (Array.isArray(teamRaw)
     ? teamRaw
@@ -88,11 +131,22 @@ export function MatterOverview({ matter, matterId }: Props) {
     ? timelineRaw
     : Array.isArray((timelineRaw as { content?: unknown[] } | undefined)?.content)
       ? (timelineRaw as { content: unknown[] }).content
-      : []) as { id: string; status: string; changedAt: string; changedBy: string; note?: string }[]
+      : []) as Record<string, unknown>[]
 
+  const capEnabledCurrent = typeof matter.cap === "boolean"
+    ? matter.cap
+    : matter.capAmount != null && Number(matter.capAmount) > 0
   const capDisplay = matter.capAmount != null && matter.capAmount !== ""
     ? formatCurrency(Number(matter.capAmount))
     : (typeof matter.cap === "boolean" ? (matter.cap ? "Yes" : "No") : (matter.cap != null ? formatCurrency(Number(matter.cap)) : "—"))
+
+  function openCapDialog() {
+    setCapEnabled(!!capEnabledCurrent)
+    setCapValue(matter.capAmount != null && Number(matter.capAmount) > 0 ? String(matter.capAmount) : "")
+    setCapType(String(matter.capType ?? "Flat"))
+    setCapError("")
+    setCapOpen(true)
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -119,21 +173,35 @@ export function MatterOverview({ matter, matterId }: Props) {
                 <Typography variant="body2" component="span">
                   {matter.estimate != null ? formatCurrency(Number(matter.estimate)) : "—"}
                 </Typography>
-                <IconButton
-                  size="small"
-                  aria-label="Edit estimate"
-                  onClick={() => {
-                    setEstimateValue(matter.estimate != null ? String(matter.estimate) : "")
-                    setEstimateError("")
-                    setEstimateOpen(true)
-                  }}
-                >
-                  <EditIcon fontSize="inherit" />
-                </IconButton>
+                {canEdit && (
+                  <IconButton
+                    size="small"
+                    aria-label="Edit estimate"
+                    onClick={() => {
+                      setEstimateValue(matter.estimate != null ? String(matter.estimate) : "")
+                      setEstimateError("")
+                      setEstimateOpen(true)
+                    }}
+                  >
+                    <EditIcon fontSize="inherit" />
+                  </IconButton>
+                )}
               </Box>
             }
           />
-          <DetailInfoRow label="Cap" value={capDisplay} />
+          <DetailInfoRow
+            label="Cap"
+            value={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="body2" component="span">{capDisplay}</Typography>
+                {canEdit && (
+                  <IconButton size="small" aria-label="Edit cap" onClick={openCapDialog}>
+                    <EditIcon fontSize="inherit" />
+                  </IconButton>
+                )}
+              </Box>
+            }
+          />
           <DetailInfoRow label="Scope" value={String(matter.description ?? matter.matterSubject ?? "—")} />
         </Box>
       </Paper>
@@ -192,7 +260,14 @@ export function MatterOverview({ matter, matterId }: Props) {
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Checklist</Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Checklist</Typography>
+          {canEdit && !String(matter.status ?? "").toUpperCase().includes("CLOSE") && (
+            <Button size="small" onClick={() => { setChecklistText(""); setChecklistError(""); setChecklistOpen(true) }}>
+              Add New
+            </Button>
+          )}
+        </Box>
         {checklist.map(item => (
           <FormControlLabel
             key={item.id}
@@ -210,21 +285,55 @@ export function MatterOverview({ matter, matterId }: Props) {
 
       <SubMattersPanel
         matterId={matterId}
+        clientId={String((matter.client as { id?: string } | null)?.id ?? (matter.clientMini as { id?: string } | null)?.id ?? "")}
+        canEdit={canEdit}
         subMatters={Array.isArray(matter.subMatters) ? matter.subMatters as Record<string, unknown>[] : []}
       />
 
+      <MatterBillingWidgets matterId={matterId} />
+
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Status Timeline</Typography>
-        {statusTimeline.map(item => (
-          <Box key={item.id} sx={{ display: "flex", gap: 1.5, mb: 1.25, alignItems: "center" }}>
-            <StatusBadge status={item.status} />
-            <Typography variant="body2">{formatDate(item.changedAt)}</Typography>
-            <Typography variant="caption" color="text.secondary">{item.changedBy}</Typography>
-            {item.note && <Typography variant="caption" color="text.secondary">· {item.note}</Typography>}
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Status Timeline</Typography>
+          {canEdit && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setStatusUploadOpen(true)}
+            >
+              Upload Documents
+            </Button>
+          )}
+        </Box>
+        {statusTimeline.map((item, i) => (
+          <Box
+            key={String(item.id ?? `${timelineDate(item)}-${i}`)}
+            sx={{ display: "flex", gap: 1.5, mb: 1.25, alignItems: "center", flexWrap: "wrap" }}
+          >
+            <StatusBadge status={timelineStatusLabel(item)} />
+            <Typography variant="body2">{formatDate(timelineDate(item))}</Typography>
+            {!!timelineBy(item) && (
+              <Typography variant="caption" color="text.secondary">{timelineBy(item)}</Typography>
+            )}
+            {!!(item.note ?? item.stageComments ?? item.comments) && (
+              <Typography variant="caption" color="text.secondary">
+                · {String(item.note ?? item.stageComments ?? item.comments)}
+              </Typography>
+            )}
           </Box>
         ))}
         {!statusTimeline.length && <Typography variant="body2" color="text.secondary">No status history</Typography>}
       </Paper>
+
+      <MatterStatusUploadDialog
+        open={statusUploadOpen}
+        onClose={() => setStatusUploadOpen(false)}
+        matterId={matterId}
+        timeline={statusTimeline}
+        onSuccess={() => {
+          void qc.invalidateQueries({ queryKey: ["matters", "status-timeline", matterId] })
+        }}
+      />
 
       <MatterTeamDrawer
         open={teamOpen}
@@ -276,6 +385,120 @@ export function MatterOverview({ matter, matterId }: Props) {
             }}
           >
             {savingEstimate ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={capOpen} onClose={() => setCapOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Edit Cap</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <FormControlLabel
+            control={<Checkbox checked={capEnabled} onChange={e => setCapEnabled(e.target.checked)} />}
+            label="Enable Cap"
+          />
+          <TextField
+            label="Cap amount"
+            type="number"
+            fullWidth
+            size="small"
+            disabled={!capEnabled}
+            value={capValue}
+            onChange={e => setCapValue(e.target.value)}
+            error={!!capError}
+            helperText={capError || (capEnabled ? "Must be at least 500" : "Disabled cap sends amount 0")}
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
+          <FormControl fullWidth size="small" disabled={!capEnabled}>
+            <InputLabel id="cap-type-label">Cap Type</InputLabel>
+            <Select
+              labelId="cap-type-label"
+              label="Cap Type"
+              value={capType}
+              onChange={e => setCapType(String(e.target.value))}
+            >
+              <MenuItem value="Flat">Flat</MenuItem>
+              <MenuItem value="Monthly" disabled>Monthly</MenuItem>
+              <MenuItem value="Yearly" disabled>Yearly</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCapOpen(false)} disabled={savingCap}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={savingCap}
+            onClick={async () => {
+              const amount = capEnabled ? parseFloat(capValue) : 0
+              if (capEnabled && (Number.isNaN(amount) || amount < 500)) {
+                setCapError("Cap must be 500 or more when enabled.")
+                return
+              }
+              setSavingCap(true)
+              setCapError("")
+              try {
+                toast.success(await mattersApi.updateCap(matterId, {
+                  enabled: capEnabled,
+                  amount,
+                  type: capType,
+                }))
+                setCapOpen(false)
+                qc.invalidateQueries({ queryKey: ["matters", "detail", matterId] })
+              } catch (e) {
+                setCapError((e as Error)?.message ?? "Failed to update cap")
+              } finally {
+                setSavingCap(false)
+              }
+            }}
+          >
+            {savingCap ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={checklistOpen} onClose={() => !savingChecklist && setChecklistOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Add Checklist</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Check List"
+            fullWidth
+            size="small"
+            value={checklistText}
+            onChange={e => setChecklistText(e.target.value)}
+            error={!!checklistError}
+            helperText={checklistError}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChecklistOpen(false)} disabled={savingChecklist}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={savingChecklist || !checklistText.trim()}
+            onClick={async () => {
+              if (!checklistText.trim()) {
+                setChecklistError("Enter checklist.")
+                return
+              }
+              setSavingChecklist(true)
+              setChecklistError("")
+              try {
+                toast.success(await mattersApi.addChecklist(matterId, checklistText.trim()))
+                setChecklistOpen(false)
+                setChecklistText("")
+                void qc.invalidateQueries({ queryKey: ["matters", "checklist", matterId] })
+              } catch (e) {
+                setChecklistError(
+                  (e as { response?: { data?: { Msg?: string } } })?.response?.data?.Msg
+                  ?? (e as Error)?.message
+                  ?? "Failed to add checklist",
+                )
+              } finally {
+                setSavingChecklist(false)
+              }
+            }}
+          >
+            {savingChecklist ? "Saving…" : "Save"}
           </Button>
         </DialogActions>
       </Dialog>

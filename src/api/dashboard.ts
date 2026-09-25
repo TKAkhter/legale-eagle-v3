@@ -258,4 +258,30 @@ export const dashboardApi = {
     const r = await axiosClient.get("/api/analysis/monthly/matters/per-role")
     return r.data?.stats ?? r.data?.data?.stats ?? r.data?.data ?? r.data ?? {}
   },
+
+  /** LMS `/meeting/get/shcedules` (typo preserved) — today/tomorrow meeting series. */
+  async meetingSchedules() {
+    if (env.USE_STATIC_DATA) {
+      return {
+        today: [
+          {
+            title: "Client intake",
+            meetingStartTime: "10:00",
+            meetingEndTime: "10:30",
+            meetingWithName: "Al Rashid Holdings",
+            addedByName: "Sarah Johnson",
+            note: "Discuss proposal",
+          },
+        ],
+        tomorrow: [],
+      }
+    }
+    const r = await axiosClient.get("/api/meeting/get/shcedules")
+    const data = r.data?.data ?? r.data ?? {}
+    const series = data?.meetings?.series ?? data?.series ?? data
+    return {
+      today: Array.isArray(series?.today) ? series.today : [],
+      tomorrow: Array.isArray(series?.tomorrow) ? series.tomorrow : [],
+    }
+  },
 }

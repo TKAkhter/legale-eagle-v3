@@ -34,11 +34,12 @@ export const LOOKUP_MASTERS: MasterConfig[] = [
     key: "lead-source",
     title: "Lead Source Master",
     description: "Setting up lead source master",
-    getUrl: "/api/util/get/source/master?status=Active",
+    getUrl: "/api/util/get/source/master?status=false",
     addUrl: "/api/util/add/source/master",
     deleteUrl: "/api/util/source/master/status/change",
-    nameField: "name",
+    nameField: "sourceName",
     statusChange: true,
+    href: "/admin/settings/lead-sources",
     section: "masters",
   },
   {
@@ -50,6 +51,7 @@ export const LOOKUP_MASTERS: MasterConfig[] = [
     deleteUrl: "/api/practicearea/change/status",
     nameField: "name",
     statusChange: true,
+    href: "/admin/settings/practice-areas",
     section: "masters",
   },
   {
@@ -150,6 +152,7 @@ export const LOOKUP_MASTERS: MasterConfig[] = [
     deleteUrl: "/api/util/designation/change/status",
     nameField: "name",
     statusChange: true,
+    href: "/admin/settings/designations",
     section: "masters",
   },
   {
@@ -172,6 +175,7 @@ export const LOOKUP_MASTERS: MasterConfig[] = [
     deleteUrl: "/api/util/department/change/status",
     nameField: "name",
     statusChange: true,
+    href: "/admin/settings/departments",
     section: "masters",
   },
   {
@@ -187,14 +191,15 @@ export const LOOKUP_MASTERS: MasterConfig[] = [
   },
   {
     key: "refer-client",
-    title: "Refer Client",
-    description: "Refer to Clients",
+    title: "Referral Partners",
+    description: "Manage referral partner / refer-client master",
     getUrl: "/api/util/list/refer/client",
     addUrl: "/api/util/add/refer/client",
     deleteUrl: "/api/util/refer/client/change/status",
     nameField: "name",
     statusChange: true,
     section: "masters",
+    href: "/admin/settings/refer-client",
   },
   {
     key: "lfa-title",

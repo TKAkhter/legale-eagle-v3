@@ -1,93 +1,34 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
-  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, InputLabel, MenuItem, Select, TextField, ToggleButton, ToggleButtonGroup,
+  Button, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControl, InputLabel, MenuItem, Select,
 } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
 import EditIcon from "@mui/icons-material/Edit"
 import DeleteIcon from "@mui/icons-material/Delete"
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz"
 import RestartAltIcon from "@mui/icons-material/RestartAlt"
+import UpdateIcon from "@mui/icons-material/Update"
+import EventNoteIcon from "@mui/icons-material/EventNote"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
-import { StatusBadge } from "@components/ui/StatusBadge"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { SearchInput, PracticeAreaFilter, DateRangeFilter, FilterActions } from "@components/filters"
 import { leadsApi } from "@/api/leads"
 import { toast } from "@/lib/toast"
-import { formatDate } from "@lib/utils/formatDate"
 import { useAuthStore } from "@lib/store/authStore"
 import { PERMISSIONS } from "@lib/auth/permissions"
 import type { GridParams } from "@/types/common.types"
-import type { FilterPanelProps } from "@components/data-grid/types"
 import { LeadFormDrawer } from "./_components/LeadFormDrawer"
-
-function LeadFilters({ onSearch, onReset, filters }: FilterPanelProps) {
-  const [f, setF] = useState<Record<string, unknown>>({
-    type: "All",
-    statusGroup: "Open",
-    ...filters,
-  })
-  return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={String(f.type ?? "All")}
-        onChange={(_, value) => value && setF(p => ({ ...p, type: value }))}
-      >
-        {["All", "People", "Company"].map(item => (
-          <ToggleButton key={item} value={item}>{item === "People" ? "Individual" : item}</ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={String(f.statusGroup ?? "Open")}
-        onChange={(_, value) => value && setF(p => ({ ...p, statusGroup: value }))}
-      >
-        {[
-          { label: "All", value: "All" },
-          { label: "Open", value: "Open" },
-          { label: "Converted", value: "Converted" },
-          { label: "Written Off", value: "Writeoff" },
-        ].map(item => (
-          <ToggleButton key={item.value} value={item.value}>{item.label}</ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-end" }}>
-        <SearchInput
-          value={String(f.searchText ?? "")}
-          onChange={v => setF(p => ({ ...p, searchText: v }))}
-          placeholder="Search by name..."
-        />
-        <PracticeAreaFilter
-          value={String(f.practiceArea ?? "")}
-          onChange={v => setF(p => ({ ...p, practiceArea: v }))}
-        />
-        <TextField
-          size="small"
-          label="Source Type"
-          value={String(f.sourceType ?? "")}
-          onChange={e => setF(p => ({ ...p, sourceType: e.target.value }))}
-        />
-        <DateRangeFilter
-          fromDate={String(f.fromDate ?? "")}
-          toDate={String(f.toDate ?? "")}
-          onChange={v => setF(p => ({ ...p, ...v }))}
-        />
-        <FilterActions
-          onSearch={() => onSearch(f)}
-          onClear={() => { setF({ type: "All", statusGroup: "Open" }); onReset() }}
-        />
-      </Box>
-    </Box>
-  )
-}
+import { LeadStatusDialog } from "./_components/LeadStatusDialog"
+import { FollowupFormDrawer } from "./_components/FollowupFormDrawer"
+import { LeadListFilters } from "./_components/LeadListFilters"
+import { getLeadListColumns } from "./_components/LeadListColumns"
 
 export default function LeadsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const hasPermission = useAuthStore(s => s.hasPermission)
   const canCreate = hasPermission(PERMISSIONS.LEADS_CREATE)
@@ -95,13 +36,19 @@ export default function LeadsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const [editLeadId, setEditLeadId] = useState<string>()
+  const [prefillClientId, setPrefillClientId] = useState<string>()
   const [writeOffId, setWriteOffId] = useState<string>()
   const [writeOffReason, setWriteOffReason] = useState("")
   const [reopenId, setReopenId] = useState<string>()
+  const [statusLead, setStatusLead] = useState<{ id: string; status?: string } | null>(null)
+  const [followUpLeadId, setFollowUpLeadId] = useState<string>()
   const [gridKey, setGridKey] = useState(0)
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
+      const cid = searchParams.get("clientId") ?? undefined
+      setEditLeadId(undefined)
+      setPrefillClientId(cid || undefined)
       setDrawerOpen(true)
       setSearchParams({}, { replace: true })
     }
@@ -118,6 +65,15 @@ export default function LeadsPage() {
     queryFn: () => leadsApi.getWriteOffReasons(),
     enabled: !!writeOffId,
   })
+
+  const { data: statusOptions = [] } = useQuery({
+    queryKey: ["leads", "statuses"],
+    queryFn: () => leadsApi.getLeadStatuses(),
+  })
+
+  const statusChoices = useMemo(() => (
+    statusOptions.length ? statusOptions : ["NEW", "FOLLOW_UP", "PROPOSAL", "CONVERTED", "CLOSED", "WRITE_OFF"]
+  ), [statusOptions])
 
   async function confirmWriteOff() {
     if (!writeOffId) return
@@ -137,30 +93,13 @@ export default function LeadsPage() {
 
   return (
     <PageShell
-      title="Leads"
-      description="Track prospective clients and conversion pipeline"
-      action={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditLeadId(undefined); setDrawerOpen(true) }}>New Lead</Button> : undefined}
+      title={t("nav.leads")}
+      description={t("pages.leadsDesc")}
+      action={canCreate ? <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditLeadId(undefined); setPrefillClientId(undefined); setDrawerOpen(true) }}>New Lead</Button> : undefined}
     >
       <DataGrid
         key={gridKey}
-        columns={[
-          { field: "name", header: "Name", minWidth: 200, width: 220 },
-          { field: "email", header: "Contact", minWidth: 200, width: 220, renderCell: (_, row) => {
-            const r = row as { email?: string; phone?: string }
-            return [r.email, r.phone].filter(Boolean).join(" · ") || "—"
-          }},
-          { field: "status", header: "Lead Status", minWidth: 140, width: 150, renderCell: v => <StatusBadge status={String(v ?? "")} /> },
-          { field: "lastStatusUpdatedDate", header: "Last Status Update", minWidth: 160, width: 170, renderCell: v => v ? formatDate(String(v)) : "—" },
-          { field: "leadSource", header: "Lead Source", minWidth: 140, width: 160 },
-          { field: "practiceArea", header: "Department/ Practice Area", minWidth: 180, width: 200 },
-          { field: "dispute", header: "Dispute", minWidth: 200, width: 240 },
-          { field: "followUp", header: "Follow Up", minWidth: 160, width: 180 },
-          { field: "conflictCheckStatus", header: "Conflict", minWidth: 120, width: 130, renderCell: v => <Chip size="small" label={String(v || "—")} variant="outlined" /> },
-          { field: "attorneyName", header: "Allotted Lawyer", minWidth: 160, width: 180 },
-          { field: "createdBy", header: "Created By", minWidth: 140, width: 160 },
-          { field: "partyOpposing", header: "Party Opposing", minWidth: 160, width: 180 },
-          { field: "createdAt", header: "Created Date", minWidth: 140, width: 150, renderCell: v => v ? formatDate(String(v)) : "—" },
-        ]}
+        columns={getLeadListColumns()}
         queryKey={["leads", "list"]}
         queryFn={(p: GridParams) => leadsApi.getAll({
           ...p,
@@ -171,22 +110,43 @@ export default function LeadsPage() {
             ...(initialStatusGroup && !p.filters?.statusGroup ? { statusGroup: initialStatusGroup } : {}),
           },
         })}
-        FilterPanel={LeadFilters}
+        FilterPanel={LeadListFilters}
         hasFilters
         syncWithUrl
         isSortingBackend={false}
         defaultPageSize={10}
         detailPath={row => `/leads/${String((row as { id?: string }).id ?? "")}`}
         rowMenuItems={row => {
-          const r = row as { id?: string; status?: string }
+          const r = row as {
+            id?: string; status?: string; writeOff?: boolean; converted?: boolean
+            repeated?: boolean; conflictCheckStatus?: string
+          }
           const id = String(r.id ?? "")
           const status = String(r.status ?? "")
-          const writtenOff = ["WRITE_OFF", "Writeoff"].includes(status)
+          const writtenOff = !!r.writeOff || ["WRITE_OFF", "Writeoff"].includes(status)
+          const converted = !!r.converted || status === "CONVERTED" || status === "Converted"
+          const conflictOk = String(r.conflictCheckStatus ?? "").replace(/\s+/g, "_") === "No_Conflict"
+          const convertLabel = r.repeated ? "Convert Lead" : "Close Lead"
+          const active = !writtenOff && !converted
           return [
             { label: "Details", onClick: () => navigate(`/leads/${id}`) },
-            ...(canEdit ? [{ label: "Edit", icon: <EditIcon fontSize="small" />, onClick: () => { setEditLeadId(id); setDrawerOpen(true) } }] : []),
-            { label: "Convert / Close", icon: <SwapHorizIcon fontSize="small" />, onClick: () => navigate(`/leads/${id}`) },
-            ...(canEdit && !writtenOff ? [{ label: "Write Off", icon: <DeleteIcon fontSize="small" />, onClick: () => setWriteOffId(id) }] : []),
+            ...(canEdit && active ? [{ label: "Edit", icon: <EditIcon fontSize="small" />, onClick: () => { setEditLeadId(id); setDrawerOpen(true) } }] : []),
+            ...(canEdit && active ? [{
+              label: "Update Status",
+              icon: <UpdateIcon fontSize="small" />,
+              onClick: () => setStatusLead({ id, status }),
+            }] : []),
+            ...(canEdit && active ? [{
+              label: "Follow Up",
+              icon: <EventNoteIcon fontSize="small" />,
+              onClick: () => setFollowUpLeadId(id),
+            }] : []),
+            ...(active && conflictOk ? [{
+              label: convertLabel,
+              icon: <SwapHorizIcon fontSize="small" />,
+              onClick: () => navigate(`/leads/${id}`),
+            }] : []),
+            ...(canEdit && active ? [{ label: "Write Off", icon: <DeleteIcon fontSize="small" />, onClick: () => setWriteOffId(id) }] : []),
             ...(canEdit && writtenOff ? [{ label: "Reopen", icon: <RestartAltIcon fontSize="small" />, onClick: () => setReopenId(id) }] : []),
           ]
         }}
@@ -194,9 +154,26 @@ export default function LeadsPage() {
 
       <LeadFormDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => { setDrawerOpen(false); setPrefillClientId(undefined) }}
         leadId={editLeadId}
-        onSaved={() => { setDrawerOpen(false); setGridKey(k => k + 1); toast.success(editLeadId ? "Lead updated" : "Lead created") }}
+        clientId={prefillClientId}
+        onSaved={() => { setDrawerOpen(false); setPrefillClientId(undefined); setGridKey(k => k + 1); toast.success(editLeadId ? "Lead updated" : "Lead created") }}
+      />
+
+      <LeadStatusDialog
+        open={!!statusLead}
+        onClose={() => setStatusLead(null)}
+        leadId={statusLead?.id ?? ""}
+        statuses={statusChoices}
+        initialStatus={statusLead?.status}
+        onSuccess={() => { setGridKey(k => k + 1); toast.success("Status updated") }}
+      />
+
+      <FollowupFormDrawer
+        open={!!followUpLeadId}
+        onClose={() => setFollowUpLeadId(undefined)}
+        leadId={followUpLeadId ?? ""}
+        onSuccess={() => { setFollowUpLeadId(undefined); setGridKey(k => k + 1); toast.success("Follow-up added") }}
       />
 
       <Dialog open={!!writeOffId} onClose={() => setWriteOffId(undefined)} fullWidth maxWidth="xs">

@@ -2,12 +2,13 @@ import { PageShell } from '@/components/ui/PageShell'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import ViewListIcon from '@mui/icons-material/ViewList'
 import { TaskKanban } from './_components/TaskKanban'
-import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Select, ToggleButton, ToggleButtonGroup } from '@mui/material'
+import { Box, Button, Chip, FormControl, InputLabel, Link, MenuItem, Select, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { useSearchParams, useNavigate } from "react-router-dom"
+import { Link as RouterLink, useSearchParams, useNavigate } from "react-router-dom"
 import { useEffect, useState } from "react"
+import { useTranslation } from 'react-i18next'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
 import { Can } from '@components/ui/Can'
@@ -23,12 +24,39 @@ import { AssignTemplateDrawer } from './_components/AssignTemplateDrawer'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/lib/toast'
 
-const EVENT_TYPES = ['ALL', 'MATTER', 'CLIENT', 'LEAD', 'GENERAL']
-const STATUSES = ['All', 'Pending', 'In_Progress', 'Completed', 'Overdue', 'Canceled']
+/** LMS `/tasks` Related To — default MATTER (OLD typeFilter=0). */
+const EVENT_TYPES = ['MATTER', 'CLIENT', 'LEAD', 'HEARING', 'GENERAL', 'ALL']
+/** LMS status tabs: Pending | Completed | Re-Submit (+ extras NEW already had). */
+const STATUSES = ['Pending', 'Completed', 'Re_Submit', 'In_Progress', 'Overdue', 'Canceled', 'All']
+
+function clientLabel(row: Record<string, unknown>): { id: string; name: string } {
+  const matterMini = row.matterMini as {
+    clientMini?: Record<string, unknown>
+    matterId?: string
+  } | null
+  const clientMini = (row.clientMini ?? matterMini?.clientMini) as Record<string, unknown> | null
+  if (!clientMini) return { id: "", name: "—" }
+  const id = String(clientMini.id ?? clientMini.clientId ?? "")
+  const name = String(
+    clientMini.companyName
+    || `${String(clientMini.firstName ?? "")} ${String(clientMini.lastName ?? "")}`.trim()
+    || clientMini.name
+    || "—",
+  )
+  return { id, name }
+}
+
+function matterLabel(row: Record<string, unknown>): { id: string; title: string } {
+  const mini = row.matterMini as { title?: string; matterId?: string; id?: string } | null
+  return {
+    id: String(mini?.matterId ?? mini?.id ?? row.matterId ?? ""),
+    title: String(mini?.title ?? row.matterTitle ?? "—"),
+  }
+}
 
 function TaskFilters({ onSearch, onReset, filters }: FilterPanelProps) {
   const [f, setF] = useState<Record<string, unknown>>({
-    eventType: 'ALL',
+    eventType: 'MATTER',
     taskStatus: 'Pending',
     ...filters,
   })
@@ -37,25 +65,26 @@ function TaskFilters({ onSearch, onReset, filters }: FilterPanelProps) {
       <SearchInput value={String(f.searchText ?? '')} onChange={v => setF(p => ({ ...p, searchText: v }))} placeholder="Search tasks..." />
       <FormControl size="small" sx={{ minWidth: 140 }}>
         <InputLabel>Related To</InputLabel>
-        <Select label="Related To" value={String(f.eventType ?? 'ALL')} onChange={e => setF(p => ({ ...p, eventType: e.target.value }))}>
+        <Select label="Related To" value={String(f.eventType ?? 'MATTER')} onChange={e => setF(p => ({ ...p, eventType: e.target.value }))}>
           {EVENT_TYPES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </Select>
       </FormControl>
       <FormControl size="small" sx={{ minWidth: 140 }}>
         <InputLabel>Status</InputLabel>
         <Select label="Status" value={String(f.taskStatus ?? 'Pending')} onChange={e => setF(p => ({ ...p, taskStatus: e.target.value }))}>
-          {STATUSES.map(s => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
+          {STATUSES.map(s => <MenuItem key={s} value={s}>{s === 'Re_Submit' ? 'Re-Submit' : s.replace(/_/g, ' ')}</MenuItem>)}
         </Select>
       </FormControl>
       <FilterActions
         onSearch={() => onSearch(f)}
-        onClear={() => { setF({ eventType: 'ALL', taskStatus: 'Pending' }); onReset() }}
+        onClear={() => { setF({ eventType: 'MATTER', taskStatus: 'Pending' }); onReset() }}
       />
     </Box>
   )
 }
 
 export default function TasksPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [view, setView] = useState<'list' | 'board'>('list')
   const qc = useQueryClient()
@@ -91,8 +120,8 @@ export default function TasksPage() {
 
   return (
     <PageShell
-      title="Tasks"
-      description="All tasks across matters"
+      title={t("nav.tasks")}
+      description={t("pages.tasksDesc")}
       action={(
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <ToggleButtonGroup exclusive size="small" value={view} onChange={(_, value) => value && setView(value)}>
@@ -116,8 +145,47 @@ export default function TasksPage() {
         <DataGrid
           key={gridKey}
           columns={[
-            { field: 'taskName', header: 'Task Name' },
-            { field: 'description', header: 'Description', renderCell: v => String(v || '—') },
+            { field: 'taskName', header: 'Task Name', minWidth: 160 },
+            {
+              field: 'title',
+              header: 'Description',
+              minWidth: 180,
+              renderCell: (v, row) => String(v || (row as Record<string, unknown>).description || '—'),
+            },
+            {
+              field: 'matterMini',
+              header: 'Matter',
+              minWidth: 140,
+              renderCell: (_v, row) => {
+                const m = matterLabel(row as Record<string, unknown>)
+                if (!m.id || m.title === '—') return m.title
+                return (
+                  <Link component={RouterLink} to={`/matters/${m.id}`} underline="hover" onClick={e => e.stopPropagation()}>
+                    {m.title}
+                  </Link>
+                )
+              },
+            },
+            {
+              field: 'taskDeadLine',
+              header: 'Deadline',
+              minWidth: 120,
+              renderCell: (v) => formatDate(String(v ?? '')),
+            },
+            {
+              field: 'clientMini',
+              header: 'Client',
+              minWidth: 160,
+              renderCell: (_v, row) => {
+                const c = clientLabel(row as Record<string, unknown>)
+                if (!c.id || c.name === '—') return c.name
+                return (
+                  <Link component={RouterLink} to={`/clients/${c.id}`} underline="hover" onClick={e => e.stopPropagation()}>
+                    {c.name}
+                  </Link>
+                )
+              },
+            },
             { field: 'taskType', header: 'Related To', renderCell: v => <Chip size="small" label={String(v ?? '—')} variant="outlined" /> },
             { field: 'priority', header: 'Priority', renderCell: (v) => {
               const color = v === 'High' ? 'error' : v === 'Low' ? 'default' : 'warning'
@@ -128,17 +196,11 @@ export default function TasksPage() {
               const u = v as { firstName?: string; lastName?: string } | null
               return u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || '—' : '—'
             }},
-            { field: 'createdBy', header: 'Created By', renderCell: v => {
-              if (typeof v === 'string') return v || '—'
-              const u = v as { firstName?: string; lastName?: string } | null
-              return u ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || '—' : '—'
-            }},
-            { field: 'taskDeadLine', header: 'Deadline', renderCell: (v) => formatDate(String(v ?? '')) },
           ]}
           queryKey={['tasks', 'list']}
           queryFn={(p: GridParams) => tasksApi.getAll({
             ...p,
-            filters: { eventType: 'ALL', taskStatus: 'Pending', ...p.filters },
+            filters: { eventType: 'MATTER', taskStatus: 'Pending', ...p.filters },
           })}
           FilterPanel={TaskFilters}
           hasFilters

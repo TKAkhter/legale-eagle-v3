@@ -48,12 +48,27 @@ export function DocumentReminderFormDrawer({ open, onClose, reminder, onSuccess 
     setExpDate(String(reminder?.expDate ?? reminder?.reminderDate ?? "").slice(0, 10))
     setReminderBefore(String(reminder?.reminderBefore ?? "7"))
     const ids = (reminder?.remindPersonId ?? reminder?.remindPersonIds ?? []) as string[]
+    const namesRaw = reminder?.remindPersonName ?? reminder?.remindPersonNames
+    const names = Array.isArray(namesRaw)
+      ? namesRaw.map(n => String(n))
+      : typeof namesRaw === "string" && namesRaw
+        ? namesRaw.split(",").map(n => n.trim()).filter(Boolean)
+        : []
     if (Array.isArray(ids) && ids.length) {
-      setRemindPersons(ids.map(id => ({ id: String(id), label: String(id) })))
+      setRemindPersons(ids.map((id, i) => {
+        const sid = String(id)
+        const fromOpts = userOpts.find(u => u.id === sid)
+        return {
+          id: sid,
+          label: fromOpts?.label || names[i] || sid,
+        }
+      }))
     } else {
       setRemindPersons([])
     }
-  }, [open, reminder])
+  // Resolve labels once users load; reminder identity drives the reset.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, reminder, usersQ.data])
 
   async function submit() {
     if (!documentName.trim()) { setError("Document name is required"); return }

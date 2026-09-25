@@ -55,7 +55,9 @@ export interface RawClient {
   bankAccount?: string | { accountName?: string; accountNumber?: string; bankName?: string }
   zohoClientId?: string
   createdAt?: string | number
-  representativeInfo?: { name?: string; role?: string }[]
+  /** OLD Client Home: representativeInfo[].name + designation */
+  representativeInfo?: { name?: string; role?: string; designation?: string }[]
+  representatives?: { name?: string; role?: string; designation?: string }[]
   totalInvoiceAmount?: number
 }
 
@@ -90,6 +92,8 @@ export interface Client {
   zohoClientId: string
   createdAt: string
   totalInvoiceAmount: number
+  /** Mapped from representativeInfo (or representatives); designation falls back to role. */
+  representatives: { name: string; designation: string }[]
 }
 
 function emailsFrom(raw: RawClient): string[] {
@@ -146,6 +150,18 @@ function bankAccountFrom(raw: RawClient): string {
   return [b.accountName, b.accountNumber, b.bankName].filter(Boolean).join(" · ")
 }
 
+function representativesFrom(raw: RawClient): { name: string; designation: string }[] {
+  const list = Array.isArray(raw.representativeInfo) && raw.representativeInfo.length
+    ? raw.representativeInfo
+    : Array.isArray(raw.representatives) ? raw.representatives : []
+  return list
+    .map(item => ({
+      name: String(item.name ?? "").trim(),
+      designation: String(item.designation ?? item.role ?? "").trim(),
+    }))
+    .filter(item => item.name)
+}
+
 export function transformClient(raw: RawClient): Client {
   const id = raw.id ?? raw.clientId ?? ""
   if (!id) logger.warn("transformClient", "Client missing id", raw)
@@ -193,5 +209,6 @@ export function transformClient(raw: RawClient): Client {
     zohoClientId: raw.zohoClientId ?? "",
     createdAt: raw.createdAt ? String(raw.createdAt) : "",
     totalInvoiceAmount: Number(raw.totalInvoiceAmount ?? 0),
+    representatives: representativesFrom(raw),
   }
 }

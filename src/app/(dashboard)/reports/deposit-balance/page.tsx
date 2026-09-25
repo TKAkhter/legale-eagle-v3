@@ -9,6 +9,7 @@ export default function DepositBalanceReportPage() {
       description="Retainer / deposit balances by LFA"
       queryKey={["reports", "deposit-balance"]}
       queryFn={p => reportsApi.getDepositBalance(p)}
+      emailExcelFn={f => reportsApi.requestDepositBalanceExcel(f)}
       filters={{ showClient: true }}
       columns={[
         { field: "clientName", header: "Client", sortKey: "clientName" },

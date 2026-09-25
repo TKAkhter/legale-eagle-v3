@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react"
 import {
-  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  Tab, Tabs, TextField,
+  Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControl, InputLabel, MenuItem, Select, Tab, Tabs, TextField,
 } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
@@ -12,11 +13,14 @@ import { toast } from "@/lib/toast"
 import { formatDate } from "@lib/utils/formatDate"
 import type { GridParams } from "@/types/common.types"
 
+const RELATED_OPTIONS = ["Lead", "Matter", "Billing", "Task", "Hearing"] as const
+
 export default function TicketsPage() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState(0)
   const [gridKey, setGridKey] = useState(0)
   const [raiseOpen, setRaiseOpen] = useState(false)
-  const [form, setForm] = useState({ title: "", issueRelatedTo: "", description: "", url: "" })
+  const [form, setForm] = useState({ title: "", issueRelatedTo: "", note: "", url: "" })
   const completed = tab === 1
 
   const columns = useMemo(() => [
@@ -40,6 +44,7 @@ export default function TicketsPage() {
             clickable
             label={href.length > 40 ? `${href.slice(0, 40)}…` : href}
             variant="outlined"
+            onClick={e => e.stopPropagation()}
           />
         )
       },
@@ -52,22 +57,30 @@ export default function TicketsPage() {
       toast.error("Title is required")
       return
     }
+    if (!form.issueRelatedTo) {
+      toast.error("Related To is required")
+      return
+    }
+    if (!form.note.trim()) {
+      toast.error("Note is required")
+      return
+    }
     await ticketsApi.create({
       title: form.title,
       issueRelatedTo: form.issueRelatedTo,
-      description: form.description,
+      note: form.note,
       url: form.url || window.location.href,
     })
     toast.success("Ticket raised")
     setRaiseOpen(false)
-    setForm({ title: "", issueRelatedTo: "", description: "", url: "" })
+    setForm({ title: "", issueRelatedTo: "", note: "", url: "" })
     setGridKey(k => k + 1)
   }
 
   return (
     <PageShell
-      title="Raised Tickets"
-      description="Track support tickets raised from the application"
+      title={t("nav.raisedTickets")}
+      description={t("pages.ticketsDesc")}
       action={(
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setRaiseOpen(true)}>
           Raise Ticket
@@ -90,6 +103,7 @@ export default function TicketsPage() {
         queryFn={(p: GridParams) => ticketsApi.getAll(p, completed)}
         defaultPageSize={10}
         isSortingBackend={false}
+        detailPath={row => `/tickets/${String((row as { id?: string }).id ?? "")}`}
       />
 
       <Dialog open={raiseOpen} onClose={() => setRaiseOpen(false)} fullWidth maxWidth="sm">
@@ -102,21 +116,27 @@ export default function TicketsPage() {
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
           />
+          <FormControl size="small" fullWidth>
+            <InputLabel id="ticket-related-label">Related To</InputLabel>
+            <Select
+              labelId="ticket-related-label"
+              label="Related To"
+              value={form.issueRelatedTo}
+              onChange={e => setForm(f => ({ ...f, issueRelatedTo: String(e.target.value) }))}
+            >
+              {RELATED_OPTIONS.map(opt => (
+                <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField
-            label="Related To"
-            size="small"
-            fullWidth
-            value={form.issueRelatedTo}
-            onChange={e => setForm(f => ({ ...f, issueRelatedTo: e.target.value }))}
-          />
-          <TextField
-            label="Description"
+            label="Note"
             size="small"
             fullWidth
             multiline
             minRows={3}
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            value={form.note}
+            onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
           />
           <TextField
             label="URL"

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
-import { useLocation, useParams } from "react-router-dom"
+import { Link as RouterLink, useLocation, useParams } from "react-router-dom"
 import {
-  Box, Typography, Paper, Chip, Button, Avatar, FormControl, InputLabel, MenuItem, Select, IconButton, Menu,
+  Alert, Box, Typography, Paper, Chip, Button, Avatar, IconButton, Menu, MenuItem,
 } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz"
@@ -11,7 +11,11 @@ import MoreVertIcon from "@mui/icons-material/MoreVert"
 import PersonAddAltIcon from "@mui/icons-material/PersonAddAlt"
 import MoneyOffIcon from "@mui/icons-material/MoneyOff"
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote"
+import GavelIcon from "@mui/icons-material/Gavel"
+import AccessTimeIcon from "@mui/icons-material/AccessTime"
+import LinkIcon from "@mui/icons-material/Link"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { leadsApi } from "@/api/leads"
 import { PageShell } from "@/components/ui/PageShell"
 import { StatusBadge } from "@/components/ui/StatusBadge"
@@ -27,9 +31,15 @@ import { LeadFormDrawer } from "../_components/LeadFormDrawer"
 import { AssignAttorneyDrawer } from "../_components/AssignAttorneyDrawer"
 import { WriteOffDialog } from "../_components/WriteOffDialog"
 import { ProposalEstimateDialog } from "../_components/ProposalEstimateDialog"
+import { LeadStatusDialog } from "../_components/LeadStatusDialog"
 import { MeetingFormDrawer } from "../_components/MeetingFormDrawer"
-import { fromNow, formatDate, formatDateTime } from "@lib/utils/formatDate"
+import { AttachTimelogEntriesDialog } from "../_components/AttachTimelogEntriesDialog"
+import { LeadConflictTab } from "../_components/LeadConflictTab"
+import { LeadStatusUploadDialog } from "../_components/LeadStatusUploadDialog"
+import { LeadMeetingsTab } from "../_components/LeadMeetingsTab"
+import { ActivityFormDrawer } from "../../time-log-entries/_components/ActivityFormDrawer"
 import { formatCurrency } from "@lib/utils/formatCurrency"
+import { fromNow, formatDate } from "@lib/utils/formatDate"
 import { toast } from "@/lib/toast"
 import { logger } from "@/lib/logger"
 import type { Lead } from "@/transformers/lead.transformer"
@@ -52,12 +62,14 @@ function timelineBy(item: Record<string, unknown>): string {
 }
 
 export default function LeadDetailPage() {
+  const { t } = useTranslation()
   const { leadId } = useParams()
   const location = useLocation()
   const fromMyLeads = location.pathname.startsWith("/my-leads") || new URLSearchParams(location.search).get("from") === "my-leads"
   const listPath = fromMyLeads ? "/my-leads" : "/leads"
-  const listLabel = fromMyLeads ? "My Leads" : "Leads"
+  const listLabel = fromMyLeads ? t("nav.myLeads") : t("nav.leads")
   const qc = useQueryClient()
+  const leadLabel = t("pages.lead", "Lead")
 
   const [followupOpen, setFollowupOpen] = useState(false)
   const [convertOpen, setConvertOpen] = useState(false)
@@ -67,7 +79,12 @@ export default function LeadDetailPage() {
   const [writeOffOpen, setWriteOffOpen] = useState(false)
   const [proposalOpen, setProposalOpen] = useState(false)
   const [meetingOpen, setMeetingOpen] = useState(false)
-  const [statusValue, setStatusValue] = useState("")
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [statusUploadOpen, setStatusUploadOpen] = useState(false)
+  const [logTimeOpen, setLogTimeOpen] = useState(false)
+  const [attachTimelogOpen, setAttachTimelogOpen] = useState(false)
+  const [attachActivityIds, setAttachActivityIds] = useState<string[]>([])
+  const [timelogGridKey, setTimelogGridKey] = useState(0)
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
 
   const { data: lead, isLoading, isError } = useQuery({
@@ -91,12 +108,6 @@ export default function LeadDetailPage() {
     enabled: !!leadId,
   })
 
-  const { data: conflicts = [] } = useQuery({
-    queryKey: ["leads", "conflict", leadId],
-    queryFn: () => leadsApi.getConflictChecks(leadId!),
-    enabled: !!leadId,
-  })
-
   const { data: statusOptions = [] } = useQuery({
     queryKey: ["leads", "statuses"],
     queryFn: () => leadsApi.getLeadStatuses(),
@@ -108,36 +119,54 @@ export default function LeadDetailPage() {
     enabled: !!leadId,
   })
 
+  const { data: reductions } = useQuery({
+    queryKey: ["leads", "reductions", leadId],
+    queryFn: () => leadsApi.getReductions(leadId!),
+    enabled: !!leadId,
+  })
+
+  const { data: feeEarnerSummary } = useQuery({
+    queryKey: ["leads", "fee-earner-summary", leadId],
+    queryFn: () => leadsApi.getFeeEarnerSummary(leadId!),
+    enabled: !!leadId,
+  })
+
   const statusChoices = useMemo(() => {
     const opts = statusOptions.length ? statusOptions : ["NEW", "FOLLOW_UP", "PROPOSAL", "CONVERTED", "CLOSED", "WRITE_OFF"]
     return opts
   }, [statusOptions])
 
-  if (isLoading) return <PageShell title="Lead"><DetailSkeleton /></PageShell>
+  if (isLoading) return <PageShell title={leadLabel}><DetailSkeleton /></PageShell>
   if (isError || !lead) {
     return (
-      <PageShell title="Lead" breadcrumbs={[{ label: listLabel, path: listPath }, { label: "Not found" }]}>
+      <PageShell title={leadLabel} breadcrumbs={[{ label: listLabel, path: listPath }, { label: "Not found" }]}>
         <Typography color="text.secondary">Lead not found.</Typography>
       </PageShell>
     )
   }
 
   const l = lead as Lead
-  const name = l.name || "Lead"
-  const writtenOff = ["WRITE_OFF", "Writeoff", "Write_Off"].includes(l.status)
-  const converted = l.status === "CONVERTED" || l.status === "Converted"
+  const name = l.name || leadLabel
+  const writtenOff = l.writeOff || ["WRITE_OFF", "Writeoff", "Write_Off"].includes(l.status)
+  const converted = l.converted || l.status === "CONVERTED" || l.status === "Converted"
+  const conflictOk = String(l.conflictCheckStatus).replace(/\s+/g, "_") === "No_Conflict"
+  const proposedValue = Number(reductions?.proposedValue ?? l.proposedValue ?? 0)
+  const approvedValue = Number(reductions?.approvedValue ?? reductions?.lfaSignedValue ?? l.approvedValue ?? 0)
+  const hasProposal = proposedValue > 0
   const timeline = ((timelineQuery.data ?? []) as Record<string, unknown>[])
+  const convertLabel = l.repeated ? "Convert Lead" : "Close Lead"
 
-  async function applyStatus() {
-    if (!statusValue) return
-    try {
-      toast.success(await leadsApi.changeStatus(String(leadId), statusValue))
-      setStatusValue("")
-      qc.invalidateQueries({ queryKey: ["leads", "detail", leadId] })
-      qc.invalidateQueries({ queryKey: ["leads", "status-timeline", leadId] })
-    } catch (e: unknown) {
-      toast.error((e as { message?: string }).message ?? "Failed to update status")
+  function tryConvert() {
+    if (!conflictOk) {
+      toast.error("Conflict check must be No Conflict before convert/close")
+      return
     }
+    if (!hasProposal) {
+      toast.error("Proposal / estimate is required before convert/close")
+      setProposalOpen(true)
+      return
+    }
+    setConvertOpen(true)
   }
 
   async function confirmReopen() {
@@ -150,19 +179,42 @@ export default function LeadDetailPage() {
     }
   }
 
+  async function markNoConflict() {
+    try {
+      await leadsApi.completeConflict(String(leadId), "No_Conflict")
+      toast.success("Conflict marked as No Conflict")
+      qc.invalidateQueries({ queryKey: ["leads", "detail", leadId] })
+      qc.invalidateQueries({ queryKey: ["leads", "conflict", leadId] })
+    } catch (e: unknown) {
+      toast.error((e as { message?: string }).message ?? "Failed to complete conflict check")
+    }
+  }
+
+  function invalidateLead() {
+    qc.invalidateQueries({ queryKey: ["leads", "detail", leadId] })
+    qc.invalidateQueries({ queryKey: ["leads", "status-timeline", leadId] })
+    qc.invalidateQueries({ queryKey: ["leads", "reductions", leadId] })
+    qc.invalidateQueries({ queryKey: ["leads", "timelogs", leadId] })
+    qc.invalidateQueries({ queryKey: ["leads", "fee-earner-summary", leadId] })
+  }
+
   return (
     <PageShell
       title={name}
-      description={`Lead • ${l.practiceArea || "—"}`}
+      description={`${leadLabel} • ${l.practiceArea || "—"}`}
       breadcrumbs={[{ label: listLabel, path: listPath }, { label: name }]}
       action={(
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
           {!converted && !writtenOff && (
             <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>Edit</Button>
           )}
-          <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setFollowupOpen(true)}>Follow-up</Button>
-          {!writtenOff && !converted && (
-            <Button size="small" variant="contained" startIcon={<SwapHorizIcon />} onClick={() => setConvertOpen(true)}>Convert</Button>
+          {!converted && !writtenOff && (
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setFollowupOpen(true)}>Follow-up</Button>
+          )}
+          {!writtenOff && !converted && conflictOk && (
+            <Button size="small" variant="contained" startIcon={<SwapHorizIcon />} onClick={tryConvert}>
+              {convertLabel}
+            </Button>
           )}
           {writtenOff && (
             <Button size="small" variant="outlined" startIcon={<RestartAltIcon />} onClick={() => setReopenOpen(true)}>Reopen</Button>
@@ -171,9 +223,11 @@ export default function LeadDetailPage() {
             <MoreVertIcon fontSize="small" />
           </IconButton>
           <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
-            <MenuItem onClick={() => { setMenuAnchor(null); setAssignOpen(true) }}>
-              <PersonAddAltIcon fontSize="small" sx={{ mr: 1 }} /> Assign Attorney
-            </MenuItem>
+            {!converted && !writtenOff && (
+              <MenuItem onClick={() => { setMenuAnchor(null); setAssignOpen(true) }}>
+                <PersonAddAltIcon fontSize="small" sx={{ mr: 1 }} /> Assign Attorney
+              </MenuItem>
+            )}
             <MenuItem onClick={() => { setMenuAnchor(null); setProposalOpen(true) }}>
               <RequestQuoteIcon fontSize="small" sx={{ mr: 1 }} /> Proposal / Estimate
             </MenuItem>
@@ -182,12 +236,28 @@ export default function LeadDetailPage() {
                 <MoneyOffIcon fontSize="small" sx={{ mr: 1 }} /> Write Off
               </MenuItem>
             )}
+            {!conflictOk && !converted && !writtenOff && (
+              <MenuItem onClick={() => { setMenuAnchor(null); void markNoConflict() }}>
+                <GavelIcon fontSize="small" sx={{ mr: 1 }} /> Mark No Conflict
+              </MenuItem>
+            )}
+            <MenuItem component={RouterLink} to={`/conflict?leadId=${leadId}`} onClick={() => setMenuAnchor(null)}>
+              <GavelIcon fontSize="small" sx={{ mr: 1 }} /> Check Conflict
+            </MenuItem>
           </Menu>
         </Box>
       )}
     >
       <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 2, display: "flex", gap: 2.5, alignItems: "center", flexWrap: "wrap", width: "100%", boxSizing: "border-box" }}>
-        <Avatar sx={{ width: 56, height: 56, bgcolor: "secondary.main", fontSize: 22, flexShrink: 0 }}>
+        <Avatar
+          sx={{
+            width: 56,
+            height: 56,
+            bgcolor: writtenOff ? "error.main" : converted ? "success.main" : "warning.main",
+            fontSize: 22,
+            flexShrink: 0,
+          }}
+        >
           {(name[0] ?? "L").toUpperCase()}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -196,14 +266,21 @@ export default function LeadDetailPage() {
             <StatusBadge status={l.status} />
             {!!l.leadType && <Chip size="small" label={String(l.leadType)} variant="outlined" />}
             {!!l.practiceArea && <Chip size="small" label={l.practiceArea} variant="outlined" />}
-            {!!l.conflictCheckStatus && <Chip size="small" label={`Conflict: ${l.conflictCheckStatus}`} variant="outlined" />}
+            {!!l.conflictCheckStatus && <Chip size="small" label={`Conflict: ${l.conflictCheckStatus}`} variant="outlined" color={conflictOk ? "success" : "default"} />}
             {!!l.department && <Chip size="small" label={l.department} variant="outlined" />}
+            {l.repeated && <Chip size="small" label="Repeated" color="info" />}
           </Box>
         </Box>
         <Typography variant="caption" color="text.disabled" sx={{ width: { xs: "100%", sm: "auto" } }}>
           Created {formatDate(l.createdAt)}
         </Typography>
       </Paper>
+
+      {!conflictOk && !converted && !writtenOff && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Conflict check must be No Conflict before updating status or converting/closing this lead.
+        </Alert>
+      )}
 
       <Tabs tabs={[
         {
@@ -217,6 +294,8 @@ export default function LeadDetailPage() {
                   <DetailInfoRow label="Phone" value={l.phone || "—"} />
                   <DetailInfoRow label="Company" value={l.companyName || "—"} />
                   <DetailInfoRow label="Opposing Party" value={l.partyOpposing || "—"} />
+                  <DetailInfoRow label="Nationality" value={l.nationality || "—"} />
+                  <DetailInfoRow label="External Lead ID" value={l.externalLeadId || "—"} />
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Assignment</Typography>
@@ -224,35 +303,50 @@ export default function LeadDetailPage() {
                   <DetailInfoRow label="Practice Area" value={l.practiceArea || "—"} />
                   <DetailInfoRow label="Lead Source" value={l.leadSource || "—"} />
                   <DetailInfoRow label="Department" value={l.department || "—"} />
+                  <DetailInfoRow label="Procured By" value={l.procuredByName || "—"} />
+                  <DetailInfoRow label="Group" value={l.groupName || "—"} />
                   <DetailInfoRow label="Created By" value={l.createdBy || "—"} />
                   <DetailInfoRow label="Last Status Update" value={l.lastStatusUpdatedDate ? formatDate(l.lastStatusUpdatedDate) : "—"} />
                 </Paper>
               </Box>
 
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Proposal / Estimate</Typography>
+                  <Button size="small" onClick={() => setProposalOpen(true)}>Edit</Button>
+                </Box>
+                <DetailInfoRow label="Proposed Value" value={proposedValue ? formatCurrency(proposedValue) : "—"} />
+                <DetailInfoRow label="LFA / Approved Value" value={approvedValue ? formatCurrency(approvedValue) : "—"} />
+                {!hasProposal && (
+                  <Alert severity="info" sx={{ mt: 1.5 }}>
+                    A proposal is required before Close / Convert.
+                  </Alert>
+                )}
+              </Paper>
+
               {(l.description || l.dispute) && (
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Notes / Dispute</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Nature of Dispute</Typography>
                   <Typography variant="body2" color="text.secondary">{l.description || l.dispute}</Typography>
                 </Paper>
               )}
 
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>Update Status</Typography>
-                <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap" }}>
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select label="Status" value={statusValue} onChange={e => setStatusValue(e.target.value)}>
-                      {statusChoices.map(status => (
-                        <MenuItem key={status} value={status}>{status.replace(/_/g, " ")}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <Button variant="contained" size="small" disabled={!statusValue} onClick={applyStatus}>Apply</Button>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Status Timeline</Typography>
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    {!converted && !writtenOff && (
+                      <Button size="small" variant="outlined" onClick={() => setStatusUploadOpen(true)}>
+                        Upload Documents
+                      </Button>
+                    )}
+                    {!converted && !writtenOff && (
+                      <Button size="small" variant="contained" disabled={!conflictOk} onClick={() => setStatusOpen(true)}>
+                        Update Status
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
-              </Paper>
-
-              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>Status Timeline</Typography>
                 {!timeline.length && (
                   <Typography variant="body2" color="text.secondary">No status history yet</Typography>
                 )}
@@ -263,8 +357,10 @@ export default function LeadDetailPage() {
                     {!!timelineBy(item) && (
                       <Typography variant="caption" color="text.secondary">{timelineBy(item)}</Typography>
                     )}
-                    {!!item.note && (
-                      <Typography variant="caption" color="text.secondary">· {String(item.note)}</Typography>
+                    {!!(item.note ?? item.stageComments ?? item.comments) && (
+                      <Typography variant="caption" color="text.secondary">
+                        · {String(item.note ?? item.stageComments ?? item.comments)}
+                      </Typography>
                     )}
                   </Box>
                 ))}
@@ -273,7 +369,9 @@ export default function LeadDetailPage() {
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Recent Follow-ups</Typography>
-                  <Button size="small" onClick={() => setFollowupOpen(true)}>Add</Button>
+                  {!converted && !writtenOff && (
+                    <Button size="small" onClick={() => setFollowupOpen(true)}>Add</Button>
+                  )}
                 </Box>
                 {!followups.length && <Typography variant="body2" color="text.secondary">No follow-ups yet</Typography>}
                 {(followups as Record<string, unknown>[]).slice(0, 5).map((f, i) => (
@@ -282,6 +380,7 @@ export default function LeadDetailPage() {
                     <Typography variant="caption" color="text.secondary">
                       {fromNow(String(f.followUpTime ?? f.createdAt ?? ""))}
                       {f.createdBy ? ` · ${String(f.createdBy)}` : ""}
+                      {f.completed != null ? ` · ${f.completed ? "Completed" : "Pending"}` : ""}
                     </Typography>
                   </Box>
                 ))}
@@ -293,6 +392,13 @@ export default function LeadDetailPage() {
           label: `Follow-ups (${followups.length})`,
           content: (
             <Box sx={{ pt: 1 }}>
+              {!converted && !writtenOff && (
+                <Box sx={{ mb: 1.5, display: "flex", justifyContent: "flex-end" }}>
+                  <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setFollowupOpen(true)}>
+                    Add Follow-up
+                  </Button>
+                </Box>
+              )}
               {!followups.length && (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>No follow-ups yet</Typography>
               )}
@@ -314,91 +420,111 @@ export default function LeadDetailPage() {
         {
           label: `Meetings (${(meetings as unknown[]).length})`,
           content: (
-            <Box sx={{ pt: 1 }}>
-              <Box sx={{ mb: 1.5, display: "flex", justifyContent: "flex-end" }}>
-                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setMeetingOpen(true)}>
-                  Schedule Meeting
-                </Button>
-              </Box>
-              {!(meetings as unknown[]).length && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>No meetings yet</Typography>
-              )}
-              {(meetings as Record<string, unknown>[]).map((m, i) => (
-                <Paper key={String(m.id ?? i)} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2 }}>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {String(m.title ?? m.meetingTitle ?? m.subject ?? "Meeting")}
-                    </Typography>
-                    <StatusBadge status={String(m.status ?? m.meetingStatus ?? "")} />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {formatDateTime(String(m.meetingDate ?? m.date ?? m.startTime ?? ""))}
-                    {m.location ? ` · ${String(m.location)}` : ""}
-                  </Typography>
-                </Paper>
-              ))}
-            </Box>
+            <LeadMeetingsTab
+              leadId={String(leadId)}
+              meetings={meetings as Record<string, unknown>[]}
+              converted={converted}
+              writtenOff={writtenOff}
+              onSchedule={() => setMeetingOpen(true)}
+              onMeetingsChanged={() => {
+                void qc.invalidateQueries({ queryKey: ["leads", "meetings", leadId] })
+              }}
+            />
           ),
         },
         {
           label: "Time Log Entries",
           content: (
-            <DataGrid
-              columns={[
-                { field: "activity", header: "Activity", renderCell: (v, row) => String(v ?? (row as { activityName?: string }).activityName ?? "—") },
-                {
-                  field: "totalHours",
-                  header: "Hours",
-                  align: "right",
-                  renderCell: (_v, row) => {
-                    const r = row as Record<string, unknown>
-                    if (r.totalHours != null) return Number(r.totalHours).toFixed(2)
-                    const h = Number(r.hours ?? 0)
-                    const m = Number(r.minutes ?? 0)
-                    return h || m ? `${h}:${String(m).padStart(2, "0")}h` : "0"
+            <Box>
+              {!converted && !writtenOff && (
+                <Box sx={{ mb: 1.5, display: "flex", justifyContent: "flex-end" }}>
+                  <Button size="small" variant="contained" startIcon={<AccessTimeIcon />} onClick={() => setLogTimeOpen(true)}>
+                    Log Time
+                  </Button>
+                </Box>
+              )}
+              {converted && (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Select time log entries, then use Attach Time Log Entries to link them to a matter.
+                </Typography>
+              )}
+              {Array.isArray(feeEarnerSummary) && feeEarnerSummary.length > 0 && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Fee Earner Summary</Typography>
+                  {(feeEarnerSummary as Record<string, unknown>[]).map((row, i) => (
+                    <Box key={i} sx={{ display: "flex", gap: 3, flexWrap: "wrap", mb: 0.75 }}>
+                      <Typography variant="body2" sx={{ minWidth: 140 }}>
+                        {String(row.feeEarner ?? row.userName ?? row.name ?? "—")}
+                      </Typography>
+                      <Typography variant="body2">
+                        Hours: <strong>{Number(row.hours ?? row.totalHours ?? 0).toFixed(2)}</strong>
+                      </Typography>
+                      <Typography variant="body2">
+                        Amount: <strong>{formatCurrency(Number(row.amount ?? row.billing ?? row.totalAmount ?? 0))}</strong>
+                      </Typography>
+                    </Box>
+                  ))}
+                </Paper>
+              )}
+              <DataGrid
+                key={timelogGridKey}
+                columns={[
+                  { field: "activity", header: "Activity", renderCell: (v, row) => String(v ?? (row as { activityName?: string }).activityName ?? "—") },
+                  {
+                    field: "totalHours",
+                    header: "Hours",
+                    align: "right",
+                    renderCell: (_v, row) => {
+                      const r = row as Record<string, unknown>
+                      if (r.totalHours != null) return Number(r.totalHours).toFixed(2)
+                      const h = Number(r.hours ?? 0)
+                      const m = Number(r.minutes ?? 0)
+                      return h || m ? `${h}:${String(m).padStart(2, "0")}h` : "0"
+                    },
                   },
-                },
-                { field: "billing", header: "Amount", align: "right", renderCell: (v, row) => formatCurrency(Number(v ?? (row as { amount?: number }).amount ?? 0)) },
-                {
-                  field: "entryDate",
-                  header: "Date",
-                  renderCell: (v, row) => {
-                    const d = v ?? (row as Record<string, unknown>).createdAt
-                    return d ? formatDate(String(d)) : "—"
+                  { field: "billing", header: "Amount", align: "right", renderCell: (v, row) => formatCurrency(Number(v ?? (row as { amount?: number }).amount ?? 0)) },
+                  {
+                    field: "entryDate",
+                    header: "Date",
+                    renderCell: (v, row) => {
+                      const d = v ?? (row as Record<string, unknown>).createdAt
+                      return d ? formatDate(String(d)) : "—"
+                    },
                   },
-                },
-                { field: "userName", header: "User", renderCell: (v, row) => String(v ?? (row as { responsiblePersonName?: string }).responsiblePersonName ?? "—") },
-              ]}
-              queryKey={["leads", "timelogs", leadId]}
-              queryFn={(p: GridParams) => leadsApi.getTimelogs(String(leadId), p)}
-              zebraStriping
-            />
+                  { field: "userName", header: "User", renderCell: (v, row) => String(v ?? (row as { responsiblePersonName?: string }).responsiblePersonName ?? "—") },
+                ]}
+                queryKey={["leads", "timelogs", leadId]}
+                queryFn={(p: GridParams) => leadsApi.getTimelogs(String(leadId), p)}
+                zebraStriping
+                hasRowSelection={converted}
+                bulkActions={converted ? [{
+                  label: "Attach Time Log Entries",
+                  icon: <LinkIcon fontSize="small" />,
+                  onClick: (selected) => {
+                    const ids = selected
+                      .map(r => String((r as Record<string, unknown>).activityId ?? (r as Record<string, unknown>).id ?? ""))
+                      .filter(Boolean)
+                    if (!ids.length) {
+                      toast.error("Select at least one time log entry")
+                      return
+                    }
+                    setAttachActivityIds(ids)
+                    setAttachTimelogOpen(true)
+                  },
+                }] : undefined}
+              />
+            </Box>
           ),
         },
         {
           label: "Conflict Check",
           content: (
-            <Box sx={{ pt: 1 }}>
-              {!(conflicts as unknown[]).length && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                  No conflict matches found
-                </Typography>
-              )}
-              {(conflicts as Record<string, unknown>[]).map((c, i) => (
-                <Paper key={String(c.id ?? i)} variant="outlined" sx={{ p: 2, mb: 1.5, borderRadius: 2 }}>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {String(c.partyName ?? c.name ?? c.matchedName ?? "Match")}
-                    </Typography>
-                    <StatusBadge status={String(c.status ?? c.risk ?? "")} />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {String(c.matchType ?? c.type ?? "—")}
-                    {c.details ? ` · ${String(c.details)}` : ""}
-                  </Typography>
-                </Paper>
-              ))}
-            </Box>
+            <LeadConflictTab
+              leadId={String(leadId)}
+              canEdit={!converted && !writtenOff}
+              conflictOk={conflictOk}
+              onMarkNoConflict={!conflictOk && !converted && !writtenOff ? () => { void markNoConflict() } : undefined}
+            />
           ),
         },
         {
@@ -433,14 +559,20 @@ export default function LeadDetailPage() {
           toast.success("Follow-up added")
         }}
       />
-      <LeadConvertDialog open={convertOpen} onClose={() => setConvertOpen(false)} leadId={leadId!} leadName={name} />
+      <LeadConvertDialog
+        open={convertOpen}
+        onClose={() => setConvertOpen(false)}
+        leadId={leadId!}
+        leadName={name}
+        repeated={!!l.repeated}
+      />
       <LeadFormDrawer
         open={editOpen}
         onClose={() => setEditOpen(false)}
         leadId={leadId}
         onSaved={() => {
           setEditOpen(false)
-          qc.invalidateQueries({ queryKey: ["leads", "detail", leadId] })
+          invalidateLead()
           toast.success("Lead updated")
         }}
       />
@@ -451,7 +583,7 @@ export default function LeadDetailPage() {
         currentAttorneyId={l.attorneyId}
         onSuccess={() => {
           setAssignOpen(false)
-          qc.invalidateQueries({ queryKey: ["leads", "detail", leadId] })
+          invalidateLead()
           toast.success("Attorney assigned")
         }}
       />
@@ -461,7 +593,7 @@ export default function LeadDetailPage() {
         leadId={leadId!}
         onSuccess={() => {
           setWriteOffOpen(false)
-          qc.invalidateQueries({ queryKey: ["leads", "detail", leadId] })
+          invalidateLead()
           toast.success("Lead written off")
         }}
       />
@@ -471,7 +603,7 @@ export default function LeadDetailPage() {
         leadId={leadId!}
         onSuccess={() => {
           setProposalOpen(false)
-          qc.invalidateQueries({ queryKey: ["leads", "detail", leadId] })
+          invalidateLead()
           toast.success("Proposal saved")
         }}
       />
@@ -483,6 +615,50 @@ export default function LeadDetailPage() {
           setMeetingOpen(false)
           qc.invalidateQueries({ queryKey: ["leads", "meetings", leadId] })
           toast.success("Meeting scheduled")
+        }}
+      />
+      <LeadStatusDialog
+        open={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        leadId={leadId!}
+        statuses={statusChoices}
+        initialStatus={l.status}
+        onSuccess={invalidateLead}
+      />
+      <LeadStatusUploadDialog
+        open={statusUploadOpen}
+        onClose={() => setStatusUploadOpen(false)}
+        leadId={leadId!}
+        timeline={timeline}
+        onSuccess={() => {
+          invalidateLead()
+          void qc.invalidateQueries({ queryKey: ["leads", "statuses"] })
+        }}
+      />
+      <ActivityFormDrawer
+        open={logTimeOpen}
+        onClose={() => setLogTimeOpen(false)}
+        prefillLeadId={leadId!}
+        onSuccess={() => {
+          setLogTimeOpen(false)
+          invalidateLead()
+          toast.success("Time entry logged")
+        }}
+      />
+      <AttachTimelogEntriesDialog
+        open={attachTimelogOpen}
+        onClose={() => {
+          setAttachTimelogOpen(false)
+          setAttachActivityIds([])
+        }}
+        clientId={l.clientId}
+        activityIds={attachActivityIds}
+        onSuccess={() => {
+          setAttachTimelogOpen(false)
+          setAttachActivityIds([])
+          setTimelogGridKey(k => k + 1)
+          void qc.invalidateQueries({ queryKey: ["leads", "timelogs", leadId] })
+          void qc.invalidateQueries({ queryKey: ["leads", "fee-earner-summary", leadId] })
         }}
       />
       <ConfirmDialog

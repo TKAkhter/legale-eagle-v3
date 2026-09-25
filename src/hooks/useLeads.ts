@@ -37,7 +37,8 @@ export function useUpdateLead(opts?: { onSuccess?: () => void }) {
 export function useConvertLead(opts?: { onSuccess?: () => void }) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ leadId, matter }: { leadId: string; matter: Record<string,unknown> }) => leadsApi.convert(leadId, matter),
+    mutationFn: ({ leadId, clientId, lfaId }: { leadId: string; clientId: string; lfaId: string }) =>
+      leadsApi.convert(leadId, { clientId, lfaId }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: QK.all() }); opts?.onSuccess?.() },
   })
 }

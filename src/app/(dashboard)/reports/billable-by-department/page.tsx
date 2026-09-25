@@ -9,6 +9,7 @@ export default function Page() {
       description="Department billing totals"
       queryKey={["reports", "billable-by-department"]}
       queryFn={p => reportsApi.getBillableByDepartment(p)}
+      emailExcelFn={f => reportsApi.requestBillableByDepartmentExcel(f)}
       filters={{"showDepartment":true,"showDateRange":true}}
       columns={[
         { field: "departmentName", header: "Department", renderCell: v => String(v || "—") },

@@ -17,33 +17,46 @@ function pageOf<T>(rows: T[], p: GridParams): PageResponse<T> {
   }
 }
 
+function filterByLeaveStatus(
+  rows: Record<string, unknown>[],
+  status: unknown,
+): Record<string, unknown>[] {
+  const s = String(status ?? "").trim()
+  if (!s || s === "All") return rows
+  return rows.filter(r => String(r.leaveStatus ?? "") === s)
+}
+
 export const leavesApi = {
   async getMyLeaves(p: GridParams): Promise<PageResponse<Record<string, unknown>>> {
     if (env.USE_STATIC_DATA) {
       const rows = [
-        { id: "l1", fromDate: "2026-09-01", toDate: "2026-09-03", leaveType: { type: "Annual" }, description: "Family trip", leaveStatus: "Accepted" },
+        { id: "l1", fromDate: "2026-09-01", toDate: "2026-09-03", leaveType: { type: "Annual" }, description: "Family trip", leaveStatus: "Accepted", note: "Enjoy" },
         { id: "l2", fromDate: "2026-10-10", toDate: "2026-10-11", leaveType: { type: "Sick" }, description: "Medical", leaveStatus: "Submitted" },
+        { id: "l3", fromDate: "2026-08-01", toDate: "2026-08-02", leaveType: { type: "Unpaid" }, description: "Personal", leaveStatus: "Rejected", note: "Peak period" },
       ]
-      return pageOf(rows, p)
+      return pageOf(filterByLeaveStatus(rows, p.filters?.leaveStatus), p)
     }
     const res = await axiosClient.get("/api/leave/user/leaves")
     const list = (res.data?.data ?? res.data ?? []) as Record<string, unknown>[]
     const arr = Array.isArray(list) ? list : []
-    return pageOf(arr.map((r, i) => ({ ...r, id: String(r.id ?? i) })), p)
+    const mapped = arr.map((r, i) => ({ ...r, id: String(r.id ?? i) }))
+    return pageOf(filterByLeaveStatus(mapped, p.filters?.leaveStatus), p)
   },
 
   async getApplications(p: GridParams): Promise<PageResponse<Record<string, unknown>>> {
     if (env.USE_STATIC_DATA) {
       const rows = [
         { id: "la1", fromDate: "2026-09-20", toDate: "2026-09-22", leaveType: { type: "Annual" }, description: "Travel", leaveStatus: "Submitted", leaveTakenByName: "Emily Harper" },
-        { id: "la2", fromDate: "2026-09-15", toDate: "2026-09-15", leaveType: { type: "Sick" }, description: "Fever", leaveStatus: "Accepted", leaveTakenByName: "John Smith" },
+        { id: "la2", fromDate: "2026-09-15", toDate: "2026-09-15", leaveType: { type: "Sick" }, description: "Fever", leaveStatus: "Accepted", leaveTakenByName: "John Smith", note: "Approved — coverage OK" },
+        { id: "la3", fromDate: "2026-09-05", toDate: "2026-09-06", leaveType: { type: "Annual" }, description: "Event", leaveStatus: "Rejected", leaveTakenByName: "Sara Ali", note: "Insufficient notice" },
       ]
-      return pageOf(rows, p)
+      return pageOf(filterByLeaveStatus(rows, p.filters?.leaveStatus), p)
     }
     const res = await axiosClient.get("/api/leave/list")
     const list = (res.data?.data ?? res.data ?? []) as Record<string, unknown>[]
     const arr = Array.isArray(list) ? list : []
-    return pageOf(arr.map((r, i) => ({ ...r, id: String(r.id ?? i) })), p)
+    const mapped = arr.map((r, i) => ({ ...r, id: String(r.id ?? i) }))
+    return pageOf(filterByLeaveStatus(mapped, p.filters?.leaveStatus), p)
   },
 
   async getLeaveTypes() {

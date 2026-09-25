@@ -1,17 +1,24 @@
 import { useEffect, useState } from "react"
 import {
-  Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControlLabel, TextField,
+  Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControlLabel,
 } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
+import EditIcon from "@mui/icons-material/Edit"
+import DeleteIcon from "@mui/icons-material/Delete"
+import StarIcon from "@mui/icons-material/Star"
+import ToggleOnIcon from "@mui/icons-material/ToggleOn"
+import ToggleOffIcon from "@mui/icons-material/ToggleOff"
 import { useForm } from "react-hook-form"
 import { useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { FormDrawer } from "@components/ui/FormDrawer"
 import { FormSection } from "@components/forms/FormSection"
 import { ControlledInput } from "@components/forms/ControlledInput"
 import { ControlledSelect } from "@components/forms/ControlledSelect"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { SearchInput } from "@components/filters"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { formatDate } from "@lib/utils/formatDate"
@@ -45,7 +52,18 @@ function AccountFilters({ onSearch, onReset, filters }: FilterPanelProps) {
   )
 }
 
-function AddAccountDrawer({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess?: () => void }) {
+function AccountFormDrawer({
+  open,
+  onClose,
+  onSuccess,
+  account,
+}: {
+  open: boolean
+  onClose: () => void
+  onSuccess?: () => void
+  account?: Record<string, unknown> | null
+}) {
+  const isEdit = !!account?.id
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { control, handleSubmit, reset, watch, setValue, formState: { isSubmitting } } = useForm<AccountForm>({
     defaultValues: {
@@ -60,23 +78,60 @@ function AddAccountDrawer({ open, onClose, onSuccess }: { open: boolean; onClose
   })
   const defaultAccount = watch("defaultAccount")
 
-  useEffect(() => { if (!open) reset() }, [open, reset])
+  useEffect(() => {
+    if (!open) {
+      reset()
+      setSubmitError(null)
+      return
+    }
+    if (account) {
+      reset({
+        accountName: String(account.accountName ?? ""),
+        accountNumber: String(account.accountNumber ?? ""),
+        accountType: String(account.accountType ?? "Current"),
+        bankName: String(account.bankName ?? ""),
+        currency: String(account.currency ?? "AED"),
+        openingBalance: String(account.openingBalance ?? "0"),
+        defaultAccount: Boolean(account.defaultAccount),
+      })
+    } else {
+      reset({
+        accountName: "",
+        accountNumber: "",
+        accountType: "Current",
+        bankName: "",
+        currency: "AED",
+        openingBalance: "0",
+        defaultAccount: true,
+      })
+    }
+  }, [open, account, reset])
 
   async function onSubmit(data: AccountForm) {
     setSubmitError(null)
     if (!data.accountName.trim()) { setSubmitError("Account name is required"); return }
+    if (!data.accountNumber.trim()) { setSubmitError("Account number is required"); return }
+    if (!data.bankName.trim()) { setSubmitError("Bank name is required"); return }
+    if (!data.accountType) { setSubmitError("Account type is required"); return }
+    if (!data.currency) { setSubmitError("Currency is required"); return }
     try {
-      toast.success(await bankAccountsApi.create({
+      const payload = {
         ...data,
         openingBalance: Number(data.openingBalance) || 0,
-      }))
+        active: account?.active !== false,
+      }
+      const msg = isEdit
+        ? await bankAccountsApi.update(String(account!.id), payload)
+        : await bankAccountsApi.create(payload)
+      toast.success(msg)
       onSuccess?.()
       onClose()
     } catch (e: unknown) {
       setSubmitError(
-        (e as { response?: { data?: { Msg?: string } } })?.response?.data?.Msg
+        (e as { response?: { data?: { Msg?: string; message?: string } } })?.response?.data?.Msg
+        ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
         ?? (e as { message?: string })?.message
-        ?? "Failed to add account",
+        ?? (isEdit ? "Failed to update account" : "Failed to add account"),
       )
     }
   }
@@ -85,7 +140,7 @@ function AddAccountDrawer({ open, onClose, onSuccess }: { open: boolean; onClose
     <FormDrawer
       open={open}
       onClose={onClose}
-      title="Add Bank Account"
+      title={isEdit ? "Edit Bank Account" : "Add Bank Account"}
       onSubmit={handleSubmit(onSubmit)}
       isSubmitting={isSubmitting}
       submitLabel="Save"
@@ -94,7 +149,7 @@ function AddAccountDrawer({ open, onClose, onSuccess }: { open: boolean; onClose
       {submitError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSubmitError(null)}>{submitError}</Alert>}
       <FormSection title="Account">
         <ControlledInput name="accountName" control={control} label="Account Name" required />
-        <ControlledInput name="accountNumber" control={control} label="Account Number" />
+        <ControlledInput name="accountNumber" control={control} label="Account Number" required />
         <ControlledSelect
           name="accountType"
           control={control}
@@ -102,10 +157,9 @@ function AddAccountDrawer({ open, onClose, onSuccess }: { open: boolean; onClose
           options={[
             { value: "Current", label: "Current" },
             { value: "Savings", label: "Savings" },
-            { value: "Trust", label: "Trust" },
           ]}
         />
-        <ControlledInput name="bankName" control={control} label="Bank Name" />
+        <ControlledInput name="bankName" control={control} label="Bank Name" required />
         <ControlledSelect
           name="currency"
           control={control}
@@ -113,11 +167,9 @@ function AddAccountDrawer({ open, onClose, onSuccess }: { open: boolean; onClose
           options={[
             { value: "AED", label: "AED" },
             { value: "USD", label: "USD" },
-            { value: "EUR", label: "EUR" },
-            { value: "GBP", label: "GBP" },
           ]}
         />
-        <ControlledInput name="openingBalance" control={control} label="Opening Balance" />
+        <ControlledInput name="openingBalance" control={control} label="Opening Balance" required />
         <FormControlLabel
           control={<Checkbox checked={defaultAccount} onChange={e => setValue("defaultAccount", e.target.checked)} />}
           label="Default account"
@@ -189,17 +241,29 @@ function TransactionsDialog({
 }
 
 export default function BankAccountsPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [editAccount, setEditAccount] = useState<Record<string, unknown> | null>(null)
   const [txAccount, setTxAccount] = useState<Record<string, unknown> | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Record<string, unknown> | null>(null)
   const [gridKey, setGridKey] = useState(0)
+
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ["bank-accounts"] })
+    setGridKey(k => k + 1)
+  }
 
   return (
     <PageShell
-      title="Bank Accounts"
-      description="Firm bank accounts and transactions"
+      title={t("nav.bankAccounts")}
+      description={t("pages.bankAccountsDesc")}
       action={(
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDrawerOpen(true)}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => { setEditAccount(null); setDrawerOpen(true) }}
+        >
           Add Account
         </Button>
       )}
@@ -221,7 +285,23 @@ export default function BankAccountsPage() {
           {
             field: "defaultAccount",
             header: "Default",
-            renderCell: v => (v ? "Yes" : "—"),
+            renderCell: v => (v ? <Chip size="small" color="primary" label="Default" /> : "—"),
+          },
+          {
+            field: "active",
+            header: "Status",
+            width: 110,
+            renderCell: (v, row) => {
+              const active = v !== false && (row as { status?: string }).status !== "INACTIVE"
+              return (
+                <Chip
+                  size="small"
+                  label={active ? "Active" : "Inactive"}
+                  color={active ? "success" : "default"}
+                  variant="outlined"
+                />
+              )
+            },
           },
         ]}
         queryKey={["bank-accounts", "list"]}
@@ -229,22 +309,89 @@ export default function BankAccountsPage() {
         FilterPanel={AccountFilters}
         hasFilters
         zebraStriping
-        rowMenuItems={(row) => [
-          { label: "Transactions", onClick: () => setTxAccount(row as Record<string, unknown>) },
-        ]}
-      />
-      <AddAccountDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onSuccess={() => {
-          qc.invalidateQueries({ queryKey: ["bank-accounts"] })
-          setGridKey(k => k + 1)
+        rowMenuItems={(row) => {
+          const r = row as Record<string, unknown>
+          const id = String(r.id ?? "")
+          const isDefault = Boolean(r.defaultAccount)
+          const active = r.active !== false && r.status !== "INACTIVE"
+          return [
+            { label: "Transactions", onClick: () => setTxAccount(r) },
+            {
+              label: "Edit",
+              icon: <EditIcon fontSize="small" />,
+              onClick: () => { setEditAccount(r); setDrawerOpen(true) },
+            },
+            ...(!isDefault ? [{
+              label: "Set as Default",
+              icon: <StarIcon fontSize="small" />,
+              onClick: async () => {
+                try {
+                  toast.success(await bankAccountsApi.setDefault(id, r))
+                  refresh()
+                } catch (e: unknown) {
+                  toast.error(
+                    (e as { response?: { data?: { Msg?: string } } })?.response?.data?.Msg
+                    ?? (e as { message?: string })?.message
+                    ?? "Failed to set default",
+                  )
+                }
+              },
+            }] : []),
+            {
+              label: active ? "Deactivate" : "Activate",
+              icon: active ? <ToggleOffIcon fontSize="small" /> : <ToggleOnIcon fontSize="small" />,
+              onClick: async () => {
+                try {
+                  toast.success(await bankAccountsApi.setActive(id, r, !active))
+                  refresh()
+                } catch (e: unknown) {
+                  toast.error(
+                    (e as { response?: { data?: { Msg?: string } } })?.response?.data?.Msg
+                    ?? (e as { message?: string })?.message
+                    ?? "Failed to update status",
+                  )
+                }
+              },
+            },
+            {
+              label: "Delete",
+              icon: <DeleteIcon fontSize="small" />,
+              onClick: () => setDeleteTarget(r),
+            },
+          ]
         }}
+      />
+      <AccountFormDrawer
+        open={drawerOpen}
+        account={editAccount}
+        onClose={() => { setDrawerOpen(false); setEditAccount(null) }}
+        onSuccess={refresh}
       />
       <TransactionsDialog
         open={!!txAccount}
         account={txAccount}
         onClose={() => setTxAccount(null)}
+      />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Bank Account"
+        message={`Delete “${String(deleteTarget?.accountName ?? "")}”? This cannot be undone.`}
+        confirmLabel="Delete"
+        severity="error"
+        onConfirm={async () => {
+          if (!deleteTarget?.id) return
+          try {
+            toast.success(await bankAccountsApi.remove(String(deleteTarget.id)))
+            refresh()
+          } catch (e: unknown) {
+            toast.error(
+              (e as { response?: { data?: { Msg?: string } } })?.response?.data?.Msg
+              ?? (e as { message?: string })?.message
+              ?? "Failed to delete account",
+            )
+          }
+        }}
       />
     </PageShell>
   )

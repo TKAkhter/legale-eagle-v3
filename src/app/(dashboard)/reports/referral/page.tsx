@@ -9,6 +9,7 @@ export default function ReferralReportPage() {
       description="Referral party amounts and sources"
       queryKey={["reports", "referral"]}
       queryFn={p => reportsApi.getReferralReport(p)}
+      emailExcelFn={f => reportsApi.requestReferralReportExcel(f)}
       filters={{ showClient: true, showDateRange: true }}
       columns={[
         { field: "referralParty", header: "Referral Party", sortKey: "referralParty", renderCell: (v, row) => String(v ?? (row as { referralName?: string }).referralName ?? "—") },

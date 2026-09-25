@@ -1,17 +1,23 @@
 import PrintIcon from '@mui/icons-material/Print'
 import HistoryIcon from '@mui/icons-material/History'
 import EditIcon from '@mui/icons-material/Edit'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
+import CancelIcon from '@mui/icons-material/Cancel'
+import SyncIcon from '@mui/icons-material/Sync'
 import { PageShell } from '@/components/ui/PageShell'
 import { toast } from '@/lib/toast'
 import { env } from '@/config/env'
 import { useState } from 'react'
-import { Box, Typography, Paper, Chip, Skeleton, Button, Divider } from '@mui/material'
-import { useParams } from 'react-router-dom'
+import {
+  Box, Typography, Paper, Skeleton, Button, Divider, Chip,
+  IconButton, Menu, MenuItem,
+} from '@mui/material'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { axiosClient, axiosBlob } from '@lib/api/axios'
 import { billingApi } from '@/api/billing'
-import { clientInvoices as staticInvoices } from '@/data/static'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDate } from '@lib/utils/formatDate'
 import { formatCurrency } from '@lib/utils/formatCurrency'
 import { downloadBlob } from '@lib/utils/downloadBlob'
@@ -19,6 +25,7 @@ import { RecordPaymentDialog } from '../_components/RecordPaymentDialog'
 import { InvoiceFormDrawer } from '../_components/InvoiceFormDrawer'
 import { InvoiceSendForApprovalDialog } from '../_components/InvoiceSendForApprovalDialog'
 import { InvoiceSendEmailDialog } from '../_components/InvoiceSendEmailDialog'
+import { CancelWithCreditDialog } from '../_components/CancelWithCreditDialog'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import EmailIcon from '@mui/icons-material/Email'
 import DescriptionIcon from '@mui/icons-material/Description'
@@ -36,6 +43,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function InvoiceDetailPage() {
   const { invoiceId } = useParams()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [downloading, setDownloading] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
@@ -43,13 +51,15 @@ export default function InvoiceDetailPage() {
   const [approveOpen, setApproveOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
   const [dlWord, setDlWord] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelCreditOpen, setCancelCreditOpen] = useState(false)
+  const [writeOffOpen, setWriteOffOpen] = useState(false)
+  const [zohoOpen, setZohoOpen] = useState(false)
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoices', 'detail', invoiceId],
-    queryFn: async () => {
-      if (env.USE_STATIC_DATA) return staticInvoices.find(i => i.id === invoiceId) ?? staticInvoices[0]
-      return billingApi.getById(invoiceId!)
-    },
+    queryFn: () => billingApi.getById(invoiceId!),
     enabled: !!invoiceId,
   })
 
@@ -71,6 +81,10 @@ export default function InvoiceDetailPage() {
     },
   })
 
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: ['invoices', 'detail', invoiceId] })
+    qc.invalidateQueries({ queryKey: ['invoices', 'list'] })
+  }
 
   async function downloadWord() {
     setDlWord(true)
@@ -81,47 +95,64 @@ export default function InvoiceDetailPage() {
     } finally { setDlWord(false) }
   }
 
-  async function downloadPdf() {
+  async function downloadPdf(opts?: { language?: string; targetCurrency?: string }) {
     setDownloading(true)
     try {
       if (env.USE_STATIC_DATA) { toast.success('Download simulated in static mode'); return }
-      const r = await axiosBlob.get('/api/invoice/convert/pdf', { params: { invoiceId } })
-      downloadBlob(r.data as Blob, `invoice-${invoice?.invoiceNo ?? invoiceId}.pdf`)
+      const suffix = [opts?.language, opts?.targetCurrency].filter(Boolean).join('-')
+      downloadBlob(
+        await billingApi.downloadPdf(String(invoiceId), opts),
+        `invoice-${invoice?.invoiceNo ?? invoiceId}${suffix ? `-${suffix}` : ''}.pdf`,
+      )
+    } catch {
+      toast.error('PDF download failed')
     } finally { setDownloading(false) }
   }
 
   if (isLoading) return <Skeleton variant="rounded" height={200} />
 
-  const client = invoice?.client as Record<string,string> | undefined
-  const matter = invoice?.matter as Record<string,string> | undefined
+  const inv = invoice as Record<string, unknown> | undefined
+  const client = inv?.client as Record<string, string> | undefined
+  const matter = inv?.matter as Record<string, string> | undefined
   const balance = Math.max(
     0,
     Number(
       (
-        Number(invoice?.dueAmount ?? invoice?.balanceAmount ?? 0)
-        - Number(invoice?.paidAmount ?? 0)
-        - Number(invoice?.writeOffAmount ?? 0)
-        - Number(invoice?.creditNoteAmount ?? 0)
+        Number(inv?.dueAmount ?? inv?.balanceAmount ?? 0)
+        - Number(inv?.paidAmount ?? 0)
+        - Number(inv?.writeOffAmount ?? 0)
+        - Number(inv?.creditNoteAmount ?? 0)
       ).toFixed(2),
     ),
   )
-  const availableCreditNote = Number(invoice?.creditNoteAmount ?? 0)
-  const status = String(invoice?.invoiceStatus ?? '')
+  const availableCreditNote = Number(inv?.creditNoteAmount ?? 0)
+  const status = String(inv?.invoiceStatus ?? '')
+  const statusUpper = status.toUpperCase()
   const canEdit = /draft|approval|pending/i.test(status)
   const canSendApproval = !/approval|paid|void|canceled|cancelled|write_off/i.test(status)
+  const isTerminal = ['VOID', 'CANCELED', 'CANCELLED', 'WRITE_OFF'].includes(statusUpper)
+  const canCancelActions = !isTerminal && statusUpper !== 'PAID'
+  const isCreditNote = statusUpper === 'CREDITNOTE' || statusUpper === 'CREDIT_NOTE'
+  const clientZohoId = client?.zohoClientId
+  const zohoId = isCreditNote ? inv?.zohoCreditNoteId : inv?.zohoInvoiceId
+  const canCreateInZoho = !zohoId && !!clientZohoId && (
+    isCreditNote || statusUpper === 'DUE' || statusUpper === 'PAID'
+  )
+  const lineItems = (Array.isArray(inv?.lineItems) ? inv.lineItems : []) as Record<string, unknown>[]
 
-  const invNo = (invoice as Record<string,unknown>)?.invoiceNo ?? invoiceId
+  const invNo = inv?.invoiceNo ?? invoiceId
   return (
     <PageShell title={`Invoice #${String(invNo)}`} breadcrumbs={[{label:'Billing',path:'/billings'},{label:`#${String(invNo)}`}]}>
       <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Invoice #{invoice?.invoiceNo}</Typography>
-          <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-            <StatusBadge status={invoice?.invoiceStatus ?? '—'} />
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>Invoice #{String(inv?.invoiceNo ?? invNo)}</Typography>
+          <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+            <StatusBadge status={status || '—'} />
+            {!!zohoId && <Chip size="small" label="Zoho" color="info" variant="outlined" />}
           </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {canEdit && (
             <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
               Edit
@@ -132,7 +163,7 @@ export default function InvoiceDetailPage() {
               Send for Approval
             </Button>
           )}
-          <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadPdf} disabled={downloading}>
+          <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => void downloadPdf()} disabled={downloading}>
             {downloading ? 'Downloading…' : 'PDF'}
           </Button>
           <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={downloadWord} disabled={dlWord}>
@@ -146,6 +177,46 @@ export default function InvoiceDetailPage() {
               Record Payment
             </Button>
           )}
+          <IconButton size="small" onClick={e => setMenuAnchor(e.currentTarget)} aria-label="More actions">
+            <MoreVertIcon fontSize="small" />
+          </IconButton>
+          <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+            <MenuItem onClick={() => { setMenuAnchor(null); void downloadPdf({ language: 'ar' }) }}>
+              PDF (Arabic)
+            </MenuItem>
+            <MenuItem onClick={() => { setMenuAnchor(null); void downloadPdf({ targetCurrency: 'USD' }) }}>
+              PDF (USD)
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setMenuAnchor(null)
+                navigate(`/billings/invoice-snaps?id=${invoiceId}`)
+              }}
+            >
+              <HistoryIcon fontSize="small" sx={{ mr: 1 }} /> Invoice History
+            </MenuItem>
+            {canCancelActions && (
+              <MenuItem onClick={() => { setMenuAnchor(null); setCancelOpen(true) }}>
+                <CancelIcon fontSize="small" sx={{ mr: 1 }} /> Cancel
+              </MenuItem>
+            )}
+            {canCancelActions && (
+              <MenuItem onClick={() => { setMenuAnchor(null); setCancelCreditOpen(true) }}>
+                Cancel (Credit/Refund)
+              </MenuItem>
+            )}
+            {canCancelActions && (
+              <MenuItem onClick={() => { setMenuAnchor(null); setWriteOffOpen(true) }}>
+                Write Off
+              </MenuItem>
+            )}
+            {canCreateInZoho && (
+              <MenuItem onClick={() => { setMenuAnchor(null); setZohoOpen(true) }}>
+                <SyncIcon fontSize="small" sx={{ mr: 1 }} />
+                {isCreditNote ? 'Create Credit Note in Zoho' : 'Create in Zoho'}
+              </MenuItem>
+            )}
+          </Menu>
         </Box>
       </Box>
 
@@ -153,17 +224,17 @@ export default function InvoiceDetailPage() {
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 2, mb: 2 }}>
           <InfoRow label="Client" value={client?.companyName ?? client?.firstName} />
           <InfoRow label="Matter" value={matter?.title} />
-          <InfoRow label="Issue Date" value={formatDate(invoice?.issueDate)} />
-          <InfoRow label="Due Date"   value={formatDate(invoice?.dueDate)} />
-          <InfoRow label="Billing Type" value={invoice?.billingType} />
+          <InfoRow label="Issue Date" value={formatDate(inv?.issueDate as string | undefined)} />
+          <InfoRow label="Due Date"   value={formatDate(inv?.dueDate as string | undefined)} />
+          <InfoRow label="Billing Type" value={inv?.billingType as string | undefined} />
         </Box>
         <Divider sx={{ my: 2 }} />
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 2 }}>
-          <InfoRow label="Subtotal"  value={formatCurrency(invoice?.amount)} />
-          <InfoRow label="Tax"       value={formatCurrency(invoice?.vatAmount)} />
-          <InfoRow label="Discount"  value={invoice?.discount ? `${invoice.discount}%` : '—'} />
-          <InfoRow label="Total"     value={<Typography sx={{ fontWeight: 700, fontSize: 16 }}>{formatCurrency(invoice?.taxableAmount)}</Typography>} />
-          <InfoRow label="Paid"      value={formatCurrency(invoice?.paidAmount)} />
+          <InfoRow label="Subtotal"  value={formatCurrency(Number(inv?.amount ?? 0))} />
+          <InfoRow label="Tax"       value={formatCurrency(Number(inv?.vatAmount ?? 0))} />
+          <InfoRow label="Discount"  value={inv?.discount ? `${inv.discount}%` : '—'} />
+          <InfoRow label="Total"     value={<Typography sx={{ fontWeight: 700, fontSize: 16 }}>{formatCurrency(Number(inv?.taxableAmount ?? 0))}</Typography>} />
+          <InfoRow label="Paid"      value={formatCurrency(Number(inv?.paidAmount ?? 0))} />
           <InfoRow label="Balance"   value={
             <Typography sx={{ fontWeight: 600, color: balance > 0 ? 'error.main' : 'success.main' }}>
               {formatCurrency(balance)}
@@ -174,10 +245,10 @@ export default function InvoiceDetailPage() {
 
       <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, mb: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>Line Items</Typography>
-        {(((invoice as Record<string, unknown>)?.lineItems as Record<string, unknown>[]) ?? []).length === 0 && (
+        {lineItems.length === 0 && (
           <Typography variant="body2" color="text.secondary">No line items</Typography>
         )}
-        {(((invoice as Record<string, unknown>)?.lineItems as Record<string, unknown>[]) ?? []).map((item, index) => (
+        {lineItems.map((item, index) => (
           <Box key={String(item.id ?? index)} sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 1, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
             <Typography variant="body2">{String(item.description ?? '—')}</Typography>
             <Typography variant="body2" color="text.secondary">Qty {String(item.quantity ?? 1)}</Typography>
@@ -218,7 +289,7 @@ export default function InvoiceDetailPage() {
         open={payOpen}
         onClose={() => setPayOpen(false)}
         invoiceId={invoiceId ?? ''}
-        invoiceNo={invoice?.invoiceNo ?? ''}
+        invoiceNo={String(inv?.invoiceNo ?? '')}
         balance={balance}
         availableCreditNote={availableCreditNote}
         defaultBankAccountId={String((client as { bankAccount?: { id?: string } } | undefined)?.bankAccount?.id ?? "")}
@@ -228,7 +299,7 @@ export default function InvoiceDetailPage() {
         invoiceId={invoiceId}
         onClose={() => setEditOpen(false)}
         onSuccess={() => {
-          qc.invalidateQueries({ queryKey: ['invoices', 'detail', invoiceId] })
+          invalidate()
           toast.success('Invoice updated')
         }}
       />
@@ -238,15 +309,14 @@ export default function InvoiceDetailPage() {
         onClose={() => setApproveOpen(false)}
         onSent={() => {
           setApproveOpen(false)
-          qc.invalidateQueries({ queryKey: ['invoices', 'detail', invoiceId] })
-          qc.invalidateQueries({ queryKey: ['invoices', 'list'] })
+          invalidate()
         }}
       />
       <InvoiceSendEmailDialog
         open={emailOpen}
         invoiceId={String(invoiceId ?? '')}
         suggestedEmails={(() => {
-          const c = invoice?.client as Record<string, unknown> | undefined
+          const c = inv?.client as Record<string, unknown> | undefined
           const raw = (c?.email ?? c?.emails ?? []) as unknown
           const list = Array.isArray(raw) ? raw : typeof raw === 'string' && raw ? [raw] : []
           return list.map(e => {
@@ -256,6 +326,51 @@ export default function InvoiceDetailPage() {
           }).filter(Boolean)
         })()}
         onClose={() => setEmailOpen(false)}
+      />
+      <ConfirmDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={async () => {
+          toast.success(await billingApi.cancel(String(invoiceId)))
+          invalidate()
+        }}
+        title="Cancel Invoice"
+        message="Are you sure you want to cancel this invoice?"
+        confirmLabel="Cancel Invoice"
+        severity="error"
+      />
+      <CancelWithCreditDialog
+        open={cancelCreditOpen}
+        invoiceId={String(invoiceId ?? '')}
+        onClose={() => setCancelCreditOpen(false)}
+        onDone={() => {
+          setCancelCreditOpen(false)
+          invalidate()
+        }}
+      />
+      <ConfirmDialog
+        open={writeOffOpen}
+        onClose={() => setWriteOffOpen(false)}
+        onConfirm={async () => {
+          toast.success(await billingApi.writeOff(String(invoiceId)))
+          invalidate()
+        }}
+        title="Write Off Invoice"
+        message="Are you sure you want to write off this invoice?"
+        confirmLabel="Write Off"
+        severity="warning"
+      />
+      <ConfirmDialog
+        open={zohoOpen}
+        onClose={() => setZohoOpen(false)}
+        onConfirm={async () => {
+          toast.success(await billingApi.addToZoho(String(invoiceId), { creditNote: isCreditNote }))
+          invalidate()
+        }}
+        title="Create in Zoho"
+        message={isCreditNote ? 'Create this credit note in Zoho Books?' : 'Create this invoice in Zoho Books?'}
+        confirmLabel="Create in Zoho"
+        severity="info"
       />
       </Box>
     </PageShell>

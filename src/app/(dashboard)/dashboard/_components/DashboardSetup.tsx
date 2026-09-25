@@ -49,6 +49,7 @@ export function DashboardSetup() {
         sequenceList: widgets.map((w, i) => ({ name: w.name, seq: i, thumb: w.thumb ?? '' })),
       })
       qc.invalidateQueries({ queryKey: QK.dashboard.setup() })
+      qc.invalidateQueries({ queryKey: ['dashboard', 'setup'] })
       setSnack({ open: true, msg: 'Dashboard layout saved', severity: 'success' })
       setOpen(false)
     } catch {

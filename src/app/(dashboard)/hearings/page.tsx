@@ -7,6 +7,8 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow"
 import CloseIcon from "@mui/icons-material/Close"
 import EditIcon from "@mui/icons-material/Edit"
 import OpenInNewIcon from "@mui/icons-material/OpenInNew"
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { StatusBadge } from "@/components/ui/StatusBadge"
@@ -49,6 +51,7 @@ function isClosed(row: Record<string, unknown>): boolean {
 
 /** LMS `/hearing/selection` — continueable hearings with Continue / Close / Edit. */
 export default function HearingsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [gridKey, setGridKey] = useState(0)
@@ -64,8 +67,8 @@ export default function HearingsPage() {
 
   return (
     <PageShell
-      title="Hearings"
-      description="Open and continued hearings — continue, close, or schedule from here"
+      title={t("nav.hearings")}
+      description={t("pages.hearingsDesc")}
     >
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2, flexWrap: "wrap" }}>
         <Typography variant="body2" color="text.secondary">
@@ -152,6 +155,13 @@ export default function HearingsPage() {
         FilterPanel={FilterPanel}
         hasFilters
         zebraStriping
+        detailPath={row => {
+          const r = row as Record<string, unknown>
+          const hid = hearingIdOf(r)
+          const mid = matterIdOf(r)
+          if (!hid) return "/hearings"
+          return mid ? `/hearings/${hid}?matterId=${encodeURIComponent(mid)}` : `/hearings/${hid}`
+        }}
         emptyState={
           <Box sx={{ py: 4, textAlign: "center" }}>
             <Typography color="text.secondary">No hearings to continue</Typography>
@@ -165,6 +175,12 @@ export default function HearingsPage() {
           const closed = isClosed(r)
           const current = r.current !== false
           return [
+            {
+              label: "Details",
+              icon: <InfoOutlinedIcon fontSize="small" />,
+              hidden: () => !hid,
+              onClick: () => navigate(mid ? `/hearings/${hid}?matterId=${encodeURIComponent(mid)}` : `/hearings/${hid}`),
+            },
             {
               label: "Continue",
               icon: <PlayArrowIcon fontSize="small" />,

@@ -3,14 +3,24 @@ import { Alert, Box, Checkbox, FormControlLabel, TextField } from "@mui/material
 import { FormDrawer } from "@/components/ui/FormDrawer"
 import { clientsApi } from "@/api/clients"
 
+export interface FinanceContactFormValues {
+  id?: string
+  name?: string
+  email?: string
+  contactNumber?: string
+  primary?: boolean
+}
+
 interface Props {
   open: boolean
   onClose: () => void
   clientId: string
-  onSuccess: () => void
+  contact?: FinanceContactFormValues | null
+  onSuccess: (mode: "create" | "update") => void
 }
 
-export function FinanceContactDrawer({ open, onClose, clientId, onSuccess }: Props) {
+export function FinanceContactDrawer({ open, onClose, clientId, contact, onSuccess }: Props) {
+  const isEdit = !!contact?.id
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [contactNumber, setContactNumber] = useState("")
@@ -20,26 +30,43 @@ export function FinanceContactDrawer({ open, onClose, clientId, onSuccess }: Pro
 
   useEffect(() => {
     if (open) {
-      setName("")
-      setEmail("")
-      setContactNumber("")
-      setPrimary(false)
+      setName(contact?.name ?? "")
+      setEmail(contact?.email ?? "")
+      setContactNumber(contact?.contactNumber ?? "")
+      setPrimary(Boolean(contact?.primary))
       setError("")
     }
-  }, [open])
+  }, [open, contact])
 
   async function submit() {
     if (!name.trim()) {
       setError("Name is required")
       return
     }
+    if (!email.trim()) {
+      setError("Email is required")
+      return
+    }
     setSaving(true)
     setError("")
     try {
-      await clientsApi.createFinanceContact(clientId, { name, email, contactNumber, primary })
-      onSuccess()
+      const payload = {
+        name: name.trim(),
+        email: email.trim(),
+        contactNumber: contactNumber.trim(),
+        primary,
+      }
+      if (isEdit && contact?.id) {
+        await clientsApi.updateFinanceContact({ ...payload, id: contact.id })
+        onSuccess("update")
+      } else {
+        await clientsApi.createFinanceContact(clientId, payload)
+        onSuccess("create")
+      }
     } catch (e: unknown) {
-      setError((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Failed to save contact")
+      setError((e as { response?: { data?: { message?: string; Msg?: string } } })?.response?.data?.Msg
+        ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? "Failed to save contact")
     } finally {
       setSaving(false)
     }
@@ -49,7 +76,7 @@ export function FinanceContactDrawer({ open, onClose, clientId, onSuccess }: Pro
     <FormDrawer
       open={open}
       onClose={onClose}
-      title="Add Finance Contact"
+      title={isEdit ? "Edit Finance Contact" : "Add Finance Contact"}
       onSubmit={() => { void submit() }}
       isSubmitting={saving}
       submitLabel="Save"
@@ -57,7 +84,7 @@ export function FinanceContactDrawer({ open, onClose, clientId, onSuccess }: Pro
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField size="small" label="Name" required value={name} onChange={e => setName(e.target.value)} />
-        <TextField size="small" label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+        <TextField size="small" label="Email" type="email" required value={email} onChange={e => setEmail(e.target.value)} />
         <TextField size="small" label="Contact Number" value={contactNumber} onChange={e => setContactNumber(e.target.value)} />
         <FormControlLabel
           control={<Checkbox checked={primary} onChange={e => setPrimary(e.target.checked)} />}

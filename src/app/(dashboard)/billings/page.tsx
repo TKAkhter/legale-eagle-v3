@@ -5,9 +5,11 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import PaidIcon from '@mui/icons-material/Paid'
 import CancelIcon from '@mui/icons-material/Cancel'
 import MarkunreadOutlinedIcon from '@mui/icons-material/MarkunreadOutlined'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
 import { Can } from '@components/ui/Can'
@@ -24,6 +26,7 @@ import { InvoiceSendEmailDialog } from './_components/InvoiceSendEmailDialog'
 import { CancelWithCreditDialog } from './_components/CancelWithCreditDialog'
 import SendIcon from '@mui/icons-material/Send'
 import EmailIcon from '@mui/icons-material/Email'
+import HistoryIcon from '@mui/icons-material/History'
 import type { FilterPanelProps } from '@components/data-grid/types'
 import type { GridParams, InvoiceStatus } from '@/types/common.types'
 import { billingApi } from '@/api/billing'
@@ -65,6 +68,7 @@ function InvoiceFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function BillingsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
@@ -117,10 +121,13 @@ export default function BillingsPage() {
 
   return (
     <PageShell
-      title="Billing"
-      description="Invoices and payment records"
+      title={t("nav.billings")}
+      description={t("pages.billingsDesc")}
       action={(
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button size="small" variant="outlined" component={RouterLink} to="/billing" startIcon={<ReceiptLongIcon />}>
+            {t("nav.generateBill")}
+          </Button>
           <Button size="small" variant="outlined" startIcon={<MarkunreadOutlinedIcon />} onClick={emailExcel}>Email Excel</Button>
           <Can do={PERMISSIONS.BILLING_CREATE}>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>New Invoice</Button>
@@ -202,6 +209,11 @@ export default function BillingsPage() {
               onClick: () => setEmailTarget({ id, emails: clientEmailsFromRow(r) }),
             },
             { label: 'Record Payment', icon: <PaidIcon fontSize="small" />, onClick: () => navigate(`/payment?invoiceId=${id}`) },
+            {
+              label: 'Invoice History',
+              icon: <HistoryIcon fontSize="small" />,
+              onClick: () => navigate(`/billings/invoice-snaps?id=${id}`),
+            },
             ...(canSendApproval
               ? [{ label: 'Send for Approval', icon: <SendIcon fontSize="small" />, onClick: () => setApproveId(id) }]
               : []),

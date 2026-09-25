@@ -39,8 +39,16 @@ export interface RawLead {
   updatedAt?: string | number
   writeOff?: boolean
   repeated?: boolean
+  converted?: boolean
+  clientId?: string
+  client?: { id?: string; clientId?: string }
   procuredByName?: string
   groupName?: string
+  externalLeadId?: string
+  nationality?: string
+  proposedValue?: number
+  approvedValue?: number
+  leadEdited?: boolean
 }
 
 export interface Lead {
@@ -68,6 +76,17 @@ export interface Lead {
   partyOpposing: string
   department: string
   createdAt: string
+  writeOff: boolean
+  repeated: boolean
+  converted: boolean
+  /** Client linked after convert (OLD `lead.clientId`). */
+  clientId: string
+  externalLeadId: string
+  nationality: string
+  procuredByName: string
+  groupName: string
+  proposedValue: number | null
+  approvedValue: number | null
 }
 
 function personLabel(value: unknown): string {
@@ -125,6 +144,9 @@ export function transformLead(raw: RawLead): Lead {
     ? (raw.companyName ?? `${firstName} ${lastName}`.trim())
     : (`${firstName} ${lastName}`.trim() || raw.companyName || "")
   const status = raw.currentStatus ?? raw.status ?? ""
+  const statusUpper = String(status).toUpperCase().replace(/\s+/g, "_")
+  const writeOff = Boolean(raw.writeOff) || ["WRITE_OFF", "WRITEOFF", "WRITTEN_OFF"].includes(statusUpper)
+  const converted = Boolean(raw.converted) || statusUpper === "CONVERTED"
   const createdAt = raw.createdAt
     ? typeof raw.createdAt === "number"
       ? new Date(raw.createdAt * 1000).toISOString()
@@ -138,6 +160,12 @@ export function transformLead(raw: RawLead): Lead {
       }).filter(Boolean).join(", ")
     : String(raw.partyOpposing ?? "")
   const department = typeof raw.department === "object" ? (raw.department?.name ?? "") : String(raw.department ?? "")
+  const clientId = String(
+    raw.clientId
+    ?? raw.client?.id
+    ?? raw.client?.clientId
+    ?? "",
+  )
 
   return {
     id,
@@ -164,5 +192,15 @@ export function transformLead(raw: RawLead): Lead {
     partyOpposing: opposing,
     department,
     createdAt,
+    writeOff,
+    repeated: Boolean(raw.repeated),
+    converted,
+    clientId,
+    externalLeadId: String(raw.externalLeadId ?? ""),
+    nationality: String(raw.nationality ?? ""),
+    procuredByName: String(raw.procuredByName ?? ""),
+    groupName: String(raw.groupName ?? ""),
+    proposedValue: raw.proposedValue != null ? Number(raw.proposedValue) : null,
+    approvedValue: raw.approvedValue != null ? Number(raw.approvedValue) : null,
   }
 }

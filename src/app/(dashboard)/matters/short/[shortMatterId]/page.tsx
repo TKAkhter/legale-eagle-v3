@@ -83,6 +83,12 @@ export default function ShortMatterDetailPage() {
   const clientName = client?.companyName || client?.firstName || String(m.clientName ?? "—")
   const pa = m.practiceArea as { name?: string } | string | null
   const paName = typeof pa === "object" && pa ? pa.name : String(pa ?? m.practiceAreaName ?? "—")
+  const attorney = m.responsibleAttorney as { firstName?: string; lastName?: string } | undefined
+  const attorneyName = attorney
+    ? `${attorney.firstName ?? ""} ${attorney.lastName ?? ""}`.trim()
+    : String(m.responsibleAttorneyName ?? m.attorneyName ?? "—")
+  const billingType = String(m.billingType ?? "—")
+  const description = String(m.description ?? m.matterSubject ?? "")
 
   const billableRows = useMemo(
     () => (activities as Record<string, unknown>[]).filter(a => a.invoiceCreated !== true),
@@ -142,10 +148,18 @@ export default function ShortMatterDetailPage() {
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 1 }}>
           <DetailInfoRow label="Client" value={clientName} />
           <DetailInfoRow label="Practice Area" value={paName ?? "—"} />
+          <DetailInfoRow label="Billing Type" value={billingType} />
+          <DetailInfoRow label="Responsible Person" value={attorneyName || "—"} />
           <DetailInfoRow label="Rate" value={m.rate != null ? formatCurrency(Number(m.rate)) : "—"} />
           <DetailInfoRow label="Opened" value={m.openDate ? formatDate(String(m.openDate)) : "—"} />
           <DetailInfoRow label="Deadline" value={m.deadline ? formatDate(String(m.deadline)) : "—"} />
         </Box>
+        {description ? (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>Description</Typography>
+            <Typography variant="body2">{description}</Typography>
+          </Box>
+        ) : null}
       </Paper>
 
       <Tabs

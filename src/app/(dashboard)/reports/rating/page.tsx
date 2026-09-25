@@ -8,6 +8,7 @@ export default function Page() {
       description="Average task ratings by user"
       queryKey={["reports", "rating"]}
       queryFn={p => reportsApi.getRatingReport(p)}
+      emailExcelFn={f => reportsApi.requestRatingReportExcel(f)}
       filters={{"showUser":true,"showDateRange":true}}
       columns={[
         { field: "userName", header: "User", renderCell: v => String(v || "—") },

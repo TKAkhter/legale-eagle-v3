@@ -219,7 +219,7 @@ export function HearingsWidget({
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
       <Box sx={{ px: 2, pt: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Hearings</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Upcoming Hearings</Typography>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ minHeight: 36, "& .MuiTab-root": { minHeight: 36, textTransform: "none" } }}>
           <Tab label={`Today (${today.length})`} />
           <Tab label={`Tomorrow (${tomorrow.length})`} />
@@ -269,6 +269,126 @@ export function HearingsWidget({
           })}
         </List>
       )}
+    </Paper>
+  )
+}
+
+/** LMS ScheduleWidget — meetings today/tomorrow from `/meeting/get/shcedules`. */
+export function MeetingsWidget() {
+  const [tab, setTab] = useState(0)
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null)
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", "meeting-schedules"],
+    queryFn: () => dashboardApi.meetingSchedules(),
+    staleTime: 60_000,
+  })
+
+  if (isLoading) return <PanelLoader label="Loading meetings…" />
+
+  const today = (data?.today ?? []) as Record<string, unknown>[]
+  const tomorrow = (data?.tomorrow ?? []) as Record<string, unknown>[]
+  const list = tab === 0 ? today : tomorrow
+  const rangeLabel = tab === 0 ? "today" : "tomorrow"
+
+  return (
+    <>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", mt: 2 }}>
+        <Box sx={{ px: 2, pt: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Meetings</Typography>
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ minHeight: 36, "& .MuiTab-root": { minHeight: 36, textTransform: "none" } }}>
+            <Tab label={`Today (${today.length})`} />
+            <Tab label={`Tomorrow (${tomorrow.length})`} />
+          </Tabs>
+        </Box>
+        {!list.length ? (
+          <Box sx={{ p: 3 }}>
+            <Typography color="text.secondary">No meetings scheduled for {rangeLabel}.</Typography>
+          </Box>
+        ) : (
+          <List dense disablePadding sx={{ maxHeight: 320, overflow: "auto" }}>
+            {list.map((row, i) => {
+              const title = String(row.title ?? row.meetingTitle ?? "Meeting")
+              const time = [row.meetingStartTime, row.meetingEndTime].filter(Boolean).map(String).join(" – ")
+              const withName = String(row.meetingWithName ?? row.withName ?? "")
+              const secondary = [time, withName && `With: ${withName}`].filter(Boolean).join(" · ")
+              return (
+                <ListItemButton key={i} divider onClick={() => setDetail(row)}>
+                  <ListItemText
+                    primary={<Typography variant="body2" sx={{ fontWeight: 600 }}><CellEllipsis title={title}>{title}</CellEllipsis></Typography>}
+                    secondary={<CellEllipsis title={secondary}>{secondary || "—"}</CellEllipsis>}
+                  />
+                </ListItemButton>
+              )
+            })}
+          </List>
+        )}
+      </Paper>
+
+      <Dialog open={!!detail} onClose={() => setDetail(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>{String(detail?.title ?? detail?.meetingTitle ?? "Meeting")}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Typography variant="body2">
+            <strong>Time:</strong>{" "}
+            {[detail?.meetingStartTime, detail?.meetingEndTime].filter(Boolean).map(String).join(" – ") || "—"}
+          </Typography>
+          <Typography variant="body2">
+            <strong>With:</strong> {String(detail?.meetingWithName ?? detail?.withName ?? "—")}
+          </Typography>
+          <Typography variant="body2">
+            <strong>Added By:</strong> {String(detail?.addedByName ?? "—")}
+          </Typography>
+          <Typography variant="body2">
+            <strong>Note:</strong> {String(detail?.note ?? "—")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetail(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
+
+/** Compact WIP strip for Matters dashboard tab — uses reportsApi.wipSummary. */
+export function WipSummaryWidget() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", "wip-summary"],
+    queryFn: async () => {
+      const { reportsApi } = await import("@/api/reports")
+      return reportsApi.wipSummary()
+    },
+    staleTime: 5 * 60_000,
+  })
+
+  if (isLoading) return <PanelLoader label="Loading WIP summary…" />
+
+  const summary = data as { totalWip?: number; totalHours?: number } | undefined
+  const totalWip = Number(summary?.totalWip ?? 0)
+  const totalHours = Number(summary?.totalHours ?? 0)
+
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 2, p: 2, mt: 0, mb: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>WIP Summary</Typography>
+          <Typography variant="body2" color="text.secondary">Unbilled billable work across fee earners</Typography>
+        </Box>
+        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+          <Box>
+            <Typography variant="caption" color="text.secondary">Total WIP</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main" }}>
+              {totalWip.toLocaleString(undefined, { style: "currency", currency: "AED", maximumFractionDigits: 0 })}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">Hours</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>{totalHours.toFixed(1)}</Typography>
+          </Box>
+          <Button component={RouterLink} to="/reports/wip" size="small" variant="outlined" sx={{ alignSelf: "center" }}>
+            Open WIP Report
+          </Button>
+        </Box>
+      </Box>
     </Paper>
   )
 }

@@ -85,6 +85,15 @@ export const teamTemplatesApi = {
     return res.data?.Msg ?? res.data?.message ?? "Team template updated."
   },
 
+  async delete(id: string): Promise<string> {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return "Team Template deleted successfully." }
+    const res = await axiosClient.delete("/api/team-template/delete", { params: { id } })
+    if (res.data?.code && String(res.data.code) !== "200") {
+      throw new Error(res.data.Msg ?? res.data.message ?? "Failed to delete team template.")
+    }
+    return res.data?.Msg ?? res.data?.message ?? "Team Template deleted successfully."
+  },
+
   async getRoles() {
     if (env.USE_STATIC_DATA) return [{ id: "r1", name: "Lead Attorney" }, { id: "r2", name: "Associate" }]
     const res = await axiosClient.get("/api/team-role/get/all")

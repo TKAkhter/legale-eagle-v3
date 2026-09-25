@@ -111,7 +111,7 @@ export function buildNavFromMenu(menuItems: unknown[], opts: BuildNavOptions = {
   items.push({
     id: "reports-fallback",
     title: "Reports",
-    path: "/reports/wip",
+    path: "/reports",
     icon: "BarChartOutlined",
   })
   items.push({

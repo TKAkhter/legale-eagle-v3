@@ -57,15 +57,29 @@ export const miscModulesApi = {
       await new Promise(r => setTimeout(r, 200))
       return pg([{
         id: "tr1",
+        fromObject: "Al Rashid Holdings",
+        toObject: "KM Group",
+        fromObjectId: "c1",
+        toObjectId: "c2",
         fromClientName: "Al Rashid Holdings",
         toClientName: "KM Group",
+        transferBy: "Admin User",
+        transferDate: "2026-09-01",
+        transferReasons: "Matter consolidation after merger",
+        transferItemsInfo: [
+          { name: "Matters", status: status === "pending" ? "Pending" : "Completed" },
+          { name: "Documents", status: status === "pending" ? "Pending" : "Completed" },
+          { name: "LFAs", status: status === "pending" ? "In Progress" : "Completed" },
+        ],
         status: status === "pending" ? "Pending" : "Completed",
         createdAt: "2026-09-01",
       }], p)
     }
     const path = status === "pending" ? "/api/transfer/pending" : "/api/transfer/completed"
     const res = await axiosClient.get(path, {
-      params: { pageNumber: p.page, pageSize: p.pageSize },
+      params: status === "completed"
+        ? { type: "ClientToClient", pageNumber: p.page, pageSize: p.pageSize }
+        : undefined,
     })
     return unwrap(res.data?.data ?? res.data, p)
   },
@@ -73,6 +87,9 @@ export const miscModulesApi = {
   async createTransfer(payload: Record<string, unknown>) {
     if (env.USE_STATIC_DATA) return "Transfer created"
     const res = await axiosClient.post("/api/transfer/client/to/client", payload)
+    if (res.data?.code === "403") {
+      throw new Error(String(res.data?.Msg ?? res.data?.message ?? "Transfer forbidden"))
+    }
     return String(res.data?.message ?? res.data?.Msg ?? "Transfer created")
   },
 
@@ -336,18 +353,78 @@ export const miscModulesApi = {
     return unwrap(res.data?.data ?? res.data, p)
   },
 
+  /**
+   * Invoice edit history / snapshots.
+   * OLD: GET `/matter/get/snap?id=&snapType=INVOICE` → response.data.data
+   * Fields: editedBy, timeStamp (unix sec), snapInfo, note, status, amounts…
+   */
   async getInvoiceSnaps(invoiceId: string) {
     if (env.USE_STATIC_DATA) {
       return [
-        { id: "snap1", createdAt: "2026-08-01", action: "Created", userName: "Admin" },
-        { id: "snap2", createdAt: "2026-08-05", action: "Updated", userName: "Sarah Johnson" },
+        {
+          id: "snap1",
+          createdAt: "2026-08-01T10:00:00.000Z",
+          userName: "Admin",
+          action: "Created",
+          amount: 1200,
+          status: "Draft",
+          note: "Initial invoice",
+          snapInfo: { dueAmount: 1200, invoiceNo: "INV-001", issueDate: "2026-08-01" },
+        },
+        {
+          id: "snap2",
+          createdAt: "2026-08-05T14:30:00.000Z",
+          userName: "Sarah Johnson",
+          action: "Updated",
+          amount: 1500,
+          status: "Due",
+          note: "Amount revised",
+          snapInfo: { dueAmount: 1500, invoiceNo: "INV-001", issueDate: "2026-08-01" },
+        },
       ]
     }
+    // Matches OLD InvoiceSnapShot: `/matter/get/snap?id=${id}&snapType=INVOICE`
     const res = await axiosClient.get("/api/matter/get/snap", {
       params: { id: invoiceId, snapType: "INVOICE" },
     })
-    const data = res.data?.data ?? res.data ?? []
-    return Array.isArray(data) ? data : []
+    const raw = res.data?.data ?? res.data ?? []
+    const list = (Array.isArray(raw) ? raw
+      : Array.isArray(raw?.content) ? raw.content
+      : []) as Record<string, unknown>[]
+
+    return list.map((row, index) => {
+      const editedBy = row.editedBy as {
+        firstName?: string
+        lastName?: string
+        profilePic?: string
+      } | undefined
+      const userName = editedBy
+        ? `${editedBy.firstName ?? ""} ${editedBy.lastName ?? ""}`.trim()
+        : String(row.userName ?? row.createdBy ?? "")
+      const ts = row.timeStamp
+      const createdAt = typeof ts === "number"
+        ? new Date(ts * 1000).toISOString()
+        : String(row.createdAt ?? row.date ?? "")
+      const snapInfo = (row.snapInfo ?? {}) as Record<string, unknown>
+      const amount = row.amount ?? row.dueAmount ?? snapInfo.dueAmount ?? snapInfo.amount
+      const status = row.status ?? snapInfo.status ?? snapInfo.invoiceStatus ?? snapInfo.paymentStaus
+      const note = row.note ?? row.remarks ?? snapInfo.note ?? snapInfo.remarks
+      const action = row.action ?? row.snapAction ?? (userName ? "Modified" : `Snapshot ${index + 1}`)
+
+      return {
+        ...row,
+        id: String(row.id ?? index),
+        createdAt,
+        userName: userName || "—",
+        action: String(action),
+        amount: amount != null && amount !== "" ? Number(amount) : undefined,
+        status: status != null && status !== "" ? String(status) : undefined,
+        note: note != null && note !== "" ? String(note) : undefined,
+        snapInfo,
+        editedBy,
+        timeStamp: ts,
+      }
+    })
   },
 
   async getMeetingTime() {

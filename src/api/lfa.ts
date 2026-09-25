@@ -60,6 +60,7 @@ export const lfaApi = {
       params: {
         lfaId: f.lfaId ?? "",
         clientId: f.clientId ?? "",
+        matterId: f.matterId ?? "",
         status: f.status ?? "Active",
         pageNumber: p.page,
         pageSize: p.pageSize,
@@ -208,6 +209,23 @@ export const lfaApi = {
     return pageOf(arr as Record<string, unknown>[], p)
   },
 
+  /**
+   * Approver queue (OLD `/LFAs-approval` → `GET /lfa/approval/list`).
+   * Distinct from pending queue below.
+   */
+  async getApprovalList(p: GridParams) {
+    if (env.USE_STATIC_DATA) {
+      return pageOf(staticApprovals as unknown as Record<string, unknown>[], p)
+    }
+    const res = await axiosClient.get("/api/lfa/approval/list")
+    const list = res.data?.data ?? res.data ?? []
+    const arr = (Array.isArray(list) ? list : []) as Record<string, unknown>[]
+    return pageOf(arr, p)
+  },
+
+  /**
+   * Pending LFAs awaiting send/approve (OLD `/pending/approval` → `GET /lfa/pending/approval`).
+   */
   async getPendingApproval(p: GridParams) {
     if (env.USE_STATIC_DATA) {
       return pageOf(staticApprovals as unknown as Record<string, unknown>[], p)
@@ -223,7 +241,23 @@ export const lfaApi = {
         pageSize: p.pageSize,
       },
     })
-    return unwrapPage(res.data?.data ?? res.data, p)
+    const d = (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+    // LMS shape: { lfaList, recordSize }
+    if (Array.isArray(d.lfaList)) {
+      const content = d.lfaList as Record<string, unknown>[]
+      const total = Number(d.recordSize ?? content.length)
+      return {
+        content,
+        totalElements: total,
+        totalPages: Math.ceil(total / p.pageSize) || 0,
+        number: p.page,
+        size: p.pageSize,
+        first: p.page === 0,
+        last: (p.page + 1) * p.pageSize >= total,
+        empty: content.length === 0,
+      }
+    }
+    return unwrapPage(d, p)
   },
 
   async create(data: Record<string, unknown>) {
@@ -285,6 +319,7 @@ export const lfaApi = {
       params: {
         lfaId: filters.lfaId ?? "",
         clientId: filters.clientId ?? "",
+        matterId: filters.matterId ?? "",
         status: filters.status ?? "Active",
         fromDate: filters.fromDate ?? "",
         toDate: filters.toDate ?? "",

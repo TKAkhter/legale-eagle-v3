@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
-import { Box, Paper, Typography, Chip, Button } from "@mui/material"
+import { Box, Paper, Typography, Chip, Button, CircularProgress, Link as MuiLink } from "@mui/material"
 import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
+import { Link as RouterLink, useNavigate } from "react-router-dom"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@/components/data-grid/DataGrid"
 import { ApexChart } from "@components/charts/ApexChart"
@@ -8,12 +9,103 @@ import { StatusBadge } from "@/components/ui/StatusBadge"
 import { makeReportFilterPanel } from "@components/filters/ReportFilterPanel"
 import { reportsApi } from "@/api/reports"
 import { formatCurrency } from "@lib/utils/formatCurrency"
+import { formatDate } from "@lib/utils/formatDate"
 import { toast } from "@/lib/toast"
 import type { GridParams } from "@/types/common.types"
 
 const FilterPanel = makeReportFilterPanel({ showClient: true, showMatter: true, showDateRange: true })
 
+/** Nested invoice list for a matter billing row (LMS invoices-breakdown). */
+function MatterInvoiceBreakdown({ row }: { row: Record<string, unknown> }) {
+  const matterId = String(row.matterId ?? row.id ?? "")
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["reports", "matter-billing", "invoices-breakdown", matterId],
+    queryFn: () => reportsApi.getMatterBillingInvoicesBreakdown(matterId, {
+      clientId: row.clientId ?? "",
+      lfaId: row.lfaId ?? row.agreementId ?? "",
+    }),
+    enabled: !!matterId,
+  })
+  const invoices = data?.content ?? []
+
+  if (!matterId) {
+    return <Typography variant="body2" color="text.secondary">No matter id for breakdown</Typography>
+  }
+  if (isLoading) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, py: 1 }}>
+        <CircularProgress size={16} />
+        <Typography variant="body2" color="text.secondary">Loading invoices…</Typography>
+      </Box>
+    )
+  }
+  if (isError) {
+    return <Typography variant="body2" color="error">Failed to load invoice breakdown</Typography>
+  }
+  if (!invoices.length) {
+    return <Typography variant="body2" color="text.secondary">No invoices for this matter</Typography>
+  }
+
+  return (
+    <Box sx={{ py: 0.5, overflowX: "auto" }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: "block", mb: 1 }}>
+        Invoices · {String(row.matterTitle ?? row.title ?? matterId)}
+      </Typography>
+      <Box
+        component="table"
+        sx={{
+          width: "100%",
+          borderCollapse: "collapse",
+          fontSize: 13,
+          "& th, & td": { textAlign: "left", py: 0.5, px: 1, borderBottom: "1px solid", borderColor: "divider" },
+          "& th": { color: "text.secondary", fontWeight: 600, fontSize: 11, textTransform: "uppercase" },
+          "& td.num": { textAlign: "right" },
+        }}
+      >
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Issue Date</th>
+            <th>Status</th>
+            <th className="num">Due</th>
+            <th className="num">Credit Note</th>
+            <th className="num">Write Off</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoices.map((inv, i) => {
+            const r = inv as Record<string, unknown>
+            const invId = String(r.id ?? "")
+            const invNo = (() => {
+              if (r.invoiceNo != null && String(r.invoiceNo)) return String(r.invoiceNo)
+              const composed = `${r.invoicePrefix ?? ""}${r.invoiceNumber ?? ""}`
+              return composed || "—"
+            })()
+            return (
+              <tr key={invId || `${invNo}-${i}`}>
+                <td>
+                  {invId ? (
+                    <MuiLink component={RouterLink} to={`/billings/${invId}`} underline="hover">
+                      {invNo || invId}
+                    </MuiLink>
+                  ) : invNo || "—"}
+                </td>
+                <td>{r.issueDate ? formatDate(String(r.issueDate)) : "—"}</td>
+                <td><StatusBadge status={String(r.status ?? "")} /></td>
+                <td className="num">{formatCurrency(Number(r.dueAmount ?? 0))}</td>
+                <td className="num">{formatCurrency(Number(r.creditNoteAmount ?? 0) - Number(r.creditNoteVatAmount ?? 0))}</td>
+                <td className="num">{formatCurrency(Number(r.writeOffAmount ?? 0) - Number(r.writeOffVatAmount ?? 0))}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </Box>
+    </Box>
+  )
+}
+
 export default function MatterBillingReportPage() {
+  const navigate = useNavigate()
   const { data: summary } = useQuery({
     queryKey: ["reports", "matter-billing", "summary"],
     queryFn: () => reportsApi.getMatterBilling({ page: 0, pageSize: 20, sortBy: "totalBilled", sortDir: "desc", filters: {} }),
@@ -32,7 +124,7 @@ export default function MatterBillingReportPage() {
   return (
     <PageShell
       title="Matter Billing Report"
-      description="Billing summary per matter"
+      description="Billing summary per matter — expand a row for invoice breakdown"
       action={(
         <Button size="small" variant="outlined" startIcon={<MarkunreadOutlinedIcon />} onClick={emailExcel}>
           Email Excel
@@ -97,6 +189,16 @@ export default function MatterBillingReportPage() {
         syncWithUrl
         defaultSortBy="totalBilled"
         defaultSortDir="desc"
+        rowExpansion={{
+          render: (row) => <MatterInvoiceBreakdown row={row as Record<string, unknown>} />,
+        }}
+        rowMenuItems={(row) => {
+          const r = row as Record<string, unknown>
+          const matterId = String(r.matterId ?? r.id ?? "")
+          return matterId
+            ? [{ label: "Open Matter", onClick: () => navigate(`/matters/${matterId}`) }]
+            : []
+        }}
       />
     </PageShell>
   )

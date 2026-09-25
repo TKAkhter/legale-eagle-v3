@@ -13,7 +13,7 @@ export default function SettingsMasterPage() {
   const master = getMasterByKey(key)
 
   if (!master) return <Navigate to="/admin/settings" replace />
-  if (master.href && !master.getUrl) return <Navigate to={master.href} replace />
+  if (master.href) return <Navigate to={master.href} replace />
 
   return (
     <PageShell

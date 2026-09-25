@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@mui/material"
 import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import { PageShell } from "@/components/ui/PageShell"
@@ -34,14 +34,37 @@ export function SimpleReportPage({
   exportFilename = "report.xlsx",
   detailPath,
 }: Props) {
-  const FilterPanel = makeReportFilterPanel(filters)
+  const BaseFilterPanel = makeReportFilterPanel(filters)
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, unknown>>({})
   const [emailing, setEmailing] = useState(false)
+
+  const FilterPanel = useMemo(() => {
+    return function Panel(props: {
+      onSearch: (f: Record<string, unknown>) => void
+      onReset: () => void
+      filters: Record<string, unknown>
+    }) {
+      return (
+        <BaseFilterPanel
+          {...props}
+          onSearch={f => {
+            setAppliedFilters(f)
+            props.onSearch(f)
+          }}
+          onReset={() => {
+            setAppliedFilters({})
+            props.onReset()
+          }}
+        />
+      )
+    }
+  }, [BaseFilterPanel])
 
   async function handleEmailExcel() {
     if (!emailExcelFn) return
     setEmailing(true)
     try {
-      toast.success(await emailExcelFn({}))
+      toast.success(await emailExcelFn(appliedFilters))
     } catch {
       toast.error("Excel export failed")
     } finally {

@@ -36,6 +36,7 @@ import ReplyIcon        from "@mui/icons-material/Reply"
 import ArrowBackIcon    from "@mui/icons-material/ArrowBack"
 import RefreshIcon      from "@mui/icons-material/Refresh"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { emailApi, type Email, type EmailFolder } from "@/api/email"
 import LinkIcon from "@mui/icons-material/Link"
 import { ComposeEmailDrawer } from "./_components/ComposeEmailDrawer"
@@ -62,7 +63,8 @@ function fmtSize(bytes: number): string {
 }
 
 export default function EmailPage() {
-  useEffect(() => { document.title = 'Email — LegalEagle LMS' }, [])
+  const { t } = useTranslation()
+  useEffect(() => { document.title = `${t("nav.email")} — LegalEagle LMS` }, [t])
   const qc             = useQueryClient()
   const isDesktop      = useMediaQuery("(min-width:1024px)")
   const isTablet       = useMediaQuery("(min-width:640px)")

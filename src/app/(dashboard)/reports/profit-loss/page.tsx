@@ -9,6 +9,7 @@ export default function ProfitLossReportPage() {
       description="Revenue, cost, and profit by fee earner"
       queryKey={["reports", "profit-loss"]}
       queryFn={p => reportsApi.getProfitLoss(p)}
+      emailExcelFn={f => reportsApi.requestProfitLossExcel(f)}
       filters={{ showUser: true, showDepartment: true, showDateRange: true }}
       columns={[
         { field: "userName", header: "Fee Earner", sortKey: "userName" },

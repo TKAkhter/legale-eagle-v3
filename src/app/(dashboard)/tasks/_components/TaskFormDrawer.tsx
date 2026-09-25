@@ -15,9 +15,20 @@ import { ControlledCheckbox } from '@components/forms/ControlledCheckbox'
 import { QK } from '@lib/query/keys'
 import { taskSchema, type TaskForm } from '@lib/validations/task.schema'
 
-interface Props { open: boolean; onClose: () => void; taskId?: string; onSuccess?: () => void }
+interface Props {
+  open: boolean
+  onClose: () => void
+  taskId?: string
+  onSuccess?: () => void
+  /** Prefill when opened from matter/client context */
+  prefillEventType?: 'MATTER' | 'CLIENT' | 'LEAD' | 'GENERAL'
+  prefillEventTypeId?: string
+}
 
-export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
+export function TaskFormDrawer({
+  open, onClose, taskId, onSuccess,
+  prefillEventType, prefillEventTypeId,
+}: Props) {
   const qc = useQueryClient()
   const [submitError, setSubmitError] = useState<string|null>(null)
   const isEdit = !!taskId
@@ -26,7 +37,20 @@ export function TaskFormDrawer({ open, onClose, taskId, onSuccess }: Props) {
     defaultValues: { eventType: 'MATTER', priority: 'Normal', requiresApproval: false },
   })
 
-  useEffect(() => { if (!open) reset() }, [open, reset])
+  useEffect(() => {
+    if (!open) {
+      reset()
+      return
+    }
+    if (!taskId) {
+      reset({
+        eventType: prefillEventType ?? 'MATTER',
+        eventTypeId: prefillEventTypeId ?? undefined,
+        priority: 'Normal',
+        requiresApproval: false,
+      })
+    }
+  }, [open, reset, taskId, prefillEventType, prefillEventTypeId])
 
   const { data: users = [] } = useQuery({ queryKey: QK.users.mini(), queryFn: () => axiosClient.get('/api/user/get/min').then(r => r.data?.data ?? []) })
   const userOpts = (users as Record<string, string>[]).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))

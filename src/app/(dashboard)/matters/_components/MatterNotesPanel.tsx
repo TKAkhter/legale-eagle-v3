@@ -6,22 +6,24 @@ import { mattersApi } from "@/api/matters"
 import { formatDateTime } from "@lib/utils/formatDate"
 import { toast } from "@/lib/toast"
 import { MatterNotes } from "./MatterNotes"
+import { useSowMatterFilter } from "./MatterSowFilter"
 
 interface Props { matterId: string; canEdit?: boolean }
 
 export function MatterNotesPanel({ matterId, canEdit = true }: Props) {
   const qc = useQueryClient()
+  const { scopedMatterId, filterEl, isSelectedSubMatter } = useSowMatterFilter(matterId)
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
 
   const notesQuery = useQuery({
-    queryKey: ["matters", "notes", matterId],
-    queryFn: () => mattersApi.getNotes(matterId, { page: 0, pageSize: 50 }),
+    queryKey: ["matters", "notes", matterId, scopedMatterId],
+    queryFn: () => mattersApi.getNotes(scopedMatterId, { page: 0, pageSize: 50 }),
   })
 
   const addNote = useMutation({
-    mutationFn: () => mattersApi.addNote(matterId, { title, content }),
+    mutationFn: () => mattersApi.addNote(scopedMatterId, { title, content }),
     onSuccess: () => {
       toast.success("Note added")
       setOpen(false)
@@ -33,12 +35,14 @@ export function MatterNotesPanel({ matterId, canEdit = true }: Props) {
   })
 
   const notes = notesQuery.data?.content ?? []
+  const canAdd = canEdit && !isSelectedSubMatter
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {filterEl}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Notes</Typography>
-        {canEdit && (
+        {canAdd && (
           <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
             Add Note
           </Button>
@@ -58,7 +62,7 @@ export function MatterNotesPanel({ matterId, canEdit = true }: Props) {
       ))}
       {!notes.length && <Typography variant="body2" color="text.secondary">No notes yet</Typography>}
 
-      <MatterNotes matterId={matterId} />
+      <MatterNotes matterId={scopedMatterId} />
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Add Note</DialogTitle>

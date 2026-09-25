@@ -15,6 +15,7 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/activity/calendar": "/calendar",
   "/time-log-entries": "/time-log-entries",
   "/activities": "/activities",
+  "/billing": "/billing",
   "/billings": "/billings",
   "/billings/invoices": "/billings",
   "/invoice": "/billings",
@@ -48,12 +49,16 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/clientLFAs": "/lfa/client",
   "/client-lfas": "/lfa/client",
   "/LFA-reports": "/lfa/reports",
+  "/LFA-report": "/lfa/reports",
+  "/lfa-report": "/lfa/reports",
   "/lfa/reports": "/lfa/reports",
   "/reports": "/reports",
   "/reports/hub": "/reports",
   "/reports/wip": "/reports/wip",
   "/wip-reports": "/reports/wip",
+  "/wip-reports/": "/reports/wip",
   "/hearings": "/hearings",
+  /** Bare `/hearing` menu → queue; detail (`?m_id=&id=`) via resolveLegacyHearingUrl / LegacyHearingRedirect. */
   "/hearing": "/hearings",
   "/hearing/selection": "/hearings",
   "/all-hearings": "/hearings",
@@ -67,19 +72,31 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/invoice-payment": "/payment",
   "/billed-amount": "/reports/billed-amount",
   "/matter-billing": "/reports/matter-billing",
+  "/matter-billing-report": "/reports/matter-billing",
+  "/matter-wise-billing": "/reports/matter-billing",
+  "/matter/wise/billing/reports": "/reports/matter-billing",
   "/utilization": "/reports/utilization",
+  "/utilization-report": "/reports/utilization",
   "/activity-history": "/reports/activity-history",
   "/activity-history-report": "/reports/activity-history",
   "/collections": "/reports/collections",
+  "/collections-report": "/reports/collections",
   "/margin-erosion": "/reports/margin-erosion",
+  "/margin-erosion-report": "/reports/margin-erosion",
   "/aging": "/reports/aging",
+  "/aging-report": "/reports/aging",
   "/billing-aging": "/reports/aging",
+  "/dues-report": "/reports/dues",
   "/report-dues": "/reports/dues",
   "/report-collections": "/reports/collections",
   "/report-matters": "/reports/matters",
+  "/matters-report": "/reports/matters",
   "/report-tasks": "/reports/tasks",
+  "/tasks-report": "/reports/tasks",
   "/report-hearings": "/reports/hearings",
+  "/hearings-report": "/reports/hearings",
   "/attorney-revenue": "/reports/attorney-revenue",
+  "/attorney-revenue-report": "/reports/attorney-revenue",
   "/billed-amount-report": "/reports/billed-amount",
   "/util-report": "/reports/utilization",
   "/wip-report": "/reports/wip",
@@ -88,6 +105,7 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/referal-report": "/reports/referral",
   "/referral-report": "/reports/referral",
   "/cost-analysis": "/reports/cost-analysis",
+  "/cost-analysis-report": "/reports/cost-analysis",
   "/zoho-outstanding": "/reports/zoho-outstanding",
   "/non-converted-leads": "/reports/non-converted-leads",
   "/non/converted/leads": "/reports/non-converted-leads",
@@ -95,15 +113,22 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/purged/discounted/report": "/reports/purged-discounted",
   "/purged-discounted": "/reports/purged-discounted",
   "/report-invoices": "/reports/invoices",
+  "/invoices-report": "/reports/invoices",
   "/report-leads": "/reports/leads",
+  "/leads-report": "/reports/leads",
   "/report-activities": "/reports/activities",
+  "/activities-report": "/reports/activities",
   "/deposit/balance/reports": "/reports/deposit-balance",
   "/deposit-balance-report": "/reports/deposit-balance",
   "/user-timelog-entries": "/reports/user-timelog-entries",
   "/rating-report": "/reports/rating",
   "/posts": "/reports/posts",
-  "/wip-attorney-report": "/reports/wip-attorney",
-  "/wip-matter-report": "/reports/wip-matter",
+  "/wip-department-report": "/reports/wip?tab=department",
+  "/wip-attorney-report": "/reports/wip?tab=attorney",
+  "/wip-matter-report": "/reports/wip?tab=matter",
+  "/reports/wip-department": "/reports/wip?tab=department",
+  "/reports/wip-attorney": "/reports/wip?tab=attorney",
+  "/reports/wip-matter": "/reports/wip?tab=matter",
   "/retainer-statement-report": "/reports/retainer-statement",
   "/matter/report/summary": "/reports/matter-summary",
   "/closed/matters/": "/reports/closed-matters",
@@ -137,6 +162,8 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/multistepstasks/add": "/tasks/multi-step",
   "/document/remindar": "/document-reminders",
   "/document/reminder": "/document-reminders",
+  "/editor": "/editor",
+  "/documents/editor": "/editor",
   "/referral-partners": "/clients/referral-partners",
   "/short-matter/add": "/matters/short",
   "/short-matter/details": "/matters/short",
@@ -216,17 +243,18 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/locations": "/admin/locations",
   "/settings": "/admin/settings",
   "/company-info": "/admin/settings/company",
-  "/practice-area": "/admin/settings/masters/practice-area",
+  "/practice-area": "/admin/settings/practice-areas",
+  "/refer/client": "/admin/settings/refer-client",
   "/lead/status": "/admin/settings/masters/lead-status",
-  "/lead/source": "/admin/settings/masters/lead-source",
+  "/lead/source": "/admin/settings/lead-sources",
   "/working-days": "/admin/settings/working-days",
   "/docs-type": "/admin/settings/masters/docs-type",
   "/rates": "/admin/settings/masters/rates",
   "/session": "/admin/settings/masters/session",
   "/hearing/types": "/admin/settings/masters/hearing-types",
   "/case/types": "/admin/settings/masters/case-types",
-  "/designations": "/admin/settings/masters/designations",
-  "/departments": "/admin/settings/masters/departments",
+  "/designations": "/admin/settings/designations",
+  "/departments": "/admin/settings/departments",
   "/breakdowns": "/admin/settings/masters/breakdowns",
   "/set/my/dashboard": "/admin/settings/my-dashboard",
   "/group/config": "/admin/groups",
@@ -244,9 +272,12 @@ const LEGACY_TO_V3: Record<string, string> = {
   "/analytics/permissions": "/admin/settings/analytics-permissions",
   "/tickets": "/tickets",
   "/raise/tickets": "/tickets",
+  // Detail: `/edit/tickets/:id` handled in resolveNavPath prefix match
   "/apps/mailbox": "/email",
   "/mails": "/email",
+  "/mail": "/email",
   "/email": "/email",
+  "/pending/approval": "/approvals/lfa",
   "/integrations/onedrive": "/integrations/onedrive",
   "/onedrive": "/integrations/onedrive",
   "/profile": "/profile",
@@ -262,8 +293,116 @@ export function normalizeMenuUrl(url?: string | null): string {
   return bare.startsWith("/") ? bare : `/${bare}`
 }
 
+/**
+ * Map LMS hearing detail deep-links to v3.
+ * OLD: `/hearing?m_id={matterId}&id={hearingId}` → NEW: `/hearings/{hearingId}?matterId=`
+ */
+export function resolveLegacyHearingUrl(url?: string | null): string | null {
+  if (!url) return null
+  const raw = String(url).trim()
+  if (!raw) return null
+  try {
+    const u = new URL(raw, "http://local")
+    const path = normalizeMenuUrl(u.pathname)
+    const hearingId = u.searchParams.get("id") || u.searchParams.get("hearingId")
+    const matterId = u.searchParams.get("m_id") || u.searchParams.get("matterId")
+    if (path === "/hearing" && hearingId) {
+      const q = matterId ? `?matterId=${encodeURIComponent(matterId)}` : ""
+      return `/hearings/${encodeURIComponent(hearingId)}${q}`
+    }
+    const m = path.match(/^\/hearing\/([^/]+)$/)
+    if (m && !["selection", "history", "list", "types", "locations"].includes(m[1])) {
+      const q = matterId ? `?matterId=${encodeURIComponent(matterId)}` : ""
+      return `/hearings/${encodeURIComponent(m[1])}${q}`
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+/**
+ * Map LMS invoice approve deep-links (email / in-app) to v3.
+ * OLD:
+ *   /:attorneyId/:invoiceId/approve-invoice
+ *   /:attorneyId/:invoiceId/approve-invoice/:invoiceNumber/:invoicePrefix/:approveId/:matterId
+ *   /:attorneyId/:invoiceId/approve-department-invoice/.../:approveId/:matterId/:isDepartment
+ * NEW: /approvals/invoice?invoiceId=&approveId=  (or /approvals/department-invoice)
+ */
+export function resolveLegacyApproveInvoiceUrl(url?: string | null): string | null {
+  if (!url) return null
+  const raw = String(url).trim()
+  if (!raw) return null
+  try {
+    const u = new URL(raw, "http://local")
+    const path = normalizeMenuUrl(u.pathname)
+    const dept = path.match(
+      /^\/([^/]+)\/([^/]+)\/approve-department-invoice(?:\/([^/]*)\/([^/]*)\/([^/]+)\/([^/]+)\/([^/]+))?$/,
+    )
+    if (dept) {
+      const invoiceId = dept[2]
+      const approveId = dept[5]
+      const qs = new URLSearchParams()
+      if (invoiceId) qs.set("invoiceId", invoiceId)
+      if (approveId) qs.set("approveId", approveId)
+      const q = qs.toString()
+      return q ? `/approvals/department-invoice?${q}` : "/approvals/department-invoice"
+    }
+    const m = path.match(
+      /^\/([^/]+)\/([^/]+)\/approve-invoice(?:\/([^/]*)\/([^/]*)\/([^/]+)\/([^/]+))?$/,
+    )
+    if (m) {
+      const invoiceId = m[2]
+      const approveId = m[5]
+      const qs = new URLSearchParams()
+      if (invoiceId) qs.set("invoiceId", invoiceId)
+      if (approveId) qs.set("approveId", approveId)
+      const q = qs.toString()
+      return q ? `/approvals/invoice?${q}` : "/approvals/invoice"
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+/**
+ * Map LMS create-document deep-links to v3 query names.
+ * OLD: `/editor?id={relatedToId}&type={MATTER|HEARING|…}`
+ * NEW: `/editor?relatedTo=&relatedToId=` (also accepts legacy type/id on the page)
+ */
+export function resolveLegacyEditorUrl(url?: string | null): string | null {
+  if (!url) return null
+  const raw = String(url).trim()
+  if (!raw) return null
+  try {
+    const u = new URL(raw, "http://local")
+    const path = normalizeMenuUrl(u.pathname)
+    if (path !== "/editor" && path !== "/documents/editor") return null
+    const relatedTo =
+      u.searchParams.get("relatedTo") || u.searchParams.get("type")
+    const relatedToId =
+      u.searchParams.get("relatedToId") || u.searchParams.get("id")
+    const title = u.searchParams.get("title")
+    const qs = new URLSearchParams()
+    if (relatedTo) qs.set("relatedTo", relatedTo)
+    if (relatedToId) qs.set("relatedToId", relatedToId)
+    if (title) qs.set("title", title)
+    const q = qs.toString()
+    return q ? `/editor?${q}` : "/editor"
+  } catch {
+    return null
+  }
+}
+
 /** Resolve a backend/menu URL to the v3 route path. */
 export function resolveNavPath(url?: string | null): string {
+  const hearingDetail = resolveLegacyHearingUrl(url)
+  if (hearingDetail) return hearingDetail
+  const approveInvoice = resolveLegacyApproveInvoiceUrl(url)
+  if (approveInvoice) return approveInvoice
+  const editor = resolveLegacyEditorUrl(url)
+  if (editor) return editor
   const normalized = normalizeMenuUrl(url)
   if (!normalized) return ""
   if (LEGACY_TO_V3[normalized]) return LEGACY_TO_V3[normalized]
@@ -275,6 +414,9 @@ export function resolveNavPath(url?: string | null): string {
   if (normalized.startsWith("/locations")) return "/admin/locations"
   if (normalized.startsWith("/billings")) return "/billings"
   if (normalized.startsWith("/reports")) return normalized
+  if (normalized.startsWith("/hearings/")) return normalized
+  const editTicket = normalized.match(/^\/edit\/tickets\/([^/]+)$/)
+  if (editTicket) return `/tickets/${editTicket[1]}`
   return normalized
 }
 

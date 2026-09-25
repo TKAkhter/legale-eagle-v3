@@ -188,6 +188,11 @@ export const mattersApi = {
         const matter = obj.matters as Record<string, unknown>
         const lfaWrap = obj.lfaWithLFAItem as Record<string, unknown> | undefined
         const lfaInner = (lfaWrap?.lfa as Record<string, unknown> | undefined) ?? lfaWrap
+        const lfaItemsList = (Array.isArray(lfaWrap?.lfaItemsList)
+          ? lfaWrap!.lfaItemsList
+          : Array.isArray(matter.lfaItemsList)
+            ? matter.lfaItemsList
+            : []) as Record<string, unknown>[]
         return {
           ...matter,
           // Old LMS overview reads matter.client; some payloads only have clientMini.
@@ -203,6 +208,7 @@ export const mattersApi = {
                 lfaNo: matter.lfaNo,
                 lfaType: matter.lfaType,
               },
+          lfaItemsList,
           emailUniqueId: matter.emailUniqueId ?? matter.emailUnique,
           applicableLaws: matter.applicableLawName ?? matter.applicableLaw ?? matter.applicableLaws,
           capAmount: matter.capAmount,
@@ -214,6 +220,7 @@ export const mattersApi = {
           ...matter,
           client: matter.client ?? matter.clientMini ?? obj.client ?? null,
           lfa: obj.lfa ?? matter.lfa,
+          lfaItemsList: obj.lfaItemsList ?? matter.lfaItemsList ?? [],
         }
       }
       const flat = obj as Record<string, unknown>
@@ -358,6 +365,43 @@ export const mattersApi = {
     return unwrapPage(res.data?.data ?? res.data, p)
   },
 
+  /** Parent + SOW sub-matters for Filter SOW dropdowns (OLD: GET /matter/associated-matters/{id}). */
+  async getAssociatedMatters(matterId: string): Promise<{ id: string; title: string; subMatter: boolean }[]> {
+    if (env.USE_STATIC_DATA) {
+      const { matterDetail, matters } = await import("@/data/static")
+      const parent = matterDetail as Record<string, unknown>
+      const parentId = String(parent.matterId ?? parent.id ?? matterId)
+      const listRow = (matters as RawMatter[]).find(
+        m => String(m.matterId ?? m.id) === parentId || String(m.id) === matterId,
+      )
+      const subs = listRow?.subMattersList ?? []
+      return [
+        { id: parentId, title: String(parent.title ?? parentId), subMatter: false },
+        ...subs
+          .map(s => ({
+            id: String(s.id ?? s.matterId ?? ""),
+            title: String(s.title ?? s.id ?? ""),
+            subMatter: true,
+          }))
+          .filter(s => s.id),
+      ]
+    }
+    const res = await axiosClient.get(`/api/matter/associated-matters/${matterId}`, {
+      params: { page: 0, size: 100 },
+    })
+    const d = res.data?.data ?? res.data
+    const content = (Array.isArray(d?.content) ? d.content
+      : Array.isArray(d) ? d
+      : []) as Record<string, unknown>[]
+    return content
+      .map(row => ({
+        id: String(row.id ?? row.matterId ?? ""),
+        title: String(row.title ?? row.sowNumber ?? row.id ?? ""),
+        subMatter: Boolean(row.subMatter),
+      }))
+      .filter(row => row.id)
+  },
+
   async addNote(matterId: string, payload: { title: string; content: string }) {
     if (env.USE_STATIC_DATA) {
       await new Promise(r => setTimeout(r, 250))
@@ -382,6 +426,42 @@ export const mattersApi = {
       params: { matterId, pageNumber: p.page, pageSize: p.pageSize, isPaginated: true },
     })
     return unwrapPage(res.data?.data ?? res.data, p)
+  },
+
+  async createFinanceContact(
+    matterId: string,
+    payload: { name: string; email: string; contactNumber?: string; primary?: boolean },
+  ): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Contact created"
+    }
+    const res = await axiosClient.post("/api/matter/finance-contacts/create", { ...payload, matterId })
+    return String(res.data?.message ?? res.data?.Msg ?? "Contact created")
+  },
+
+  async updateFinanceContact(payload: {
+    id: string
+    name: string
+    email: string
+    contactNumber?: string
+    primary?: boolean
+  }): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Contact updated"
+    }
+    const res = await axiosClient.post("/api/matter/finance-contacts/update", payload)
+    return String(res.data?.message ?? res.data?.Msg ?? "Contact updated")
+  },
+
+  async deleteFinanceContact(id: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Contact deleted"
+    }
+    const res = await axiosClient.post("/api/matter/finance-contacts/delete", null, { params: { id } })
+    return String(res.data?.message ?? res.data?.Msg ?? "Contact deleted")
   },
 
   async getProjectedHours(matterId: string, p: GridParams) {
@@ -566,6 +646,37 @@ export const mattersApi = {
     return res.data?.data ?? res.data
   },
 
+  /** OLD LMS: POST /matter/add/checklist `{ checkList, matterId }` */
+  async addChecklist(matterId: string, checkList: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 150))
+      return "Checklist added."
+    }
+    const res = await axiosClient.post("/api/matter/add/checklist", { matterId, checkList })
+    return String(res.data?.Msg ?? res.data?.message ?? "Checklist added.")
+  },
+
+  /**
+   * OLD LMS: PUT /matter/update-sub-matter/{id}
+   * Body: `{ description, responsibleAttorney, lfa, parentMatterId }`
+   */
+  async updateSubMatter(
+    subMatterId: string,
+    payload: {
+      description: string
+      responsibleAttorney: string
+      lfa: string
+      parentMatterId: string
+    },
+  ): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "Sub-matter updated."
+    }
+    const res = await axiosClient.put(`/api/matter/update-sub-matter/${subMatterId}`, payload)
+    return String(res.data?.Msg ?? res.data?.message ?? "Sub-matter updated.")
+  },
+
   async getMails(matterId: string, p: GridParams) {
     if (env.USE_STATIC_DATA) return staticPage("matterMails", p)
     const res = await axiosClient.get("/api/emails/matter/getmini/v2", {
@@ -649,6 +760,46 @@ export const mattersApi = {
     const res = await axiosClient.get("/api/matter/get/matter/status/timeline", { params: { matterId } })
     const { unwrapAxiosList } = await import("@lib/utils/unwrap")
     return unwrapAxiosList(res.data)
+  },
+
+  /**
+   * OLD LMS: POST /matter/status/upload?matterId=&status=&note=
+   * multipart body: files[] (docType collected in UI but not sent by OLD)
+   */
+  async uploadStatusDoc(opts: {
+    matterId: string
+    status: string
+    note?: string
+    files: File[]
+    docType?: string
+  }): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return "Uploaded successfully."
+    }
+    const formData = new FormData()
+    for (const f of opts.files) formData.append("files", f)
+    const params: Record<string, string> = {
+      matterId: opts.matterId,
+      status: opts.status,
+      note: opts.note ?? "",
+    }
+    if (opts.docType) params.docType = opts.docType
+    const res = await axiosClient.post("/api/matter/status/upload", formData, {
+      params,
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return String(res.data?.Msg ?? res.data?.message ?? "Uploaded successfully.")
+  },
+
+  /** OLD LMS: GET /util/list/doc/type — used by status-doc upload dialog */
+  async getDocTypes(): Promise<{ id: string; type?: string; name?: string }[]> {
+    if (env.USE_STATIC_DATA) {
+      return [{ id: "dt1", type: "ID" }, { id: "dt2", type: "Contract" }, { id: "dt3", type: "Other" }]
+    }
+    const res = await axiosClient.get("/api/util/list/doc/type")
+    const { unwrapAxiosList } = await import("@lib/utils/unwrap")
+    return unwrapAxiosList(res.data) as { id: string; type?: string; name?: string }[]
   },
 
   async getTeam(matterId: string) {
@@ -786,15 +937,113 @@ export const mattersApi = {
     }
   },
 
-  async getConflictChecks(matterId: string, p: GridParams) {
+  /**
+   * LMS GET /conflict/check/matter/search — returns main conflict id + conflict_log rows.
+   * Shape: data.id + (data.response || data).conflict_log[]
+   */
+  async getConflictCheckDetail(matterId: string): Promise<{
+    mainConflictId: string
+    overallStatus: string
+    logs: Record<string, unknown>[]
+  }> {
     if (env.USE_STATIC_DATA) {
-      return pageOf([
-        { id: "mcc1", partyName: "Opposing LLC", matchType: "Matter", status: "Cleared", details: "No conflict" },
-      ], p)
+      return {
+        mainConflictId: "mc1",
+        overallStatus: "Pending",
+        logs: [{
+          id: "mcc1",
+          mainConflictId: "mc1",
+          partyName: "Opposing LLC",
+          matchType: "Matter",
+          status: "Pending",
+          details: "Potential name match",
+          approvedStatus: false,
+        }],
+      }
     }
     const res = await axiosClient.get("/api/conflict/check/matter/search", { params: { matterId } })
-    const list = (Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : []) as Record<string, unknown>[]
-    return pageOf(list, p)
+    const data = (res.data?.data ?? res.data) as Record<string, unknown> | Record<string, unknown>[] | null
+    if (!data) return { mainConflictId: "", overallStatus: "", logs: [] }
+    if (Array.isArray(data)) {
+      return {
+        mainConflictId: String((data[0] as { mainConflictId?: string })?.mainConflictId ?? ""),
+        overallStatus: "",
+        logs: data as Record<string, unknown>[],
+      }
+    }
+    const mainConflictId = String(data.id ?? "")
+    const responseData = (data.response ?? data) as Record<string, unknown>
+    const rawLogs = (Array.isArray(responseData.conflict_log)
+      ? responseData.conflict_log
+      : Array.isArray(data.conflict_log)
+        ? data.conflict_log
+        : []) as Record<string, unknown>[]
+    const overallStatus = String(responseData.overall_status ?? data.overall_status ?? "")
+    const logs = rawLogs.map(log => {
+      const approved = log.approvedStatus === true
+      return {
+        ...log,
+        id: String(log.id ?? ""),
+        mainConflictId,
+        partyName: String(
+          log.source_opposing_party
+          ?? log.matchedName
+          ?? log.partyName
+          ?? log.name
+          ?? "—",
+        ),
+        matchType: String(log.matchType ?? log.matched_entity_type ?? log.type ?? "—"),
+        status: approved
+          ? "Cleared"
+          : String(log.colour ?? log.status ?? (overallStatus || "Pending")),
+        details: String(log.reason ?? log.details ?? "—"),
+        approvedStatus: approved,
+        approvedByName: log.approvedByName != null ? String(log.approvedByName) : "",
+        approvedAt: log.approvedAt != null ? String(log.approvedAt) : "",
+      }
+    })
+    return { mainConflictId, overallStatus, logs }
+  },
+
+  async getConflictChecks(matterId: string, p: GridParams) {
+    const detail = await mattersApi.getConflictCheckDetail(matterId)
+    return pageOf(detail.logs, p)
+  },
+
+  /** LMS POST /conflict/matter/approve/v1 — Clear / Approve one or more conflict_log rows. */
+  async approveConflict(mainConflictId: string, conflictLogIds: string[]): Promise<string> {
+    const ids = [...new Set(conflictLogIds.filter(Boolean))]
+    if (!mainConflictId || !ids.length) throw new Error("Missing conflict ID or conflict log ID")
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return ids.length === 1 ? "Conflict approved successfully" : `${ids.length} conflicts approved successfully`
+    }
+    const res = await axiosClient.post("/api/conflict/matter/approve/v1", {
+      id: mainConflictId,
+      partyApprovals: ids.map(id => ({ approvedStatus: true, id })),
+    })
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "Failed to approve conflict")
+    }
+    return String(
+      res.data?.Msg
+      ?? res.data?.message
+      ?? (ids.length === 1 ? "Conflict approved successfully" : `${ids.length} conflicts approved successfully`),
+    )
+  },
+
+  /** LMS POST /conflict/matter/approve-all/{mainConflictId} */
+  async approveAllConflicts(mainConflictId: string): Promise<string> {
+    if (!mainConflictId) throw new Error("Missing conflict ID")
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "All conflicts approved successfully"
+    }
+    const res = await axiosClient.post(`/api/conflict/matter/approve-all/${mainConflictId}`)
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "Failed to approve all conflicts")
+    }
+    return String(res.data?.Msg ?? res.data?.message ?? "All conflicts approved successfully")
   },
 
   async getTransactions(matterId: string, bankAccountId: string, p: GridParams) {
@@ -850,6 +1099,161 @@ export const mattersApi = {
       throw new Error(res.data?.Msg ?? "You are not allowed to update the estimate.")
     }
     return res.data?.Msg ?? res.data?.message ?? "Estimate updated successfully."
+  },
+
+  /**
+   * LMS PATCH /matter/update/cap
+   * Body: { cap, capAmount, matterId, capType } — amount 0 when disabled, else ≥ 500.
+   */
+  async updateCap(
+    matterId: string,
+    payload: { enabled: boolean; amount: number; type?: string },
+  ): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Cap updated successfully."
+    }
+    const res = await axiosClient.patch("/api/matter/update/cap", {
+      matterId,
+      cap: payload.enabled,
+      capAmount: payload.enabled ? payload.amount : 0,
+      capType: payload.type ?? "Flat",
+    })
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "You are not allowed to update the cap.")
+    }
+    return String(res.data?.Msg ?? res.data?.message ?? "Cap updated successfully.")
+  },
+
+  /**
+   * LMS GET /invoice/matter/revenue?matterId=
+   * Flat billing totals used by ThresholdBillingGraph (invoiced, WIP, cap, estimate, etc.).
+   */
+  async getRevenue(matterId: string): Promise<Record<string, unknown>> {
+    if (env.USE_STATIC_DATA) {
+      return {
+        billingType: "Hourly",
+        invoiced: 18000,
+        billedAmount: 18000,
+        wipAmount: 4200,
+        estimate: 25000,
+        capAmount: 30000,
+        fixedFee: 0,
+        collected: 12000,
+        outstanding: 6000,
+      }
+    }
+    const res = await axiosClient.get("/api/invoice/matter/revenue", { params: { matterId } })
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+  },
+
+  /**
+   * OLD LMS: GET /matter/list/by/client/filter?matterType=Long_Matter&clientId=
+   * Used when attaching lead time logs to an open/reopen matter after convert.
+   */
+  async listLongMattersByClient(clientId: string): Promise<{
+    id: string
+    title: string
+    billingType: string
+    status: string
+  }[]> {
+    if (!clientId) return []
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "m1", title: "260303 — Building Dispute", billingType: "Hourly", status: "OPEN" },
+        { id: "m2", title: "260310 — Advisory Retainer", billingType: "Fixed", status: "OPEN" },
+      ]
+    }
+    const res = await axiosClient.get("/api/matter/list/by/client/filter", {
+      params: { matterType: "Long_Matter", clientId },
+    })
+    const raw = res.data?.data ?? res.data ?? []
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : []
+    const normalizeStatus = (s = "") => s.replace(/[\s_]+/g, "").toUpperCase()
+    return (list as Record<string, unknown>[])
+      .map(m => ({
+        id: String(m.id ?? m.matterId ?? ""),
+        title: String(m.title ?? m.matterTitle ?? m.matterId ?? ""),
+        billingType: String(m.billingType ?? ""),
+        status: String(m.status ?? ""),
+      }))
+      .filter(m => {
+        if (!m.id) return false
+        if (!m.status) return false
+        const status = normalizeStatus(m.status)
+        return status === "OPEN" || status === "REOPEN"
+      })
+  },
+
+  /**
+   * LFA line items for matter breakdown picker.
+   * Prefer items from matter detail (`lfaWithLFAItem.lfaItemsList`); fall back to `/lfa/get/item`.
+   */
+  async getLfaItemsForMatter(matter: Record<string, unknown>): Promise<Record<string, unknown>[]> {
+    const fromMatter = matter.lfaItemsList
+    if (Array.isArray(fromMatter) && fromMatter.length > 0) {
+      return fromMatter as Record<string, unknown>[]
+    }
+    const lfa = (matter.lfa ?? {}) as Record<string, unknown>
+    const lfaId = String(lfa.id ?? matter.lfaId ?? "")
+    if (!lfaId) return []
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "bd1", name: "Phase 1 — Discovery", invoiceCreated: false, advance: false },
+        { id: "bd2", name: "Phase 2 — Hearing prep", invoiceCreated: false, advance: false },
+        { id: "bd3", name: "Advance retainer", invoiceCreated: false, advance: true },
+      ]
+    }
+    const { lfaApi } = await import("@/api/lfa")
+    const rates = await lfaApi.getRates(lfaId)
+    return (Array.isArray(rates) ? rates : []) as Record<string, unknown>[]
+  },
+
+  /** LMS PATCH /matter/complete/breakdown/{matterId}/{breakDownId} */
+  async completeBreakdown(matterId: string, breakDownId: string): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Breakdown completed."
+    }
+    const res = await axiosClient.patch(`/api/matter/complete/breakdown/${matterId}/${breakDownId}`)
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? res.data?.message ?? "Failed to complete breakdown")
+    }
+    return String(res.data?.Msg ?? res.data?.message ?? "Breakdown completed.")
+  },
+
+  /**
+   * LMS GET /matter/retainer-statement/summary?matterId=&allMattersUnderLfa=
+   * Returns null-shaped payload when retainer is not applicable (`applicable !== true`).
+   */
+  async getRetainerStatementSummary(
+    matterId: string,
+    allMattersUnderLfa = true,
+  ): Promise<Record<string, unknown> | null> {
+    if (env.USE_STATIC_DATA) {
+      return {
+        applicable: true,
+        maxRetainerHr: 40,
+        maxRetainerMin: 0,
+        totalHoursUtilizedHr: 12,
+        totalHoursUtilizedMin: 30,
+        totalWipHr: 2,
+        totalWipMin: 0,
+        balanceRetainerHr: 25,
+        balanceRetainerMin: 30,
+        matters: [],
+      }
+    }
+    try {
+      const res = await axiosClient.get("/api/matter/retainer-statement/summary", {
+        params: { matterId, allMattersUnderLfa },
+      })
+      return (res.data?.data ?? res.data ?? null) as Record<string, unknown> | null
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 401 || status === 403) return null
+      throw err
+    }
   },
 
 }

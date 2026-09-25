@@ -8,12 +8,13 @@ import {
   TextField, Checkbox, List, ListItem, ListItemText, ListItemSecondaryAction,
   Dialog, DialogTitle, DialogContent, DialogActions, Chip, MenuItem,
   FormControl, InputLabel, Select, Table, TableBody, TableCell, TableHead,
-  TableRow, IconButton, Divider,
+  TableRow, IconButton, Divider, Tooltip, TableContainer,
 } from "@mui/material"
 import AddIcon from "@mui/icons-material/Add"
 import DeleteIcon from "@mui/icons-material/Delete"
 import EditIcon from "@mui/icons-material/Edit"
 import ArrowBackIcon from "@mui/icons-material/ArrowBack"
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PageShell } from "@/components/ui/PageShell"
 import { axiosClient } from "@lib/api/axios"
@@ -21,6 +22,7 @@ import { env } from "@/config/env"
 import { toast } from "@/lib/toast"
 import { adminApi } from "@/api/admin"
 import { UserSelectFilter } from "@/components/filters/UserSelectFilter"
+import { useAuthStore } from "@lib/store/authStore"
 
 function SettingsSubShell({
   title, description, children,
@@ -1288,5 +1290,1104 @@ export function AnalyticsPermissionsPage() {
         </DialogActions>
       </Dialog>
     </SettingsSubShell>
+  )
+}
+
+// ── Referral Partners / Refer Client (LMS `/refer/client` — add / edit / status) ─
+
+interface ReferClientRow {
+  id: string
+  name: string
+  status?: boolean
+}
+
+export function ReferClientSettingsPage() {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<ReferClientRow | null>(null)
+  const [name, setName] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["settings", "refer-client"],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) {
+        return [
+          { id: "rp1", name: "Partner Firm LLC", status: true },
+          { id: "rp2", name: "Gulf Referrals", status: true },
+        ] as ReferClientRow[]
+      }
+      const r = await axiosClient.get("/api/util/list/refer/client")
+      const list = r.data?.data ?? r.data ?? []
+      return (Array.isArray(list) ? list : []).map((row: Record<string, unknown>) => ({
+        id: String(row.id ?? ""),
+        name: String(row.name ?? ""),
+        status: row.status !== false,
+      }))
+    },
+  })
+
+  function openAdd() {
+    setEditing(null)
+    setName("")
+    setOpen(true)
+  }
+
+  function openEdit(row: ReferClientRow) {
+    setEditing(row)
+    setName(row.name)
+    setOpen(true)
+  }
+
+  async function save() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setSaving(true)
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 250))
+      } else if (editing) {
+        await axiosClient.put(`/api/util/update/refer/client/${editing.id}`, {
+          id: editing.id,
+          name: trimmed,
+        })
+      } else {
+        await axiosClient.post("/api/util/add/refer/client", { name: trimmed })
+      }
+      toast.success(editing ? "Referral partner updated" : "Referral partner added")
+      setOpen(false)
+      qc.invalidateQueries({ queryKey: ["settings", "refer-client"] })
+      qc.invalidateQueries({ queryKey: ["lfa", "referral-partners"] })
+    } catch {
+      toast.error(editing ? "Failed to update" : "Failed to add")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleStatus(row: ReferClientRow) {
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 200))
+      } else {
+        await axiosClient.put(`/api/util/refer/client/change/status/${row.id}`)
+      }
+      toast.success("Status changed")
+      qc.invalidateQueries({ queryKey: ["settings", "refer-client"] })
+      qc.invalidateQueries({ queryKey: ["lfa", "referral-partners"] })
+    } catch {
+      toast.error("Failed to change status")
+    }
+  }
+
+  return (
+    <SettingsSubShell
+      title="Referral Partners"
+      description="Manage refer-client master used on LFAs and leads (LMS /refer/client)"
+    >
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Add</Button>
+      </Box>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell width={56}>#</TableCell>
+              <TableCell>Client Name</TableCell>
+              <TableCell width={100}>Status</TableCell>
+              <TableCell width={80} align="right">Edit</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={4}><CircularProgress size={22} /></TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4}>
+                  <Typography variant="body2" color="text.secondary">No referral partners yet.</Typography>
+                </TableCell>
+              </TableRow>
+            ) : rows.map((row, i) => (
+              <TableRow key={row.id} hover>
+                <TableCell>{i + 1}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{row.name}</TableCell>
+                <TableCell>
+                  <Switch
+                    size="small"
+                    checked={row.status !== false}
+                    onChange={() => { void toggleStatus(row) }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEdit(row)} aria-label="Edit referral partner">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{editing ? "Edit Referral Partner" : "Add Referral Partner"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Client Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") void save() }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!name.trim() || saving} onClick={() => { void save() }}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </SettingsSubShell>
+  )
+}
+
+// ── Designations (LMS `/designations` — add / edit / status toggle) ───────────
+
+interface DesignationRow {
+  id: string
+  name: string
+  status?: boolean
+}
+
+export function DesignationsSettingsPage() {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<DesignationRow | null>(null)
+  const [name, setName] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["settings", "designations"],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) {
+        return [
+          { id: "d1", name: "Partner", status: true },
+          { id: "d2", name: "Associate", status: true },
+        ] as DesignationRow[]
+      }
+      const list = await adminApi.getDesignations()
+      return (Array.isArray(list) ? list : []).map((r: Record<string, unknown>) => ({
+        id: String(r.id ?? ""),
+        name: String(r.name ?? ""),
+        status: r.status !== false,
+      }))
+    },
+  })
+
+  function openAdd() {
+    setEditing(null)
+    setName("")
+    setOpen(true)
+  }
+
+  function openEdit(row: DesignationRow) {
+    setEditing(row)
+    setName(row.name)
+    setOpen(true)
+  }
+
+  async function save() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setSaving(true)
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 250))
+      } else if (editing) {
+        await axiosClient.put(`/api/util/edit/designation/${editing.id}`, { name: trimmed })
+      } else {
+        await axiosClient.post("/api/util/add/designation", { name: trimmed })
+      }
+      toast.success(editing ? "Designation updated" : "Designation added")
+      setOpen(false)
+      qc.invalidateQueries({ queryKey: ["settings", "designations"] })
+      qc.invalidateQueries({ queryKey: ["designations"] })
+    } catch {
+      toast.error(editing ? "Failed to update designation" : "Failed to add designation")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleStatus(row: DesignationRow) {
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 200))
+      } else {
+        // LMS uses DELETE for designation status change
+        await axiosClient.delete(`/api/util/designation/change/status/${row.id}`)
+      }
+      toast.success("Status changed")
+      qc.invalidateQueries({ queryKey: ["settings", "designations"] })
+      qc.invalidateQueries({ queryKey: ["designations"] })
+    } catch {
+      toast.error("Failed to change status")
+    }
+  }
+
+  return (
+    <SettingsSubShell title="Designations" description="Manage attorney designations">
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Add</Button>
+      </Box>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell width={56}>#</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell width={100}>Status</TableCell>
+              <TableCell width={80} align="right">Edit</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={4}><CircularProgress size={22} /></TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4}>
+                  <Typography variant="body2" color="text.secondary">No designations yet.</Typography>
+                </TableCell>
+              </TableRow>
+            ) : rows.map((row, i) => (
+              <TableRow key={row.id} hover>
+                <TableCell>{i + 1}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{row.name}</TableCell>
+                <TableCell>
+                  <Switch
+                    size="small"
+                    checked={row.status !== false}
+                    onChange={() => { void toggleStatus(row) }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEdit(row)} aria-label="Edit designation">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{editing ? "Edit Designation" : "Add Designation"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") void save() }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!name.trim() || saving} onClick={() => { void save() }}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </SettingsSubShell>
+  )
+}
+
+// ── Departments (LMS `/departments` — name + HOD add/edit / status toggle) ────
+
+interface DepartmentRow {
+  id: string
+  name: string
+  status?: boolean
+  hodId?: string
+  hodName?: string
+}
+
+export function DepartmentsSettingsPage() {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<DepartmentRow | null>(null)
+  const [name, setName] = useState("")
+  const [hodId, setHodId] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["settings", "departments"],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) {
+        return [
+          { id: "dep1", name: "Litigation", status: true, hodId: "u1", hodName: "Sarah Johnson" },
+          { id: "dep2", name: "Corporate", status: true, hodId: "u2", hodName: "Ali Hassan" },
+        ] as DepartmentRow[]
+      }
+      const list = await adminApi.getDepartments()
+      return (Array.isArray(list) ? list : []).map((r: Record<string, unknown>) => {
+        const hod = r.hod as { id?: string; firstName?: string; lastName?: string; name?: string } | undefined
+        const hodIdVal = String(r.hodId ?? hod?.id ?? "")
+        const hodName = hod
+          ? `${hod.firstName ?? ""} ${hod.lastName ?? ""}`.trim() || String(hod.name ?? "")
+          : String(r.hodName ?? "")
+        return {
+          id: String(r.id ?? ""),
+          name: String(r.name ?? ""),
+          status: r.status !== false,
+          hodId: hodIdVal,
+          hodName,
+        }
+      })
+    },
+  })
+
+  const usersQ = useQuery({
+    queryKey: ["users", "min", "departments-hod"],
+    queryFn: async () => {
+      const list = await adminApi.getUsersMin() as { id?: string; firstName?: string; lastName?: string; active?: boolean; loginDisabled?: boolean }[]
+      return (Array.isArray(list) ? list : [])
+        .filter(u => u.id && u.active !== false && u.loginDisabled !== true)
+        .map(u => ({
+          id: String(u.id),
+          label: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || String(u.id),
+        }))
+    },
+    staleTime: 60_000,
+  })
+
+  const users = usersQ.data ?? []
+
+  function openAdd() {
+    setEditing(null)
+    setName("")
+    setHodId("")
+    setOpen(true)
+  }
+
+  function openEdit(row: DepartmentRow) {
+    setEditing(row)
+    setName(row.name)
+    setHodId(row.hodId ?? "")
+    setOpen(true)
+  }
+
+  async function save() {
+    const trimmed = name.trim()
+    if (!trimmed || !hodId) {
+      toast.error("Name and Head of Department are required")
+      return
+    }
+    setSaving(true)
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 250))
+      } else if (editing) {
+        await axiosClient.put(`/api/util/update/department/${editing.id}`, { name: trimmed, hodId })
+      } else {
+        await axiosClient.post("/api/util/add/department", { name: trimmed, hodId })
+      }
+      toast.success(editing ? "Department updated" : "Department added")
+      setOpen(false)
+      qc.invalidateQueries({ queryKey: ["settings", "departments"] })
+      qc.invalidateQueries({ queryKey: ["departments"] })
+    } catch {
+      toast.error(editing ? "Failed to update department" : "Failed to add department")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleStatus(row: DepartmentRow) {
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 200))
+      } else {
+        await axiosClient.delete(`/api/util/department/change/status/${row.id}`)
+      }
+      toast.success("Status changed")
+      qc.invalidateQueries({ queryKey: ["settings", "departments"] })
+      qc.invalidateQueries({ queryKey: ["departments"] })
+    } catch {
+      toast.error("Failed to change status")
+    }
+  }
+
+  return (
+    <SettingsSubShell title="Departments" description="Manage departments and heads of department">
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Add</Button>
+      </Box>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell width={56}>#</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Head of Department</TableCell>
+              <TableCell width={100}>Status</TableCell>
+              <TableCell width={80} align="right">Edit</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5}><CircularProgress size={22} /></TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <Typography variant="body2" color="text.secondary">No departments yet.</Typography>
+                </TableCell>
+              </TableRow>
+            ) : rows.map((row, i) => (
+              <TableRow key={row.id} hover>
+                <TableCell>{i + 1}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{row.name}</TableCell>
+                <TableCell>
+                  {row.hodName
+                    || users.find(u => u.id === row.hodId)?.label
+                    || row.hodId
+                    || "—"}
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    size="small"
+                    checked={row.status !== false}
+                    onChange={() => { void toggleStatus(row) }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEdit(row)} aria-label="Edit department">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{editing ? "Edit Department" : "Add Department"}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+          <FormControl fullWidth size="small">
+            <InputLabel>Head of Department</InputLabel>
+            <Select
+              label="Head of Department"
+              value={hodId}
+              onChange={e => setHodId(String(e.target.value))}
+            >
+              <MenuItem value=""><em>None</em></MenuItem>
+              {users.map(u => (
+                <MenuItem key={u.id} value={u.id}>{u.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!name.trim() || !hodId || saving} onClick={() => { void save() }}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </SettingsSubShell>
+  )
+}
+
+// ── Lead Sources (LMS `/lead/source` — sourceName + nextStep/filed/dropdownType) ─
+
+interface LeadSourceRow {
+  id: string
+  sourceName: string
+  status?: boolean
+  nextStep?: boolean
+  filed?: string
+  dropdownType?: string
+}
+
+const DROPDOWN_TYPE_LABEL: Record<string, string> = {
+  client: "Referral Client",
+  user: "User",
+  existingClient: "Existing Client",
+  businessGroup: "Business Group",
+}
+
+function normalizeLeadSourceRow(r: Record<string, unknown>): LeadSourceRow {
+  return {
+    id: String(r.id ?? ""),
+    sourceName: String(r.sourceName ?? r.name ?? ""),
+    status: r.status !== false,
+    nextStep: Boolean(r.nextStep),
+    filed: String(r.filed ?? ""),
+    dropdownType: String(r.dropdownType ?? ""),
+  }
+}
+
+export function LeadSourcesSettingsPage() {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<LeadSourceRow | null>(null)
+  const [sourceName, setSourceName] = useState("")
+  const [nextStep, setNextStep] = useState(false)
+  const [filed, setFiled] = useState("")
+  const [dropdownType, setDropdownType] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["settings", "lead-sources"],
+    queryFn: async () => {
+      if (env.USE_STATIC_DATA) {
+        const list = await adminApi.getLeadSources() as Record<string, unknown>[]
+        return (Array.isArray(list) ? list : []).map(normalizeLeadSourceRow)
+      }
+      const res = await axiosClient.get("/api/util/get/source/master", { params: { status: false } })
+      const list = res.data?.data ?? []
+      return (Array.isArray(list) ? list : []).map((r: Record<string, unknown>) => normalizeLeadSourceRow(r))
+    },
+  })
+
+  function openAdd() {
+    setEditing(null)
+    setSourceName("")
+    setNextStep(false)
+    setFiled("")
+    setDropdownType("")
+    setOpen(true)
+  }
+
+  function openEdit(row: LeadSourceRow) {
+    setEditing(row)
+    setSourceName(row.sourceName)
+    setNextStep(Boolean(row.nextStep))
+    setFiled(row.filed ?? "")
+    setDropdownType(row.dropdownType ?? "")
+    setOpen(true)
+  }
+
+  function canSave(): boolean {
+    if (!sourceName.trim()) return false
+    if (nextStep && !filed) return false
+    if (nextStep && filed === "dropdown" && !dropdownType) return false
+    return true
+  }
+
+  async function save() {
+    if (!canSave()) return
+    setSaving(true)
+    const body: Record<string, unknown> = {
+      sourceName: sourceName.trim(),
+      nextStep,
+      filed: nextStep ? filed : "",
+      dropdownType: nextStep && filed === "dropdown" ? dropdownType : "",
+    }
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 250))
+      } else if (editing) {
+        await axiosClient.put(`/api/util/source/master/update/${editing.id}`, { ...body, id: editing.id })
+      } else {
+        await axiosClient.post("/api/util/add/source/master", body)
+      }
+      toast.success(editing ? "Source updated" : "Source added")
+      setOpen(false)
+      qc.invalidateQueries({ queryKey: ["settings", "lead-sources"] })
+      qc.invalidateQueries({ queryKey: ["leadSources"] })
+    } catch {
+      toast.error(editing ? "Failed to update source" : "Failed to add source")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleStatus(row: LeadSourceRow) {
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 200))
+      } else {
+        await axiosClient.put(`/api/util/source/master/status/change/${row.id}`)
+      }
+      toast.success("Status changed")
+      qc.invalidateQueries({ queryKey: ["settings", "lead-sources"] })
+      qc.invalidateQueries({ queryKey: ["leadSources"] })
+    } catch {
+      toast.error("Failed to change status")
+    }
+  }
+
+  return (
+    <SettingsSubShell title="Lead Source Master" description="Setting up lead source master">
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Add Source</Button>
+      </Box>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell width={56}>#</TableCell>
+              <TableCell>Source Name</TableCell>
+              <TableCell>Extra Info</TableCell>
+              <TableCell width={100}>Status</TableCell>
+              <TableCell width={80} align="right">Edit</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={5}><CircularProgress size={22} /></TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <Typography variant="body2" color="text.secondary">No lead sources yet.</Typography>
+                </TableCell>
+              </TableRow>
+            ) : rows.map((row, i) => (
+              <TableRow key={row.id} hover>
+                <TableCell>{i + 1}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{row.sourceName}</TableCell>
+                <TableCell>
+                  {!row.nextStep ? (
+                    <Typography variant="body2" color="text.secondary">—</Typography>
+                  ) : (
+                    <Typography variant="body2">
+                      {row.filed === "dropdown"
+                        ? `Dropdown · ${DROPDOWN_TYPE_LABEL[row.dropdownType ?? ""] ?? row.dropdownType ?? ""}`
+                        : row.filed === "textbox"
+                          ? "Text Box"
+                          : String(row.filed || "—")}
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    size="small"
+                    checked={row.status !== false}
+                    onChange={() => { void toggleStatus(row) }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEdit(row)} aria-label="Edit source">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{editing ? "Edit this source" : "Add new source"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Source Name"
+            value={sourceName}
+            onChange={e => setSourceName(e.target.value)}
+            sx={{ mt: 1, mb: 1 }}
+            required
+          />
+          <FormControlLabel
+            control={(
+              <Checkbox
+                checked={nextStep}
+                onChange={e => {
+                  const checked = e.target.checked
+                  setNextStep(checked)
+                  if (!checked) {
+                    setFiled("")
+                    setDropdownType("")
+                  }
+                }}
+              />
+            )}
+            label="I want to provide more information"
+          />
+          {nextStep && (
+            <FormControl fullWidth sx={{ mt: 1, mb: 1 }}>
+              <InputLabel>Field Option</InputLabel>
+              <Select
+                label="Field Option"
+                value={filed}
+                onChange={e => {
+                  const v = String(e.target.value)
+                  setFiled(v)
+                  if (v !== "dropdown") setDropdownType("")
+                }}
+              >
+                <MenuItem value="textbox">Text Box</MenuItem>
+                <MenuItem value="dropdown">Drop Down</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+          {nextStep && filed === "dropdown" && (
+            <FormControl fullWidth sx={{ mt: 1 }}>
+              <InputLabel>Refer Option</InputLabel>
+              <Select
+                label="Refer Option"
+                value={dropdownType}
+                onChange={e => setDropdownType(String(e.target.value))}
+              >
+                <MenuItem value="client">Referral Client</MenuItem>
+                <MenuItem value="user">User</MenuItem>
+                <MenuItem value="existingClient">Existing Client</MenuItem>
+                <MenuItem value="businessGroup">Business Group</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!canSave() || saving} onClick={() => { void save() }}>
+            {saving ? "Saving…" : editing ? "Edit" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </SettingsSubShell>
+  )
+}
+
+// ── Practice Areas (LMS `/practice-area` — add/edit/status + admin Edit Users) ─
+
+interface PracticeAreaRow {
+  id: string
+  name: string
+  status?: boolean
+}
+
+export function PracticeAreasSettingsPage() {
+  const qc = useQueryClient()
+  const user = useAuthStore(s => s.user)
+  const isAdmin = Boolean(
+    user?.companyUserType === "ADMIN"
+    || user?.roles?.includes("ROLE_ADMIN")
+    || user?.roles?.includes("ROLE_SUB_ADMIN"),
+  )
+
+  const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<PracticeAreaRow | null>(null)
+  const [name, setName] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const [usersOpen, setUsersOpen] = useState(false)
+  const [selectedPa, setSelectedPa] = useState<PracticeAreaRow | null>(null)
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["settings", "practice-areas"],
+    queryFn: async () => {
+      const list = await adminApi.getPracticeAreas() as Record<string, unknown>[]
+      return (Array.isArray(list) ? list : []).map(r => ({
+        id: String(r.id ?? ""),
+        name: String(r.name ?? ""),
+        status: r.status !== false,
+      })) as PracticeAreaRow[]
+    },
+  })
+
+  function openAdd() {
+    setEditing(null)
+    setName("")
+    setOpen(true)
+  }
+
+  function openEdit(row: PracticeAreaRow) {
+    setEditing(row)
+    setName(row.name)
+    setOpen(true)
+  }
+
+  async function save() {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setSaving(true)
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 250))
+      } else if (editing) {
+        await axiosClient.post("/api/practicearea/update", { id: editing.id, name: trimmed, status: editing.status !== false })
+      } else {
+        await axiosClient.post("/api/practicearea/add", { name: trimmed, status: true })
+      }
+      toast.success(editing ? "Practice area updated" : "Practice area added")
+      setOpen(false)
+      qc.invalidateQueries({ queryKey: ["settings", "practice-areas"] })
+      qc.invalidateQueries({ queryKey: ["practiceAreas"] })
+    } catch {
+      toast.error(editing ? "Failed to update practice area" : "Failed to add practice area")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function toggleStatus(row: PracticeAreaRow, checked: boolean) {
+    try {
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 200))
+      } else {
+        await axiosClient.post("/api/practicearea/change/status", { id: row.id, status: checked })
+      }
+      toast.success("Status changed")
+      qc.invalidateQueries({ queryKey: ["settings", "practice-areas"] })
+      qc.invalidateQueries({ queryKey: ["practiceAreas"] })
+    } catch {
+      toast.error("Failed to change status")
+    }
+  }
+
+  return (
+    <SettingsSubShell title="Practice Area" description="Setting up practice area master">
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Add Practice Area</Button>
+      </Box>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell width={56}>#</TableCell>
+              <TableCell>Practice Area</TableCell>
+              <TableCell width={100}>Status</TableCell>
+              <TableCell width={80} align="right">Edit</TableCell>
+              {isAdmin && <TableCell width={100} align="right">Edit Users</TableCell>}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={isAdmin ? 5 : 4}><CircularProgress size={22} /></TableCell></TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={isAdmin ? 5 : 4}>
+                  <Typography variant="body2" color="text.secondary">No practice areas yet.</Typography>
+                </TableCell>
+              </TableRow>
+            ) : rows.map((row, i) => (
+              <TableRow key={row.id} hover>
+                <TableCell>{i + 1}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{row.name}</TableCell>
+                <TableCell>
+                  <Switch
+                    size="small"
+                    checked={row.status !== false}
+                    onChange={e => { void toggleStatus(row, e.target.checked) }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEdit(row)} aria-label="Edit practice area">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+                {isAdmin && (
+                  <TableCell align="right">
+                    <Tooltip title={row.status === false ? "Practice area must be active to edit users" : "Assign users"}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          disabled={row.status === false}
+                          onClick={() => {
+                            setSelectedPa(row)
+                            setUsersOpen(true)
+                          }}
+                          aria-label="Edit users"
+                        >
+                          <PeopleAltIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{editing ? "Edit Practice Area" : "Add Practice Area"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") void save() }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!name.trim() || saving} onClick={() => { void save() }}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <PracticeAreaUsersDialog
+        open={usersOpen}
+        practiceAreaId={selectedPa?.id ?? ""}
+        practiceAreaName={selectedPa?.name ?? ""}
+        onClose={() => {
+          setUsersOpen(false)
+          setSelectedPa(null)
+        }}
+      />
+    </SettingsSubShell>
+  )
+}
+
+function PracticeAreaUsersDialog({
+  open,
+  practiceAreaId,
+  practiceAreaName,
+  onClose,
+}: {
+  open: boolean
+  practiceAreaId: string
+  practiceAreaName: string
+  onClose: () => void
+}) {
+  const [users, setUsers] = useState<{ id: string; name: string; email: string; hasPracticeArea: boolean }[]>([])
+  const [changed, setChanged] = useState<Record<string, boolean>>({})
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open || !practiceAreaId) return
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      setChanged({})
+      try {
+        type U = { id?: string; firstName?: string; lastName?: string; email?: string; practiceAreaIds?: string[]; active?: boolean }
+        let list: U[] = []
+        if (env.USE_STATIC_DATA) {
+          const page = await adminApi.getUsers({})
+          list = (page as { content?: U[] }).content ?? (Array.isArray(page) ? page as U[] : [])
+        } else {
+          const res = await axiosClient.get("/api/user/get")
+          const raw = res.data?.data ?? res.data
+          list = Array.isArray(raw) ? raw : (raw?.content ?? [])
+        }
+        if (cancelled) return
+        setUsers(
+          list
+            .filter(u => u.id && u.active !== false)
+            .map(u => ({
+              id: String(u.id),
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || String(u.id),
+              email: String(u.email ?? ""),
+              hasPracticeArea: Array.isArray(u.practiceAreaIds) && u.practiceAreaIds.includes(practiceAreaId),
+            })),
+        )
+      } catch {
+        if (!cancelled) toast.error("Failed to load users")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [open, practiceAreaId])
+
+  function toggle(userId: string, assigned: boolean) {
+    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, hasPracticeArea: assigned } : u)))
+    setChanged(prev => ({ ...prev, [userId]: assigned }))
+  }
+
+  async function save() {
+    const entries = Object.entries(changed)
+    if (!entries.length) {
+      toast.info("No changes to save")
+      return
+    }
+    setSaving(true)
+    try {
+      const payload = entries.map(([userId, assigned]) => ({
+        userId,
+        practiceAreaId,
+        assigned,
+      }))
+      if (env.USE_STATIC_DATA) {
+        await new Promise(r => setTimeout(r, 300))
+      } else {
+        await axiosClient.post("/api/user/edit/practice-area", payload)
+      }
+      toast.success("Practice areas updated successfully")
+      setChanged({})
+    } catch {
+      toast.error("Failed to update practice areas")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth slotProps={{ paper: { sx: { height: "80vh" } } }}>
+      <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+        <Typography component="span" variant="h6">
+          {`Assign/Unassign ${practiceAreaName || ""} to Users`}
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => { void save() }}
+          disabled={loading || saving || Object.keys(changed).length === 0}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </DialogTitle>
+      <DialogContent>
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: 320 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: "calc(80vh - 120px)" }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} width={120}>Assigned</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} align="center">No users found</TableCell>
+                  </TableRow>
+                ) : users.map(u => (
+                  <TableRow key={u.id} hover>
+                    <TableCell>{u.name}</TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={u.hasPracticeArea}
+                        onChange={e => toggle(u.id, e.target.checked)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

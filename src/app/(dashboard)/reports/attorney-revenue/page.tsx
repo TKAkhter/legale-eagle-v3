@@ -9,6 +9,7 @@ export default function AttorneyRevenueReportPage() {
       description="Billed and collected amounts by fee earner"
       queryKey={["reports", "attorney-revenue"]}
       queryFn={p => reportsApi.getAttorneyRevenue(p)}
+      emailExcelFn={f => reportsApi.requestAttorneyRevenueExcel(f)}
       filters={{ showUser: true, showDepartment: true, showDateRange: true }}
       columns={[
         { field: "userName", header: "Attorney", sortKey: "userName" },

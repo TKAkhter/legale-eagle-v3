@@ -41,6 +41,7 @@ interface Props {
   onClose: () => void
   prefillMatterId?: string
   prefillClientId?: string
+  prefillLeadId?: string
   prefillEntryDate?: string
   activityId?: string
   defaultActivityType?: 'Time' | 'Expense' | 'Fixed'
@@ -48,9 +49,10 @@ interface Props {
 }
 
 export function ActivityFormDrawer({
-  open, onClose, prefillMatterId, prefillClientId, prefillEntryDate,
+  open, onClose, prefillMatterId, prefillClientId, prefillLeadId, prefillEntryDate,
   activityId, defaultActivityType = 'Time', onSuccess,
 }: Props) {
+  const isLeadMode = !!prefillLeadId
   const qc = useQueryClient()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [clientSearch, setClientSearch] = useState('')
@@ -63,10 +65,12 @@ export function ActivityFormDrawer({
     resolver: zodResolver(activitySchema),
     defaultValues: {
       activityType: defaultActivityType,
-      billable: true,
+      billable: !isLeadMode,
       entryDate: prefillEntryDate ?? today,
       clientId: prefillClientId ?? '',
       matterId: prefillMatterId ?? '',
+      leadId: prefillLeadId ?? '',
+      activityCategory: isLeadMode ? 'LEAD' : 'MATTER',
       activity: '',
       hours: 0,
       minutes: 0,
@@ -253,10 +257,12 @@ export function ActivityFormDrawer({
     }
     reset({
       activityType: defaultActivityType,
-      billable: true,
+      billable: !isLeadMode,
       entryDate: prefillEntryDate ?? today,
       clientId: prefillClientId ?? '',
       matterId: prefillMatterId ?? '',
+      leadId: prefillLeadId ?? '',
+      activityCategory: isLeadMode ? 'LEAD' : 'MATTER',
       activity: '',
       hours: 0,
       minutes: 0,
@@ -264,7 +270,7 @@ export function ActivityFormDrawer({
       disbursementType: 'OTHER_EXPENSES',
       disbursementPaymentType: 'PASS_TO_CLIENT',
     })
-  }, [open, isEdit, detailQ.data, prefillMatterId, prefillClientId, prefillEntryDate, defaultActivityType, reset, today])
+  }, [open, isEdit, detailQ.data, prefillMatterId, prefillClientId, prefillLeadId, prefillEntryDate, defaultActivityType, reset, today, isLeadMode])
 
   useEffect(() => {
     if (!open || isEdit) return
@@ -320,18 +326,22 @@ export function ActivityFormDrawer({
   async function onSubmit(data: ActivityForm) {
     setSubmitError(null)
     try {
+      const leadMode = isLeadMode || data.activityCategory === 'LEAD' || !!data.leadId
       const payload: Record<string, unknown> = {
         activity: data.activity,
-        matter: { id: data.matterId },
         activityType: data.activityType,
         billingType: data.billingType ?? (data.activityType === 'Expense' ? 'Expense' : 'Hourly'),
         hours: isExpense ? 0 : (data.hours ?? 0),
         minutes: isExpense ? 0 : (data.minutes ?? 0),
         rate: data.rate,
-        billable: data.billable,
+        billable: leadMode ? false : data.billable,
         entryDate: data.entryDate,
         responsiblePerson: data.responsiblePersonId ? { id: data.responsiblePersonId } : undefined,
-        activityCategory: data.activityCategory ?? 'MATTER',
+        activityCategory: leadMode ? 'LEAD' : (data.activityCategory ?? 'MATTER'),
+        leadId: leadMode ? (data.leadId || prefillLeadId || '') : '',
+      }
+      if (!leadMode) {
+        payload.matter = { id: data.matterId }
       }
       if (isExpense) {
         payload.disbursementType = data.disbursementType ?? 'OTHER_EXPENSES'
@@ -341,7 +351,29 @@ export function ActivityFormDrawer({
       }
       let created: unknown
       if (isEdit) created = await timelogsApi.edit({ ...payload, id: activityId })
-      else created = await timelogsApi.create(payload)
+      else if (leadMode) {
+        // OLD LMS uses query params for lead activities on /activity/add/v2
+        const params: Record<string, string | number | boolean> = {
+          activityCategory: 'LEAD',
+          billingType: String(payload.billingType ?? 'Hourly'),
+          hours: Number(payload.hours ?? 0),
+          minutes: Number(payload.minutes ?? 0),
+          note: String(data.activity ?? ''),
+          activity: String(data.activity ?? ''),
+          activityType: String(data.activityType ?? 'Time'),
+          billable: false,
+          rate: Number(data.rate ?? 0),
+          entryDate: String(data.entryDate),
+          leadId: String(data.leadId || prefillLeadId),
+          matter: '',
+          clientId: '',
+        }
+        if (data.responsiblePersonId) params.responsiblePersonId = data.responsiblePersonId
+        const res = await axiosClient.post('/api/activity/add/v2', null, { params })
+        created = res.data?.data ?? res.data
+      } else {
+        created = await timelogsApi.create(payload)
+      }
 
       if (isExpense && !isEdit) {
         const createdId = String(
@@ -357,6 +389,7 @@ export function ActivityFormDrawer({
       qc.invalidateQueries({ queryKey: ['activities'] })
       qc.invalidateQueries({ queryKey: ['timelogs'] })
       qc.invalidateQueries({ queryKey: ['calendar'] })
+      qc.invalidateQueries({ queryKey: ['leads', 'timelogs'] })
       onSuccess?.()
       onClose()
     } catch (e: unknown) {
@@ -398,15 +431,23 @@ export function ActivityFormDrawer({
         <ControlledSelect name="billingType" control={control} label="Billing Type" options={BILLING_OPTS} />
       </FormSection>
 
-      <FormSection title="Client & Matter">
-        <ControlledAsyncSelect
-          name="clientId"
-          control={control}
-          label="Client"
-          options={clientOpts}
-          onInputChange={setClientSearch}
-        />
-        <ControlledAsyncSelect name="matterId" control={control} label="Matter" options={matterOpts} required />
+      <FormSection title={isLeadMode ? 'Lead' : 'Client & Matter'}>
+        {isLeadMode ? (
+          <Alert severity="info" sx={{ mb: 1 }}>
+            Logging time against this lead. Entries are non-billable until attached to a matter after conversion.
+          </Alert>
+        ) : (
+          <>
+            <ControlledAsyncSelect
+              name="clientId"
+              control={control}
+              label="Client"
+              options={clientOpts}
+              onInputChange={setClientSearch}
+            />
+            <ControlledAsyncSelect name="matterId" control={control} label="Matter" options={matterOpts} required />
+          </>
+        )}
         <ControlledAsyncSelect name="responsiblePersonId" control={control} label="Fee Earner" options={userOpts} />
       </FormSection>
 

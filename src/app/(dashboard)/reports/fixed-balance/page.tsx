@@ -9,6 +9,7 @@ export default function Page() {
       description="Fixed-fee balance amounts by LFA"
       queryKey={["reports", "fixed-balance"]}
       queryFn={p => reportsApi.getFixedBalance(p)}
+      emailExcelFn={f => reportsApi.requestFixedBalanceExcel(f)}
       filters={{"showClient":true,"showMatter":true}}
       columns={[
         { field: "agreementNo", header: "LFA", renderCell: v => String(v || "—") },

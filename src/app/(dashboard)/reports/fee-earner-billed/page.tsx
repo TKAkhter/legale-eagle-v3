@@ -9,6 +9,7 @@ export default function Page() {
       description="Billable WIP by fee earner within matters"
       queryKey={["reports", "fee-earner-billed"]}
       queryFn={p => reportsApi.getFeeEarnerBilled(p)}
+      emailExcelFn={f => reportsApi.requestFeeEarnerBilledExcel(f)}
       filters={{"showUser":true,"showDepartment":true,"showMatter":true,"showDateRange":true}}
       columns={[
         { field: "userName", header: "Fee Earner", renderCell: v => String(v || "—") },

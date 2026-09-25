@@ -78,6 +78,8 @@ function buildLeadFilter(p: GridParams) {
   let status = String(f.statusGroup ?? f.status ?? "All")
   if (status === "Write_Off" || status === "Written Off" || status === "WriteOff" || status === "Written_Off") {
     status = "Writeoff"
+  } else if (status === "Repeated") {
+    status = "Repeated"
   }
 
   return {
@@ -120,8 +122,9 @@ function matchesStatic(lead: Lead, p: GridParams): boolean {
   }
   if (currentStatus && lead.status !== currentStatus) return false
   if (statusGroup === "Open" && ["CONVERTED", "WRITE_OFF", "Writeoff", "CLOSED"].includes(lead.status)) return false
-  if (statusGroup === "Converted" && lead.status !== "CONVERTED") return false
-  if ((statusGroup === "Written Off" || statusGroup === "Writeoff") && !["WRITE_OFF", "Writeoff"].includes(lead.status)) return false
+  if (statusGroup === "Converted" && lead.status !== "CONVERTED" && !lead.converted) return false
+  if ((statusGroup === "Written Off" || statusGroup === "Writeoff") && !lead.writeOff && !["WRITE_OFF", "Writeoff"].includes(lead.status)) return false
+  if (statusGroup === "Repeated" && !lead.repeated) return false
   return true
 }
 
@@ -198,14 +201,27 @@ export const leadsApi = {
     await axiosClient.post("/api/leads/update/lead", data, { params: { leadId } })
   },
 
-  async convert(leadId: string, matter: Record<string, unknown>) {
+  async convert(leadId: string, data: { clientId: string; lfaId: string }) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
-    await axiosClient.post("/api/leads/convert", { leadId, matter })
+    await axiosClient.post("/api/leads/convert", { leadId, clientId: data.clientId, lfaId: data.lfaId })
   },
 
-  async addFollowup(leadId: string, data: Record<string, unknown>) {
+  async convertRepeated(leadId: string) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
-    await axiosClient.post("/api/leads/add/followup", { leadId, ...data, files: [] })
+    const res = await axiosClient.get("/api/leads/convert/repeated", { params: { leadId } })
+    return res.data?.data ?? res.data
+  },
+
+  async addFollowup(leadId: string, data: FormData | Record<string, unknown>) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    if (data instanceof FormData) {
+      await axiosClient.post("/api/leads/add/followup", data, {
+        params: { leadId },
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      return
+    }
+    await axiosClient.post("/api/leads/add/followup", data, { params: { leadId } })
   },
 
   async getFollowups(leadId: string) {
@@ -215,9 +231,13 @@ export const leadsApi = {
     return unwrapAxiosList(res.data)
   },
 
-  async writeOff(leadId: string, reason?: string) {
+  async writeOff(leadId: string, writeOffReason?: string) {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return "Lead written off." }
-    const res = await axiosClient.post("/api/leads/get/lead/writeoff", { reason }, { params: { leadId } })
+    const res = await axiosClient.post(
+      "/api/leads/get/lead/writeoff",
+      { writeOffReason: writeOffReason ?? "" },
+      { params: { leadId } },
+    )
     return res.data?.Msg ?? res.data?.message ?? "Lead written off."
   },
 
@@ -227,9 +247,17 @@ export const leadsApi = {
     return res.data?.Msg ?? res.data?.message ?? "Lead reopened."
   },
 
-  async changeStatus(leadId: string, status: string): Promise<string> {
+  async changeStatus(
+    leadId: string,
+    status: string,
+    body?: { stageComments?: string; assignTo?: string; department?: string },
+  ): Promise<string> {
     if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Status updated." }
-    const res = await axiosClient.post("/api/leads/status/change", null, { params: { leadId, status } })
+    const res = await axiosClient.post(
+      "/api/leads/status/change",
+      body ?? { stageComments: "" },
+      { params: { leadId, status } },
+    )
     return res.data?.Msg ?? res.data?.message ?? "Status updated."
   },
 
@@ -259,9 +287,16 @@ export const leadsApi = {
   },
 
   async getTimelogs(leadId: string, p: GridParams) {
+    const withActivityIds = (page: PageResponse<Record<string, unknown>>) => ({
+      ...page,
+      content: page.content.map(row => {
+        const activityId = String(row.activityId ?? row.id ?? "")
+        return { ...row, id: activityId || String(row.id ?? ""), activityId }
+      }),
+    })
     if (env.USE_STATIC_DATA) {
       const { matterTimelogs } = await import("@/data/static")
-      return pageOf(matterTimelogs as unknown as Record<string, unknown>[], p)
+      return withActivityIds(pageOf(matterTimelogs as unknown as Record<string, unknown>[], p))
     }
     // Old LMS: activityRelatedTo=LEAD + leadId on /report/activity/filter/m/v2
     const res = await axiosClient.post("/api/report/activity/filter/m/v2", null, {
@@ -275,7 +310,7 @@ export const leadsApi = {
         pageSize: p.pageSize,
       },
     })
-    return unwrapGenericPage(res.data?.data ?? res.data, p)
+    return withActivityIds(unwrapGenericPage(res.data?.data ?? res.data, p))
   },
 
   async getMeetings(leadId: string) {
@@ -295,15 +330,239 @@ export const leadsApi = {
     await axiosClient.post("/api/meeting/add", { ...data, leadId })
   },
 
-  async getConflictChecks(leadId: string) {
+  /**
+   * OLD LMS: GET /meeting/change/status?meetingId=&meetingStatus=
+   * Values: SCHEDULE | COMPLETED | CANCEL
+   */
+  async changeMeetingStatus(meetingId: string, meetingStatus: string): Promise<string> {
     if (env.USE_STATIC_DATA) {
-      return [
-        { id: "cc1", partyName: "Al Rashid Holdings", matchType: "Client", risk: "Low", status: "Cleared" },
-      ]
+      await new Promise(r => setTimeout(r, 200))
+      return "Changed successfully."
     }
-    const res = await axiosClient.get("/api/conflict/check/lead/search", { params: { leadId } })
+    const res = await axiosClient.get("/api/meeting/change/status", {
+      params: { meetingId, meetingStatus },
+    })
+    return String(res.data?.Msg ?? res.data?.message ?? "Changed successfully.")
+  },
+
+  /**
+   * OLD LMS: POST /meeting/mom/upload?meetingId=&content=
+   * multipart body: files[]
+   */
+  async uploadMeetingMom(meetingId: string, content: string, files: File[]): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return "Uploaded successfully."
+    }
+    const formData = new FormData()
+    for (const f of files) formData.append("files", f)
+    const res = await axiosClient.post("/api/meeting/mom/upload", formData, {
+      params: { meetingId, content },
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return String(res.data?.Msg ?? res.data?.message ?? "Uploaded successfully.")
+  },
+
+  /**
+   * OLD LMS: GET /meeting/get/mom?meetingId=
+   * Returns rows with textContent, createdAt, documents[]
+   */
+  async getMeetingMom(meetingId: string): Promise<Record<string, unknown>[]> {
+    if (env.USE_STATIC_DATA) {
+      return [{
+        id: "mom1",
+        textContent: "Discussion summary",
+        createdAt: "2026-09-10T11:00:00",
+        documents: ["https://example.com/mom.pdf"],
+      }]
+    }
+    const res = await axiosClient.get("/api/meeting/get/mom", { params: { meetingId } })
     const { unwrapAxiosList } = await import("@lib/utils/unwrap")
     return unwrapAxiosList(res.data)
+  },
+
+  /**
+   * OLD LMS: POST /leads/status/upload?leadId=&status=&note=&docType=
+   * multipart body: files[]
+   */
+  async uploadStatusDoc(opts: {
+    leadId: string
+    status: string
+    docType: string
+    note?: string
+    files: File[]
+  }): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return "Uploaded successfully."
+    }
+    const formData = new FormData()
+    for (const f of opts.files) formData.append("files", f)
+    const res = await axiosClient.post("/api/leads/status/upload", formData, {
+      params: {
+        leadId: opts.leadId,
+        status: opts.status,
+        note: opts.note ?? "",
+        docType: opts.docType,
+      },
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return String(res.data?.Msg ?? res.data?.message ?? "Uploaded successfully.")
+  },
+
+  /**
+   * OLD LMS: POST /qrcode/generateQRCode — returns base64 PNG in Msg.
+   */
+  async generateQRCode(codeText: string, width = 200, height = 200): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      // 1x1 transparent PNG
+      return "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    }
+    const res = await axiosClient.post("/api/qrcode/generateQRCode", { codeText, width, height })
+    return String(res.data?.Msg ?? res.data?.data ?? "")
+  },
+
+  /** OLD LMS: GET /util/list/doc/type */
+  async getDocTypes(): Promise<{ id: string; type?: string; name?: string }[]> {
+    if (env.USE_STATIC_DATA) {
+      return [{ id: "dt1", type: "ID" }, { id: "dt2", type: "Contract" }, { id: "dt3", type: "Other" }]
+    }
+    const res = await axiosClient.get("/api/util/list/doc/type")
+    const list = res.data?.data ?? res.data ?? []
+    return Array.isArray(list) ? list : []
+  },
+
+  /**
+   * Status master with ids — OLD `/leads/get/status` returns `{ id, statusName }[]`.
+   * Used by status-doc upload (API expects status id).
+   */
+  async getLeadStatusOptions(): Promise<{ id: string; statusName: string }[]> {
+    if (env.USE_STATIC_DATA) {
+      return [
+        { id: "s1", statusName: "NEW" },
+        { id: "s2", statusName: "FOLLOW_UP" },
+        { id: "s3", statusName: "PROPOSAL" },
+        { id: "s4", statusName: "CONVERTED" },
+      ]
+    }
+    const res = await axiosClient.get("/api/leads/get/status")
+    const list = res.data?.data ?? res.data ?? []
+    if (!Array.isArray(list)) return []
+    return list.map((s: unknown) => {
+      if (typeof s === "string") return { id: s, statusName: s }
+      const o = s as { id?: string | number; statusName?: string; name?: string; status?: string }
+      const statusName = String(o.statusName ?? o.name ?? o.status ?? o.id ?? "")
+      return { id: String(o.id ?? statusName), statusName }
+    }).filter(s => s.id && s.statusName)
+  },
+
+  /**
+   * LMS GET /conflict/check/lead/search — returns main conflict id + conflict_log rows.
+   * Shape mirrors matter conflict: data.id + (data.response || data).conflict_log[]
+   */
+  async getConflictCheckDetail(leadId: string): Promise<{
+    mainConflictId: string
+    overallStatus: string
+    logs: Record<string, unknown>[]
+  }> {
+    if (env.USE_STATIC_DATA) {
+      return {
+        mainConflictId: "lc1",
+        overallStatus: "Pending",
+        logs: [{
+          id: "cc1",
+          mainConflictId: "lc1",
+          partyName: "Al Rashid Holdings",
+          matchType: "Client",
+          status: "Pending",
+          details: "Potential name match",
+          approvedStatus: false,
+        }],
+      }
+    }
+    const res = await axiosClient.get("/api/conflict/check/lead/search", { params: { leadId } })
+    const data = (res.data?.data ?? res.data) as Record<string, unknown> | Record<string, unknown>[] | null
+    if (!data) return { mainConflictId: "", overallStatus: "", logs: [] }
+    if (Array.isArray(data)) {
+      return {
+        mainConflictId: String((data[0] as { mainConflictId?: string })?.mainConflictId ?? ""),
+        overallStatus: "",
+        logs: data as Record<string, unknown>[],
+      }
+    }
+    const mainConflictId = String(data.id ?? "")
+    const responseData = (data.response ?? data) as Record<string, unknown>
+    const rawLogs = (Array.isArray(responseData.conflict_log)
+      ? responseData.conflict_log
+      : Array.isArray(data.conflict_log)
+        ? data.conflict_log
+        : []) as Record<string, unknown>[]
+    const overallStatus = String(responseData.overall_status ?? data.overall_status ?? "")
+    const logs = rawLogs.map(log => {
+      const approved = log.approvedStatus === true
+      return {
+        ...log,
+        id: String(log.id ?? ""),
+        mainConflictId,
+        partyName: String(
+          log.source_opposing_party
+          ?? log.matchedName
+          ?? log.partyName
+          ?? log.name
+          ?? "—",
+        ),
+        matchType: String(log.matchType ?? log.matched_entity_type ?? log.type ?? "—"),
+        status: approved
+          ? "Cleared"
+          : String(log.colour ?? log.status ?? (overallStatus || "Pending")),
+        details: String(log.reason ?? log.details ?? "—"),
+        approvedStatus: approved,
+        approvedByName: log.approvedByName != null ? String(log.approvedByName) : "",
+        approvedAt: log.approvedAt != null ? String(log.approvedAt) : "",
+      }
+    })
+    return { mainConflictId, overallStatus, logs }
+  },
+
+  async getConflictChecks(leadId: string, p: GridParams) {
+    const detail = await leadsApi.getConflictCheckDetail(leadId)
+    return pageOf(detail.logs, p)
+  },
+
+  /** LMS POST /conflict/lead/approve/v1 — Clear / Approve one or more conflict_log rows. */
+  async approveConflict(mainConflictId: string, conflictLogIds: string[]): Promise<string> {
+    const ids = [...new Set(conflictLogIds.filter(Boolean))]
+    if (!mainConflictId || !ids.length) throw new Error("Missing conflict ID or conflict log ID")
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return ids.length === 1 ? "Conflict approved successfully" : `${ids.length} conflicts approved successfully`
+    }
+    const res = await axiosClient.post("/api/conflict/lead/approve/v1", {
+      id: mainConflictId,
+      partyApprovals: ids.map(id => ({ approvedStatus: true, id })),
+    })
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "Failed to approve conflict")
+    }
+    return String(
+      res.data?.Msg
+      ?? res.data?.message
+      ?? (ids.length === 1 ? "Conflict approved successfully" : `${ids.length} conflicts approved successfully`),
+    )
+  },
+
+  /** LMS POST /conflict/lead/approve-all/{mainConflictId} */
+  async approveAllConflicts(mainConflictId: string): Promise<string> {
+    if (!mainConflictId) throw new Error("Missing conflict ID")
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return "All conflicts approved successfully"
+    }
+    const res = await axiosClient.post(`/api/conflict/lead/approve-all/${mainConflictId}`)
+    if (String(res.data?.code) === "403" || res.data?.success === false) {
+      throw new Error(res.data?.Msg ?? "Failed to approve all conflicts")
+    }
+    return String(res.data?.Msg ?? res.data?.message ?? "All conflicts approved successfully")
   },
 
   async assignAttorney(leadId: string, lawyerId: string): Promise<string> {
@@ -322,8 +581,8 @@ export const leadsApi = {
       if (Array.isArray(list) && list.length) {
         return list.map((s: unknown) => {
           if (typeof s === "string") return s
-          const o = s as { name?: string; status?: string; currentStatus?: string }
-          return String(o.name ?? o.status ?? o.currentStatus ?? "")
+          const o = s as { name?: string; status?: string; statusName?: string; currentStatus?: string }
+          return String(o.statusName ?? o.name ?? o.status ?? o.currentStatus ?? "")
         }).filter(Boolean)
       }
     } catch { /* fall through */ }
@@ -337,14 +596,75 @@ export const leadsApi = {
         { id: "log2", action: "UPDATE", details: "Attorney assigned", userName: "Admin", createdAt: "2026-09-02T11:00:00" },
       ], p)
     }
-    const res = await axiosClient.get("/api/audit-record/page", {
+    // OLD LMS: GET /activity/log/get?leadId=
+    const res = await axiosClient.get("/api/activity/log/get", {
       params: {
-        relatedTo: "LEAD",
-        relatedToId: leadId,
+        leadId,
         pageNumber: p.page,
         pageSize: p.pageSize,
       },
     })
     return unwrapGenericPage(res.data?.data ?? res.data, p)
+  },
+
+  async getReductions(leadId: string) {
+    if (env.USE_STATIC_DATA) {
+      return { proposedValue: 25000, approvedValue: 20000, approvedBy: "", reductionReason: "" }
+    }
+    const res = await axiosClient.get(`/api/leads/reductions/${leadId}`)
+    return (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+  },
+
+  async saveReductions(payload: {
+    leadId: string
+    proposedValue: number
+    approvedValue?: number | null
+    approvedBy?: string | null
+    reductionReason?: string
+  }) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 300)); return }
+    await axiosClient.post("/api/leads/reductions/save", payload)
+  },
+
+  async completeConflict(leadId: string, status = "No_Conflict") {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return }
+    await axiosClient.post("/api/leads/complete/conflict", null, { params: { leadId, status } })
+  },
+
+  async getFeeEarnerSummary(leadId: string) {
+    if (env.USE_STATIC_DATA) {
+      return [{ feeEarner: "Sarah Johnson", hours: 4.5, amount: 5400 }]
+    }
+    const res = await axiosClient.get(`/api/leads/${leadId}/fee-earner-summary`)
+    const d = res.data?.data ?? res.data ?? []
+    return Array.isArray(d) ? d : []
+  },
+
+  /**
+   * OLD LMS: POST /activity/attach/to/matter/v2?matterId=&Billable=&RevenueAllocated=
+   * Body: `{ activities: activityId[] }` — attach lead time logs to a matter after convert.
+   */
+  async attachActivitiesToMatter(opts: {
+    matterId: string
+    activities: string[]
+    billable?: boolean
+    revenueAllocated?: boolean
+  }): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Time log entries attached to matter."
+    }
+    const res = await axiosClient.post(
+      "/api/activity/attach/to/matter/v2",
+      { activities: opts.activities },
+      {
+        params: {
+          matterId: opts.matterId,
+          Billable: opts.billable ?? true,
+          RevenueAllocated: opts.revenueAllocated ?? true,
+        },
+      },
+    )
+    return String(res.data?.Msg ?? res.data?.message ?? "Time log entries attached to matter.")
   },
 }

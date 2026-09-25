@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -11,12 +11,14 @@ import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import CheckIcon from "@mui/icons-material/Check"
 import SendIcon from "@mui/icons-material/Send"
 import BlockIcon from "@mui/icons-material/Block"
+import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
 import { Can } from "@components/ui/Can"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { PERMISSIONS } from "@config/permissions"
-import { ClientSelectFilter, BillingTypeFilter, DateRangeFilter, FilterActions, StatusFilter } from "@components/filters"
+import { ClientSelectFilter, BillingTypeFilter, DateRangeFilter, FilterActions, MatterSelectFilter, StatusFilter } from "@components/filters"
 import { formatDate } from "@lib/utils/formatDate"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { toast } from "@/lib/toast"
@@ -27,20 +29,46 @@ import { LfaFormDrawer } from "./_components/LfaFormDrawer"
 import { LfaRatesDialog } from "./_components/LfaRatesDialog"
 import { SendForSignatureDialog } from "./_components/SendForSignatureDialog"
 import { SendForApprovalDialog } from "./_components/SendForApprovalDialog"
+import { useTranslation } from "react-i18next"
 
-function LfaFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
+function LfaFilterPanel({
+  onSearch,
+  onReset,
+  filters,
+  onApplied,
+}: FilterPanelProps & { onApplied?: (f: Record<string, unknown>) => void }) {
   const [f, setF] = useState<Record<string, unknown>>({ status: "Active", ...filters })
   const set = (k: string, v: unknown) => setF(p => ({ ...p, [k]: v }))
   const billingType = String(f.billingType ?? "")
+
+  function apply(next: Record<string, unknown>) {
+    onApplied?.(next)
+    onSearch(next)
+  }
+
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-end" }}>
-      <ClientSelectFilter value={String(f.clientId ?? "") || undefined} onChange={v => set("clientId", v)} />
+      <ClientSelectFilter
+        value={String(f.clientId ?? "") || undefined}
+        onChange={v => {
+          set("clientId", v)
+          set("matterId", "")
+        }}
+      />
+      <MatterSelectFilter
+        value={String(f.matterId ?? "") || undefined}
+        onChange={v => set("matterId", v ?? "")}
+        clientId={String(f.clientId ?? "") || undefined}
+      />
       <StatusFilter
         value={String(f.status ?? "Active")}
         onChange={v => set("status", v === "All" ? "" : v)}
         options={[
           { value: "Active", label: "Active" },
           { value: "Inactive", label: "Inactive" },
+          { value: "Draft", label: "Draft" },
+          { value: "Approved", label: "Approved" },
+          { value: "Cancel", label: "Canceled" },
         ]}
       />
       <BillingTypeFilter value={billingType} onChange={v => set("billingType", v ?? "")} />
@@ -59,8 +87,13 @@ function LfaFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
         onChange={v => setF(p => ({ ...p, ...v }))}
       />
       <FilterActions
-        onSearch={() => onSearch(f)}
-        onClear={() => { setF({ status: "Active" }); onReset() }}
+        onSearch={() => apply(f)}
+        onClear={() => {
+          const next = { status: "Active" }
+          setF(next)
+          onApplied?.(next)
+          onReset()
+        }}
       />
     </Box>
   )
@@ -81,6 +114,7 @@ function billingLabel(row: Record<string, unknown>): string {
 }
 
 export default function LfaPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -88,7 +122,15 @@ export default function LfaPage() {
   const [ratesId, setRatesId] = useState<string>()
   const [sigLfa, setSigLfa] = useState<Record<string, unknown> | null>(null)
   const [approvalLfaId, setApprovalLfaId] = useState<string | null>(null)
+  const [cancelId, setCancelId] = useState<string | null>(null)
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, unknown>>({ status: "Active" })
   const [gridKey, setGridKey] = useState(0)
+
+  const FilterPanel = useMemo(() => {
+    return function Panel(props: FilterPanelProps) {
+      return <LfaFilterPanel {...props} onApplied={setAppliedFilters} />
+    }
+  }, [])
 
   const statsQ = useQuery({
     queryKey: ["lfa", "group-count"],
@@ -103,7 +145,7 @@ export default function LfaPage() {
 
   async function emailExcel() {
     try {
-      toast.success(await lfaApi.requestExcel({ status: "Active" }))
+      toast.success(await lfaApi.requestExcel(appliedFilters))
     } catch {
       toast.error("Excel export failed")
     }
@@ -111,8 +153,8 @@ export default function LfaPage() {
 
   return (
     <PageShell
-      title="Fee Agreements"
-      description="Legal Fee Agreements with clients"
+      title={t("nav.lfa")}
+      description={t("pages.lfaDesc")}
       action={(
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button size="small" variant="outlined" startIcon={<MarkunreadOutlinedIcon />} onClick={emailExcel}>
@@ -202,7 +244,7 @@ export default function LfaPage() {
         ]}
         queryKey={["lfa", "list"]}
         queryFn={(p: GridParams) => lfaApi.getAll({ ...p, filters: { status: "Active", ...p.filters } })}
-        FilterPanel={LfaFilterPanel}
+        FilterPanel={FilterPanel}
         hasFilters
         syncWithUrl
         detailPath={row => `/lfa/${String((row as { id?: string }).id ?? "")}`}
@@ -216,13 +258,14 @@ export default function LfaPage() {
           const billingType = String(r.billingType ?? "")
           const isDraft = status === "Draft" || status === "Approve"
           const isApproved = status === "Approved" || status === "Active"
+          const canCancel = status === "Draft" || status === "Approve"
           return [
             { label: "View", icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/lfa/${id}`) },
             {
               label: "Edit",
               icon: <EditIcon fontSize="small" />,
               permission: PERMISSIONS.LFA_EDIT,
-              hidden: () => status === "Approved",
+              hidden: () => status === "Approved" || status === "Cancel" || status === "Canceled",
               onClick: () => {
                 if (status === "Approved") {
                   toast.info("LFA already approved — use Amend instead.")
@@ -250,6 +293,12 @@ export default function LfaPage() {
               icon: <SendIcon fontSize="small" />,
               hidden: () => status !== "Draft",
               onClick: () => setApprovalLfaId(id),
+            },
+            {
+              label: "Cancel",
+              icon: <CancelOutlinedIcon fontSize="small" />,
+              hidden: () => !canCancel,
+              onClick: () => setCancelId(id),
             },
             {
               label: "Amend",
@@ -331,6 +380,19 @@ export default function LfaPage() {
           }}
         />
       )}
+      <ConfirmDialog
+        open={!!cancelId}
+        onClose={() => setCancelId(null)}
+        onConfirm={async () => {
+          toast.success(await lfaApi.approve(String(cancelId), "Cancel"))
+          setGridKey(k => k + 1)
+          qc.invalidateQueries({ queryKey: ["lfa"] })
+        }}
+        title="Cancel LFA"
+        message="Do you want to cancel this LFA?"
+        confirmLabel="Cancel LFA"
+        severity="warning"
+      />
     </PageShell>
   )
 }

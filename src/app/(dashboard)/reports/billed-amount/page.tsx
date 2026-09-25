@@ -1,108 +1,154 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Box, Paper, Typography, Button } from "@mui/material"
+/**
+ * Billed Amount report — LMS `/billed-amount` parity (new UI).
+ * Filters: department, user, date range.
+ * Columns: Responsible Person, Department, Total Billed, Write Off, Credit Note, Net.
+ */
+import { useMemo, useState } from "react"
+import { Box, Button } from "@mui/material"
 import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@/components/data-grid/DataGrid"
-import { ApexChart } from "@components/charts/ApexChart"
-import { makeReportFilterPanel } from "@components/filters/ReportFilterPanel"
+import {
+  DateRangeFilter,
+  DepartmentFilter,
+  FilterActions,
+  UserSelectFilter,
+} from "@/components/filters"
 import { reportsApi } from "@/api/reports"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { toast } from "@/lib/toast"
+import type { ColumnDef, FilterPanelProps } from "@/components/data-grid/types"
 import type { GridParams } from "@/types/common.types"
 
-const FilterPanel = makeReportFilterPanel({ showUser: true, showDepartment: true, showDateRange: true })
+function BilledAmountFilters({
+  onSearch,
+  onReset,
+  filters,
+  onApplied,
+}: FilterPanelProps & { onApplied?: (f: Record<string, unknown>) => void }) {
+  const [f, setF] = useState<Record<string, unknown>>(filters)
+  const set = (k: string, v: unknown) => setF(p => ({ ...p, [k]: v }))
+
+  function apply(next: Record<string, unknown>) {
+    onApplied?.(next)
+    onSearch(next)
+  }
+
+  return (
+    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "flex-end" }}>
+      <DepartmentFilter
+        value={String(f.departmentId ?? "") || undefined}
+        onChange={v => set("departmentId", v ?? "")}
+      />
+      <UserSelectFilter
+        value={String(f.userId ?? "") || undefined}
+        onChange={v => set("userId", v ?? "")}
+        label="User"
+      />
+      <DateRangeFilter
+        fromDate={String(f.fromDate ?? "")}
+        toDate={String(f.toDate ?? "")}
+        onChange={({ fromDate, toDate }) => {
+          set("fromDate", fromDate ?? "")
+          set("toDate", toDate ?? "")
+        }}
+      />
+      <FilterActions
+        onSearch={() => apply(f)}
+        onClear={() => {
+          setF({})
+          onApplied?.({})
+          onReset()
+        }}
+      />
+    </Box>
+  )
+}
 
 export default function BilledAmountReportPage() {
-  const [gridKey, setGridKey] = useState(0)
-  const { data: summary } = useQuery({
-    queryKey: ["reports", "billed-amount", "summary"],
-    queryFn: () => reportsApi.getBilledAmount({ page: 0, pageSize: 100, sortBy: "totalBilled", sortDir: "desc", filters: {} }),
-  })
-  const rows = (summary?.content ?? []) as Record<string, unknown>[]
+  const [applied, setApplied] = useState<Record<string, unknown>>({})
+  const [emailing, setEmailing] = useState(false)
+
+  const columns: ColumnDef<Record<string, unknown>>[] = useMemo(() => [
+    {
+      field: "responsiblePerson",
+      header: "Responsible Person",
+      minWidth: 160,
+      renderCell: (v, row) => String(v || row.userName || "—"),
+    },
+    {
+      field: "departmentName",
+      header: "Department",
+      minWidth: 140,
+      renderCell: v => String(v || "—"),
+    },
+    {
+      field: "billedAmount",
+      header: "Total Billed Amount",
+      align: "right",
+      renderCell: v => formatCurrency(Number(v ?? 0)),
+    },
+    {
+      field: "writeOffAmount",
+      header: "Total Write Off Amount",
+      align: "right",
+      renderCell: v => (v == null || v === "" ? "—" : formatCurrency(Number(v))),
+    },
+    {
+      field: "creditNoteAmount",
+      header: "Total Credit Note Amount",
+      align: "right",
+      renderCell: v => (v == null || v === "" ? "—" : formatCurrency(Number(v))),
+    },
+    {
+      field: "netAmount",
+      header: "Net Amount",
+      align: "right",
+      renderCell: v => formatCurrency(Number(v ?? 0)),
+    },
+  ], [])
+
+  const FilterPanel = useMemo(() => {
+    return function Panel(props: FilterPanelProps) {
+      return <BilledAmountFilters {...props} onApplied={setApplied} />
+    }
+  }, [])
 
   async function emailExcel() {
+    setEmailing(true)
     try {
-      toast.success(await reportsApi.requestBilledAmountExcel())
+      toast.success(await reportsApi.requestBilledAmountExcel(applied))
     } catch {
       toast.error("Excel export failed")
+    } finally {
+      setEmailing(false)
     }
   }
 
   return (
     <PageShell
       title="Billed Amount"
-      description="Fee-earner billed amounts for the selected period"
+      description="Fee-earner billed amounts, write-offs, credit notes, and net"
       action={(
-        <Button size="small" variant="outlined" startIcon={<MarkunreadOutlinedIcon />} onClick={emailExcel}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<MarkunreadOutlinedIcon />}
+          disabled={emailing}
+          onClick={() => void emailExcel()}
+        >
           Email Excel
         </Button>
       )}
     >
-      {rows.length > 0 && (
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, mb: 3 }}>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Billed vs Paid</Typography>
-            <ApexChart
-              type="bar"
-              height={200}
-              series={[
-                { name: "Billed", data: rows.map(r => Number(r.totalBilled ?? 0)) },
-                { name: "Paid", data: rows.map(r => Number(r.totalPaid ?? 0)) },
-              ]}
-              options={{
-                chart: { toolbar: { show: false } },
-                xaxis: { categories: rows.map(r => String(r.userName ?? r.departmentName ?? "")), labels: { style: { fontSize: "11px" } } },
-                colors: ["#0F3C6E", "#00B4A6"],
-                dataLabels: { enabled: false },
-                plotOptions: { bar: { borderRadius: 4, columnWidth: "60%" } },
-                grid: { strokeDashArray: 4 },
-                yaxis: { labels: { formatter: (v: number) => `${(v / 1000).toFixed(0)}K` } },
-              }}
-            />
-          </Paper>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Outstanding</Typography>
-            <ApexChart
-              type="donut"
-              height={200}
-              series={rows.filter(r => Number(r.outstanding ?? 0) > 0).map(r => Number(r.outstanding ?? 0))}
-              options={{
-                labels: rows.filter(r => Number(r.outstanding ?? 0) > 0).map(r => String(r.userName ?? r.departmentName ?? "")),
-                colors: ["#DC2626", "#F59E0B", "#EA580C", "#7C3AED"],
-                legend: { position: "bottom" },
-                dataLabels: { enabled: true },
-                plotOptions: { pie: { donut: { size: "65%" } } },
-              }}
-            />
-          </Paper>
-        </Box>
-      )}
       <DataGrid
-        key={gridKey}
-        columns={[
-          { field: "userName", header: "Fee Earner", renderCell: (v, row) => String(v || (row as Record<string, unknown>).departmentName || "—") },
-          { field: "departmentName", header: "Department", renderCell: v => String(v || "—") },
-          { field: "totalBilled", header: "Total Billed", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-          { field: "totalPaid", header: "Paid", align: "right", renderCell: v => formatCurrency(Number(v ?? 0)) },
-          {
-            field: "outstanding",
-            header: "Outstanding",
-            align: "right",
-            renderCell: v => (
-              <Typography variant="body2" sx={{ color: Number(v) > 0 ? "error.main" : "success.main", fontWeight: 600 }}>
-                {formatCurrency(Number(v ?? 0))}
-              </Typography>
-            ),
-          },
-        ]}
+        columns={columns}
         queryKey={["reports", "billed-amount"]}
         queryFn={(p: GridParams) => reportsApi.getBilledAmount(p)}
         FilterPanel={FilterPanel}
         hasFilters
         syncWithUrl
-        defaultSortBy="totalBilled"
-        defaultSortDir="desc"
+        zebraStriping
       />
     </PageShell>
   )

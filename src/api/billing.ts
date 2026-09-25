@@ -18,8 +18,49 @@ function pageOf<T>(rows: T[], p: GridParams): PageResponse<T> {
   }
 }
 
-function enrichStaticInvoice(row: Record<string, unknown>): Record<string, unknown> {
+/** Map LMS `activities` (or activityItems) into display line items when `lineItems` is empty. */
+function activitiesToLineItems(activities: unknown[]): Record<string, unknown>[] {
+  return activities.map((raw, index) => {
+    const a = raw as Record<string, unknown>
+    const hours = Number(a.hours ?? 0)
+    const minutes = Number(a.minutes ?? 0)
+    const qtyFromDuration = hours > 0 || minutes > 0
+      ? Number((hours + minutes / 60).toFixed(2))
+      : undefined
+    return {
+      id: a.id ?? a.activityId ?? `act-${index}`,
+      description: String(a.activity ?? a.description ?? a.note ?? a.name ?? "—"),
+      quantity: a.quantity ?? qtyFromDuration ?? 1,
+      rate: Number(a.rate ?? a.billing ?? 0),
+      amount: Number(a.amount ?? a.billing ?? a.rate ?? 0),
+    }
+  })
+}
+
+function normalizeInvoiceDetail(row: Record<string, unknown>): Record<string, unknown> {
+  const existing = Array.isArray(row.lineItems) ? (row.lineItems as unknown[]) : []
+  const activities = Array.isArray(row.activities) ? (row.activities as unknown[]) : []
+  const activityItems = Array.isArray(row.activityItems) ? (row.activityItems as unknown[]) : []
+  const lineItems = existing.length > 0
+    ? existing
+    : activities.length > 0
+      ? activitiesToLineItems(activities)
+      : activityItems.length > 0
+        ? activitiesToLineItems(activityItems)
+        : []
   return {
+    ...row,
+    client: row.client ?? row.clientMini,
+    billingType: row.billingType ?? row.invoiceBillingType,
+    amount: row.amount ?? row.actualAmount,
+    taxableAmount: row.taxableAmount ?? row.dueAmount,
+    invoiceStatus: row.invoiceStatus ?? row.paymentStaus ?? row.status,
+    lineItems,
+  }
+}
+
+function enrichStaticInvoice(row: Record<string, unknown>): Record<string, unknown> {
+  return normalizeInvoiceDetail({
     ...row,
     department: (row.department as string) ?? "Litigation",
     lfaNo: (row.lfaNo as string) ?? "LFA-2026-014",
@@ -35,7 +76,7 @@ function enrichStaticInvoice(row: Record<string, unknown>): Record<string, unkno
       { id: "li1", description: "Professional fees", quantity: 1, rate: Number(row.amount ?? 0), amount: Number(row.amount ?? 0) },
       { id: "li2", description: "VAT", quantity: 1, rate: Number(row.vatAmount ?? 0), amount: Number(row.vatAmount ?? 0) },
     ],
-  }
+  })
 }
 
 export const billingApi = {
@@ -105,7 +146,36 @@ export const billingApi = {
       return enrichStaticInvoice(found as unknown as Record<string, unknown>)
     }
     const res = await axiosClient.get("/api/invoice/get/by/id", { params: { invoiceId } })
-    return res.data?.data ?? res.data
+    const data = (res.data?.data ?? res.data ?? {}) as Record<string, unknown>
+    return normalizeInvoiceDetail(data)
+  },
+
+  /** LMS POST /invoice/add-to-zoho — create invoice (or credit note) in Zoho Books. */
+  async addToZoho(invoiceId: string, opts?: { creditNote?: boolean }): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return opts?.creditNote
+        ? "Credit Note created in Zoho successfully."
+        : "Invoice created in Zoho successfully."
+    }
+    const path = opts?.creditNote ? "/api/invoice/creditNote/add-to-zoho" : "/api/invoice/add-to-zoho"
+    const params = opts?.creditNote ? { creditNoteId: invoiceId } : { invoiceId }
+    const res = await axiosClient.post(path, null, { params })
+    const inner = res.data?.response as { code?: number; message?: string } | undefined
+    if (inner && typeof inner.code === "number" && inner.code !== 0) {
+      throw new Error(
+        inner.message
+          ?? (opts?.creditNote ? "Failed to create Credit Note in Zoho." : "Failed to create invoice in Zoho."),
+      )
+    }
+    return String(
+      inner?.message
+        ?? res.data?.Msg
+        ?? res.data?.message
+        ?? (opts?.creditNote
+          ? "Credit Note created in Zoho successfully."
+          : "Invoice created in Zoho successfully."),
+    )
   },
 
   async create(data: Record<string, unknown>) {
@@ -140,6 +210,160 @@ export const billingApi = {
       const d = res.data?.data ?? res.data ?? {}
       return (Array.isArray(d) ? d : d.content ?? []) as Record<string, unknown>[]
     }
+  },
+
+  /** LMS GET /activity/unbilled/v2 — Hourly / Session (non-Fixed) Generate Bill grid. */
+  async getUnbilledActivities(p: GridParams): Promise<PageResponse<Record<string, unknown>>> {
+    const f = p.filters ?? {}
+    const billingType = String(f.billingType ?? "Hourly")
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      const rows: Record<string, unknown>[] = [
+        {
+          id: "ua1", activity: "Legal research", note: "Legal research", entryDate: "2026-08-10",
+          createdAt: "2026-08-10", billing: 750, hours: 3, minutes: 0, rate: 250, quantity: 3,
+          billingType: "Hourly", billable: true, invoiceCreated: false, activityType: "Time",
+          client: { id: "c1", companyName: "Al Rashid Holdings" },
+          matterMini: { id: "m1", title: "260303 — Building Dispute" },
+          title: "260303 — Building Dispute", agreementId: "LFA-001",
+          responsiblePerson: { firstName: "Sarah", lastName: "Johnson" }, hourlyUnit: "Hour",
+        },
+        {
+          id: "ua2", activity: "Drafting", note: "Drafting", entryDate: "2026-08-12",
+          createdAt: "2026-08-12", billing: 500, hours: 2, minutes: 0, rate: 250, quantity: 2,
+          billingType: "Hourly", billable: true, invoiceCreated: false, activityType: "Time",
+          client: { id: "c1", companyName: "Al Rashid Holdings" },
+          matterMini: { id: "m1", title: "260303 — Building Dispute" },
+          title: "260303 — Building Dispute", agreementId: "LFA-001",
+          responsiblePerson: { firstName: "Sarah", lastName: "Johnson" }, hourlyUnit: "Hour",
+        },
+        {
+          id: "ua3", activity: "Hearing prep", note: "Hearing prep", entryDate: "2026-08-15",
+          createdAt: "2026-08-15", billing: 800, hours: 1, minutes: 0, rate: 800, quantity: 1,
+          billingType: "Session", billable: true, invoiceCreated: false, activityType: "Time",
+          client: { id: "c1", companyName: "Al Rashid Holdings" },
+          matterMini: { id: "m1", title: "260303 — Building Dispute" },
+          title: "260303 — Building Dispute", agreementId: "LFA-001",
+          responsiblePerson: { firstName: "Omar", lastName: "Hassan" }, hourlyUnit: "Session",
+        },
+      ].filter(r => {
+        if (billingType && String(r.billingType) !== billingType) return false
+        if (f.clientId && String((r.client as { id?: string })?.id) !== String(f.clientId)) return false
+        if (f.matterId && String((r.matterMini as { id?: string })?.id) !== String(f.matterId)) return false
+        return true
+      })
+      return pageOf(rows, p)
+    }
+    const res = await axiosClient.get("/api/activity/unbilled/v2", {
+      params: {
+        type: f.type ?? "Matter",
+        billingType,
+        billable: true,
+        clientId: f.clientId ?? "",
+        agreementId: f.agreementId ?? "",
+        matterId: f.matterId ?? "",
+        fromDate: f.fromDate ?? "",
+        toDate: f.toDate ?? "",
+        pageNumber: p.page,
+        pageSize: p.pageSize,
+      },
+    })
+    const d = res.data?.data ?? res.data ?? {}
+    const raw = (Array.isArray(d.content) ? d.content : Array.isArray(d) ? d : []) as Record<string, unknown>[]
+    const billable = raw.filter(a => a.billable !== false)
+    const filtered = billingType
+      ? billable.filter(a => String(a.billingType ?? "") === billingType)
+      : billable.filter(a => String(a.activityType ?? "") === "Time")
+    return {
+      content: filtered,
+      totalElements: Number(d.totalElements ?? filtered.length),
+      totalPages: Number(d.totalPages ?? (Math.ceil(filtered.length / p.pageSize) || 0)),
+      number: Number(d.number ?? p.page),
+      size: Number(d.size ?? p.pageSize),
+      first: Boolean(d.first ?? p.page === 0),
+      last: Boolean(d.last ?? true),
+      empty: filtered.length === 0,
+    }
+  },
+
+  /** LMS GET /matter/unbilled/v2 — Fixed Generate Bill grid. */
+  async getUnbilledMatters(p: GridParams): Promise<PageResponse<Record<string, unknown>>> {
+    const f = p.filters ?? {}
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 200))
+      return pageOf([
+        {
+          id: "m1", title: "260303 — Building Dispute", lfaNo: "LFA-001", lfaId: "lfa1",
+          maxBillingAmount: 50000, billedAmount: 12000,
+          client: { id: "c1", companyName: "Al Rashid Holdings" },
+          currentBreakDown: { name: "Stage 1", rate: 10000 },
+          stage: "Stage 1",
+        },
+      ] as Record<string, unknown>[], p)
+    }
+    const res = await axiosClient.get("/api/matter/unbilled/v2", {
+      params: {
+        billingType: f.billingType ?? "Fixed",
+        clientId: f.clientId ?? "",
+        agreementId: f.agreementId ?? "",
+        matterId: f.matterId ?? "",
+        fromDate: f.fromDate ?? "",
+        toDate: f.toDate ?? "",
+        pageNumber: p.page,
+        pageSize: p.pageSize,
+      },
+    })
+    const d = res.data?.data ?? res.data ?? {}
+    const content = (Array.isArray(d.content) ? d.content : Array.isArray(d) ? d : []) as Record<string, unknown>[]
+    return {
+      content,
+      totalElements: Number(d.totalElements ?? content.length),
+      totalPages: Number(d.totalPages ?? (Math.ceil(content.length / p.pageSize) || 0)),
+      number: Number(d.number ?? p.page),
+      size: Number(d.size ?? p.pageSize),
+      first: Boolean(d.first ?? p.page === 0),
+      last: Boolean(d.last ?? true),
+      empty: content.length === 0,
+    }
+  },
+
+  /** LMS GET /client/get/by/billing/type/v2 */
+  async getClientsByBillingType(billingType: string): Promise<Record<string, unknown>[]> {
+    if (env.USE_STATIC_DATA) {
+      return [{ id: "c1", clientId: "c1", companyName: "Al Rashid Holdings", clientType: "COMPANY" }]
+    }
+    if (!billingType) return []
+    const res = await axiosClient.get("/api/client/get/by/billing/type/v2", {
+      params: { billingType },
+    })
+    const d = res.data?.data ?? res.data ?? []
+    return (Array.isArray(d) ? d : []) as Record<string, unknown>[]
+  },
+
+  /**
+   * LMS GET /reports/export-excel/unbilled-activities — emails Excel (not blob download).
+   */
+  async exportUnbilledActivities(filters: Record<string, unknown> = {}): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 250))
+      return "Unbilled activities Excel has been emailed."
+    }
+    const res = await axiosClient.get("/api/reports/export-excel/unbilled-activities", {
+      params: {
+        type: filters.type ?? "Matter",
+        billingType: filters.billingType ?? "Hourly",
+        billable: true,
+        clientId: filters.clientId ?? "",
+        agreementId: filters.agreementId ?? "",
+        matterId: filters.matterId ?? "",
+        fromDate: filters.fromDate ?? "",
+        toDate: filters.toDate ?? "",
+      },
+    })
+    if (res.data?.code === "403" || res.data?.code === 403) {
+      throw new Error(String(res.data?.Msg ?? res.data?.message ?? "Excel export not permitted."))
+    }
+    return String(res.data?.Msg ?? res.data?.message ?? "Excel export requested.")
   },
 
   async recordPayment(invoiceId: string, data: Record<string, unknown>) {

@@ -21,7 +21,7 @@ import { FilterActions } from "@components/filters/FilterActions"
 import { billingApi, type FeeBillKind } from "@/api/billing"
 import { formatCurrency } from "@lib/utils/formatCurrency"
 import { formatDate } from "@lib/utils/formatDate"
-import { FeeTypeBillDrawer } from "./FeeTypeBillDrawer"
+import { FeeTypeBillDrawer } from "../_components/FeeTypeBillDrawer"
 import { axiosClient } from "@lib/api/axios"
 import { env } from "@/config/env"
 

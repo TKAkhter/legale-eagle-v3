@@ -4,6 +4,7 @@ import AddIcon from '@mui/icons-material/Add'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { DataGrid } from '@components/data-grid/DataGrid'
 import { StatusBadge } from '@components/ui/StatusBadge'
 import { Can } from '@components/ui/Can'
@@ -37,6 +38,7 @@ function TimeLogFilterPanel({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function TimeLogEntriesPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const [modalOpen, setModalOpen] = useState(false)
@@ -53,8 +55,8 @@ export default function TimeLogEntriesPage() {
 
   return (
     <PageShell
-      title="Time Entries"
-      description="Billable time log entries"
+      title={t("nav.timeLogEntries")}
+      description={t("pages.timeLogEntriesDesc")}
       action={(
         <Can do={PERMISSIONS.TIMELOGS_CREATE}>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalOpen(true)}>Log Time</Button>

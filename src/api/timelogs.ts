@@ -268,6 +268,20 @@ export const timelogsApi = {
     return res.data?.Msg ?? res.data?.message ?? "Discounted."
   },
 
+  /** Restore purged (non-bill) hours into the parent activity — LMS ModifyAll merge. */
+  async mergePurge(activityId: string) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Merged purged hours." }
+    const res = await axiosClient.get("/api/activity/purge/merge", { params: { activityId } })
+    return res.data?.Msg ?? res.data?.message ?? "Merged purged hours."
+  },
+
+  /** Restore discounted hours into the parent activity — LMS ModifyAll merge discount. */
+  async mergeDiscount(activityId: string) {
+    if (env.USE_STATIC_DATA) { await new Promise(r => setTimeout(r, 250)); return "Merged discounted hours." }
+    const res = await axiosClient.get("/api/activity/discount/merge", { params: { activityId } })
+    return res.data?.Msg ?? res.data?.message ?? "Merged discounted hours."
+  },
+
   async getByInvoice(invoiceId: string, attorneyId?: string) {
     if (env.USE_STATIC_DATA) {
       return [

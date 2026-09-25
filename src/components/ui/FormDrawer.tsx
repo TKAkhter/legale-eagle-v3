@@ -9,6 +9,8 @@ interface Props {
   onSubmit: () => void
   isSubmitting?: boolean
   submitLabel?: string
+  /** When true, hides the primary submit button (read-only / blocked edits). */
+  hideSubmit?: boolean
   width?: number | string
   children: React.ReactNode
 }
@@ -18,7 +20,7 @@ interface Props {
  * On mobile/tablet: full viewport width so it never overflows the screen.
  */
 export function FormDrawer({
-  open, onClose, title, subtitle, onSubmit, isSubmitting, submitLabel = 'Save', width = 520, children
+  open, onClose, title, subtitle, onSubmit, isSubmitting, submitLabel = 'Save', hideSubmit, width = 520, children
 }: Props) {
   const isCompact = useMediaQuery('(max-width:899px)')
   const paperWidth = isCompact
@@ -62,10 +64,12 @@ export function FormDrawer({
 
       <Divider />
       <Box sx={{ px: { xs: 2, sm: 3 }, py: 2, display: 'flex', gap: 1.5, justifyContent: 'flex-end', flexShrink: 0, flexWrap: 'wrap' }}>
-        <Button onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-        <Button variant="contained" onClick={onSubmit} disabled={isSubmitting} sx={{ minWidth: 100 }}>
-          {isSubmitting ? <CircularProgress size={18} color="inherit" /> : submitLabel}
-        </Button>
+        <Button onClick={onClose} disabled={isSubmitting}>{hideSubmit ? 'Close' : 'Cancel'}</Button>
+        {!hideSubmit && (
+          <Button variant="contained" onClick={onSubmit} disabled={isSubmitting} sx={{ minWidth: 100 }}>
+            {isSubmitting ? <CircularProgress size={18} color="inherit" /> : submitLabel}
+          </Button>
+        )}
       </Box>
     </Drawer>
   )

@@ -48,6 +48,7 @@ export const useThemeStore = create<ThemeState>()(
         try {
           document.documentElement.dir = direction
           document.documentElement.lang = language
+          document.body.dir = direction
           localStorage.setItem("le-lang", language)
         } catch {
           /* ignore DOM/storage errors during SSR or restricted contexts */

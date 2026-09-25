@@ -46,6 +46,32 @@ export interface SendEmailPayload {
   body:    string
 }
 
+function graphRecipientAddresses(list: unknown): string {
+  return ((list as { emailAddress?: { address?: string } }[]) ?? [])
+    .map(x => x.emailAddress?.address ?? "")
+    .filter(Boolean)
+    .join(", ")
+}
+
+function mapGraphMessages(messages: Record<string, unknown>[], folderId: string): Email[] {
+  return messages.map(m => ({
+    id: String(m.id ?? ""),
+    folderId,
+    from: (m.from as { emailAddress?: { name?: string; address?: string } })?.emailAddress?.address ?? "",
+    to: graphRecipientAddresses(m.toRecipients),
+    cc: graphRecipientAddresses(m.ccRecipients),
+    subject: String(m.subject ?? "(No subject)"),
+    preview: String(m.bodyPreview ?? ""),
+    body: (m.body as { content?: string })?.content ?? "",
+    date: String(m.receivedDateTime ?? ""),
+    read: Boolean(m.isRead),
+    starred: Boolean((m.flag as { flagStatus?: string })?.flagStatus === "flagged"),
+    hasAttachments: Boolean(m.hasAttachments),
+    conversationId: String(m.conversationId ?? ""),
+    internetMessageId: String(m.internetMessageId ?? ""),
+  }))
+}
+
 export const emailApi = {
   /** List all mail folders */
   async getFolders(): Promise<EmailFolder[]> {
@@ -80,26 +106,55 @@ export const emailApi = {
       { headers: { Authorization: `Bearer ${token}` } }
     )
     const data = await r.json()
-    const addr = (list: unknown) =>
-      ((list as { emailAddress?: { address?: string } }[]) ?? [])
-        .map(x => x.emailAddress?.address ?? "")
-        .filter(Boolean)
-        .join(", ")
-    return (data.value ?? []).map((m: Record<string,unknown>) => ({
-      id:    String(m.id ?? ""), folderId,
-      from:  (m.from as {emailAddress?:{name?:string;address?:string}})?.emailAddress?.address ?? "",
-      to:    addr(m.toRecipients),
-      cc:    addr(m.ccRecipients),
-      subject: String(m.subject ?? "(No subject)"),
-      preview: String(m.bodyPreview ?? ""),
-      body:    (m.body as {content?:string})?.content ?? "",
-      date:    String(m.receivedDateTime ?? ""),
-      read:    Boolean(m.isRead),
-      starred: Boolean((m.flag as {flagStatus?:string})?.flagStatus === "flagged"),
-      hasAttachments: Boolean(m.hasAttachments),
-      conversationId: String(m.conversationId ?? ""),
-      internetMessageId: String(m.internetMessageId ?? ""),
-    }))
+    return mapGraphMessages(data.value ?? [], folderId)
+  },
+
+  /**
+   * Inbox messages whose From matches any of the given addresses (OLD client Mails tab).
+   * Graph: `$filter=from/emailAddress/address eq '…' or …`
+   */
+  async getInboxFromAddresses(addresses: string[]): Promise<Email[]> {
+    const cleaned = [...new Set(
+      addresses
+        .map(a => a.replace(/\s*\(primary\)\s*$/i, "").trim())
+        .filter(Boolean),
+    )]
+    if (!cleaned.length) return []
+
+    if (env.USE_STATIC_DATA) {
+      logger.debug("emailApi", `Static inbox filter for ${cleaned.length} address(es)`)
+      const lower = cleaned.map(a => a.toLowerCase())
+      return (staticEmails as Email[])
+        .filter(e => e.folderId === "inbox")
+        .filter(e => lower.some(a => e.from.toLowerCase().includes(a)))
+    }
+
+    const { getOneDriveToken } = await import("@lib/auth/msal")
+    const token = await getOneDriveToken()
+    const fromFilter = cleaned
+      .map(email => {
+        const esc = email.replace(/'/g, "''")
+        return `from/emailAddress/address eq '${esc}'`
+      })
+      .join(" or ")
+    const filter = `receivedDateTime ge 1900-01-01T00:00:00Z and (${fromFilter})`
+    const url =
+      `https://graph.microsoft.com/v1.0/me/mailFolders/Inbox/messages` +
+      `?$filter=${encodeURIComponent(filter)}` +
+      `&$orderby=${encodeURIComponent("receivedDateTime desc")}` +
+      `&$top=100` +
+      `&$select=id,subject,from,toRecipients,ccRecipients,bodyPreview,body,receivedDateTime,isRead,flag,hasAttachments,conversationId,internetMessageId`
+
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const data = await r.json()
+    if (!r.ok) {
+      logger.warn("emailApi", "Graph inbox-by-address failed", data)
+      throw new Error(
+        (data as { error?: { message?: string } })?.error?.message
+          ?? "Unable to fetch emails from Microsoft Graph",
+      )
+    }
+    return mapGraphMessages(data.value ?? [], "inbox")
   },
 
   /** Mark an email as read */

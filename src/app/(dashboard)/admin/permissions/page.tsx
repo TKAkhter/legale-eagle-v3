@@ -9,7 +9,8 @@ import {
   TableHead, TableRow, Checkbox, Skeleton, Button, Chip,
 } from "@mui/material"
 import SaveIcon from "@mui/icons-material/Save"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 type Action = "visible" | "add" | "edit" | "delete"
@@ -61,7 +62,9 @@ function normalizeMenus(raw: unknown): MenuNode[] {
 
 export default function PermissionsPage() {
   const qc = useQueryClient()
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const groupIdFromUrl = searchParams.get("groupId")
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(groupIdFromUrl)
   /** Keyed by `${menuId}::${submenuId}` */
   const [localPerms, setLocalPerms] = useState<Record<string, Record<Action, boolean>>>({})
   const [saving, setSaving] = useState(false)
@@ -81,6 +84,19 @@ export default function PermissionsPage() {
 
   const menus = useMemo(() => normalizeMenus(menuRaw), [menuRaw])
   const group = groups.find(g => g.id === selectedGroup)
+
+  useEffect(() => {
+    if (groupIdFromUrl && groups.some(g => g.id === groupIdFromUrl)) {
+      setSelectedGroup(groupIdFromUrl)
+      setLocalPerms({})
+    }
+  }, [groupIdFromUrl, groups])
+
+  function selectGroup(id: string) {
+    setSelectedGroup(id)
+    setLocalPerms({})
+    setSearchParams(id ? { groupId: id } : {}, { replace: true })
+  }
 
   function rowKey(menuId: string, submenuId: string) {
     return `${menuId}::${submenuId}`
@@ -158,7 +174,7 @@ export default function PermissionsPage() {
           <Chip
             key={g.id}
             label={g.name}
-            onClick={() => { setSelectedGroup(g.id); setLocalPerms({}) }}
+            onClick={() => selectGroup(g.id)}
             color={selectedGroup === g.id ? "primary" : "default"}
             variant={selectedGroup === g.id ? "filled" : "outlined"}
           />

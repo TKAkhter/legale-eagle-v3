@@ -9,6 +9,7 @@ import MarkunreadOutlinedIcon from "@mui/icons-material/MarkunreadOutlined"
 import BusinessIcon from "@mui/icons-material/Business"
 import PersonIcon from "@mui/icons-material/Person"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
@@ -42,6 +43,7 @@ function ClientFilters({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function ClientsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const hasPermission = useAuthStore(s => s.hasPermission)
@@ -87,8 +89,8 @@ export default function ClientsPage() {
 
   return (
     <PageShell
-      title="Clients"
-      description="Manage firm clients"
+      title={t("nav.clients")}
+      description={t("pages.clientsDesc")}
       action={(
         <Box sx={{ display: "flex", gap: 1 }}>
           {canEdit && (

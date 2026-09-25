@@ -18,9 +18,11 @@ import { SummaryCard, StatsGrid } from "./_components/SummaryCard"
 import { MattersGraph } from "./_components/MattersGraph"
 import {
   LeadFollowupsWidget, TaskDeadlinesWidget, HearingsWidget,
+  MeetingsWidget, WipSummaryWidget,
 } from "./_components/DashboardWidgets"
 import { TimeLogsWidget } from "./_components/TimeLogsWidget"
 import { MatterRolesPanel } from "./_components/MatterRolesPanel"
+import { DashboardSetup } from "./_components/DashboardSetup"
 import { PanelLoader } from "@/components/ui/PanelLoader"
 
 interface TabDef { id: string; name: string; label: string }
@@ -49,6 +51,7 @@ function LeadsPanel({ data }: { data?: { openCount?: number; convertedCount?: nu
         <SummaryCard count={open + converted + writeOff} label="Total" to="/leads" />
       </StatsGrid>
       <LeadFollowupsWidget />
+      <MeetingsWidget />
     </Box>
   )
 }
@@ -59,6 +62,7 @@ function MattersPanel({ data }: { data?: { open?: number; close?: number; reOpen
   const reOpen = data?.reOpen ?? 0
   return (
     <Box>
+      <WipSummaryWidget />
       <StatsGrid>
         <SummaryCard count={open} label="Open" to="/matters?status=OPEN" color="success.main" />
         <SummaryCard count={close} label="Closed" to="/matters?status=CLOSE" color="error.main" />
@@ -66,6 +70,21 @@ function MattersPanel({ data }: { data?: { open?: number; close?: number; reOpen
         <SummaryCard count={open + close + reOpen} label="Total" to="/matters" />
       </StatsGrid>
       <MattersGraph />
+    </Box>
+  )
+}
+
+function HearingsPanel({ series }: { series?: { today?: unknown[]; tomorrow?: unknown[] } }) {
+  const today = series?.today?.length ?? 0
+  const tomorrow = series?.tomorrow?.length ?? 0
+  return (
+    <Box>
+      <StatsGrid>
+        <SummaryCard count={today} label="Today" to="/team/upcoming-hearings" color="error.main" />
+        <SummaryCard count={tomorrow} label="Tomorrow" to="/team/upcoming-hearings" color="warning.main" />
+        <SummaryCard count={today + tomorrow} label="Upcoming" to="/team/upcoming-hearings" color="info.main" />
+      </StatsGrid>
+      <HearingsWidget series={series} />
     </Box>
   )
 }
@@ -398,7 +417,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <PageShell title="Dashboard" description="Overview and key performance indicators">
+    <PageShell
+      title="Dashboard"
+      description="Overview and key performance indicators"
+    >
+      <DashboardSetup />
       {setupQuery.isLoading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}><CircularProgress /></Box>
       ) : (
@@ -430,7 +453,7 @@ export default function DashboardPage() {
           {active?.name === "Leads" && <LeadsPanel data={leadCount.data} />}
           {active?.name === "Matters" && <MattersPanel data={matterCount.data} />}
           {(active?.name === "hearings" || active?.name === "Hearing") && (
-            <HearingsWidget series={hearingSeries.data} />
+            <HearingsPanel series={hearingSeries.data} />
           )}
           {active?.name === "Tasks" && <TasksPanel data={taskCount.data} />}
           {active?.name === "Recent Activities" && <RecentActivitiesPanel />}

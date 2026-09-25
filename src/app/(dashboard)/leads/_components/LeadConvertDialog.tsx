@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   Step, StepLabel, Stepper, TextField, Typography, FormControl, InputLabel, MenuItem, Select,
@@ -7,25 +8,34 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { axiosClient } from "@lib/api/axios"
 import { env } from "@/config/env"
 import { QK } from "@lib/query/keys"
+import { leadsApi } from "@/api/leads"
 import { toast } from "@/lib/toast"
 
-interface Props { open: boolean; onClose: () => void; leadId: string; leadName: string }
+interface Props {
+  open: boolean
+  onClose: () => void
+  leadId: string
+  leadName: string
+  repeated?: boolean
+}
 
 const STEPS = ["Select Client", "Review Client", "Create / Select LFA", "Review & Convert"]
 
-export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
+export function LeadConvertDialog({ open, onClose, leadId, leadName, repeated = false }: Props) {
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [step, setStep] = useState(0)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
-  const [clientMode, setClientMode] = useState<"existing" | "new">("new")
+  const [clientMode, setClientMode] = useState<"existing" | "new">("existing")
   const [clientId, setClientId] = useState("")
   const [companyName, setCompanyName] = useState(leadName)
-  const [matterTitle, setMatterTitle] = useState("")
   const [billingType, setBillingType] = useState("Hourly")
   const [lfaId, setLfaId] = useState("")
-  const [lfaMode, setLfaMode] = useState<"existing" | "new">("new")
+  const [lfaMode, setLfaMode] = useState<"existing" | "new">("existing")
+  const [createdClientId, setCreatedClientId] = useState("")
+  const [createdLfaId, setCreatedLfaId] = useState("")
 
   const clientsQuery = useQuery({
     queryKey: ["clients", "min", "convert"],
@@ -40,32 +50,34 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
     },
   })
 
+  const effectiveClientId = clientMode === "existing" ? clientId : createdClientId
+
   const lfasQuery = useQuery({
-    queryKey: ["lfa", "convert", clientId],
-    enabled: open && lfaMode === "existing" && !!clientId,
+    queryKey: ["lfa", "convert", effectiveClientId],
+    enabled: open && lfaMode === "existing" && !!effectiveClientId,
     queryFn: async () => {
       if (env.USE_STATIC_DATA) {
         return [{ id: "lfa1", agreementNo: "LFA-001", billingType: "Hourly" }]
       }
-      const res = await axiosClient.get("/api/lfa/get/only/client", { params: { clientId, matterId: "" } })
+      const res = await axiosClient.get("/api/lfa/get/only/client", { params: { clientId: effectiveClientId, matterId: "" } })
       const list = res.data?.data ?? res.data ?? []
       return Array.isArray(list) ? list : []
     },
   })
 
   useEffect(() => {
-    if (open) {
-      setStep(0)
-      setError("")
-      setDone(false)
-      setClientMode("new")
-      setClientId("")
-      setCompanyName(leadName)
-      setMatterTitle("")
-      setBillingType("Hourly")
-      setLfaId("")
-      setLfaMode("new")
-    }
+    if (!open) return
+    setStep(0)
+    setError("")
+    setDone(false)
+    setClientMode("existing")
+    setClientId("")
+    setCompanyName(leadName)
+    setBillingType("Hourly")
+    setLfaId("")
+    setLfaMode("existing")
+    setCreatedClientId("")
+    setCreatedLfaId("")
   }, [open, leadName])
 
   function canNext() {
@@ -75,23 +87,54 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
     return true
   }
 
+  async function ensureClient(): Promise<string> {
+    if (clientMode === "existing") return clientId
+    if (createdClientId) return createdClientId
+    if (env.USE_STATIC_DATA) {
+      const id = `c-new-${Date.now()}`
+      setCreatedClientId(id)
+      return id
+    }
+    const res = await axiosClient.post("/api/client/add", {
+      companyName,
+      clientType: "COMPANY",
+      firstName: companyName,
+    })
+    const id = String(res.data?.data?.id ?? res.data?.id ?? "")
+    if (!id) throw new Error("Failed to create client")
+    setCreatedClientId(id)
+    return id
+  }
+
+  async function ensureLfa(cid: string): Promise<string> {
+    if (lfaMode === "existing") return lfaId
+    if (createdLfaId) return createdLfaId
+    if (env.USE_STATIC_DATA) {
+      const id = `lfa-new-${Date.now()}`
+      setCreatedLfaId(id)
+      return id
+    }
+    const res = await axiosClient.post("/api/lfa/add", {
+      clientId: cid,
+      billingType,
+      agreementNo: `LFA-${Date.now()}`,
+    })
+    const id = String(res.data?.data?.id ?? res.data?.id ?? "")
+    if (!id) throw new Error("Failed to create LFA")
+    setCreatedLfaId(id)
+    return id
+  }
+
   async function convert() {
     setLoading(true)
     setError("")
     try {
-      if (!env.USE_STATIC_DATA) {
-        await axiosClient.post("/api/leads/convert", {
-          leadId,
-          clientId: clientMode === "existing" ? clientId : undefined,
-          createClient: clientMode === "new",
-          client: clientMode === "new" ? { companyName, clientType: "COMPANY" } : undefined,
-          lfaId: lfaMode === "existing" ? lfaId : undefined,
-          createLfa: lfaMode === "new",
-          matter: { title: matterTitle || companyName || leadName, billingType },
-          transferConfirmation: true,
-        })
+      if (repeated) {
+        await leadsApi.convertRepeated(leadId)
       } else {
-        await new Promise(r => setTimeout(r, 400))
+        const cid = await ensureClient()
+        const lid = await ensureLfa(cid)
+        await leadsApi.convert(leadId, { clientId: cid, lfaId: lid })
       }
       qc.invalidateQueries({ queryKey: QK.leads.all() })
       qc.invalidateQueries({ queryKey: QK.clients.all() })
@@ -101,6 +144,7 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
     } catch (e: unknown) {
       setError((e as { response?: { data?: { message?: string; Msg?: string } } })?.response?.data?.Msg
         ?? (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as { message?: string })?.message
         ?? "Conversion failed")
     } finally {
       setLoading(false)
@@ -114,14 +158,29 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
     onClose()
   }
 
+  function goToPending() {
+    handleClose()
+    navigate("/matters/pending")
+  }
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>Convert Lead</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>{repeated ? "Convert Repeated Lead" : "Convert Lead"}</DialogTitle>
       <DialogContent>
         {done ? (
           <Box sx={{ py: 2, textAlign: "center" }}>
             <Typography variant="h6" sx={{ color: "success.main", fontWeight: 600, mb: 1 }}>Conversion successful</Typography>
-            <Typography color="text.secondary">“{leadName}” is now a client with a matter.</Typography>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              “{leadName}” is ready for pending matter setup.
+            </Typography>
+            <Button variant="contained" onClick={goToPending}>Go to Pending Matters</Button>
+          </Box>
+        ) : repeated ? (
+          <Box sx={{ pt: 1 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This is a repeated lead. Conversion will reuse the existing client relationship and queue a pending matter.
+            </Alert>
+            {error && <Alert severity="error">{error}</Alert>}
           </Box>
         ) : (
           <Box sx={{ pt: 1 }}>
@@ -160,18 +219,17 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
               <Alert severity="info">
                 {clientMode === "new"
                   ? `A new client “${companyName}” will be created from this lead.`
-                  : `Existing client will be linked for conversion.`}
+                  : "Existing client will be linked for conversion."}
               </Alert>
             )}
 
             {step === 2 && (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <TextField size="small" label="Matter Title" value={matterTitle} onChange={e => setMatterTitle(e.target.value)} placeholder={companyName || leadName} />
                 <FormControl size="small">
                   <InputLabel>LFA</InputLabel>
                   <Select label="LFA" value={lfaMode} onChange={e => setLfaMode(e.target.value as "existing" | "new")}>
                     <MenuItem value="new">Create new LFA</MenuItem>
-                    <MenuItem value="existing" disabled={clientMode === "new" && !clientId}>Select existing LFA</MenuItem>
+                    <MenuItem value="existing">Select existing LFA</MenuItem>
                   </Select>
                 </FormControl>
                 {lfaMode === "new" ? (
@@ -198,7 +256,7 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
 
             {step === 3 && (
               <Alert severity="warning">
-                Confirm conversion: client ({clientMode === "new" ? companyName : "selected"}), matter “{matterTitle || companyName || leadName}”, billing {billingType}.
+                Confirm conversion. You will be taken to Pending Matters after success.
               </Alert>
             )}
 
@@ -208,17 +266,25 @@ export function LeadConvertDialog({ open, onClose, leadId, leadName }: Props) {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         {done ? (
-          <Button variant="contained" onClick={handleClose}>Done</Button>
+          <Button variant="contained" onClick={goToPending}>Go to Pending Matters</Button>
         ) : (
           <>
             <Button onClick={handleClose} disabled={loading}>Cancel</Button>
-            {step > 0 && <Button onClick={() => setStep(s => s - 1)} disabled={loading}>Back</Button>}
-            {step < STEPS.length - 1 ? (
-              <Button variant="contained" disabled={!canNext() || loading} onClick={() => setStep(s => s + 1)}>Next</Button>
-            ) : (
-              <Button variant="contained" color="success" disabled={loading || !canNext()} onClick={convert}>
+            {repeated ? (
+              <Button variant="contained" color="success" disabled={loading} onClick={() => { void convert() }}>
                 {loading ? "Converting…" : "Convert"}
               </Button>
+            ) : (
+              <>
+                {step > 0 && <Button onClick={() => setStep(s => s - 1)} disabled={loading}>Back</Button>}
+                {step < STEPS.length - 1 ? (
+                  <Button variant="contained" disabled={!canNext() || loading} onClick={() => setStep(s => s + 1)}>Next</Button>
+                ) : (
+                  <Button variant="contained" color="success" disabled={loading || !canNext()} onClick={() => { void convert() }}>
+                    {loading ? "Converting…" : "Convert"}
+                  </Button>
+                )}
+              </>
             )}
           </>
         )}

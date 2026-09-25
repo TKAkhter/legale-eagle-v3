@@ -1,12 +1,16 @@
 /**
  * Invoice approvals — LMS Pending / Completed tabs.
+ * Deep-link: `/approvals/invoice?invoiceId=&approveId=` opens review dialog.
  */
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tab, Tabs, TextField } from "@mui/material"
 import VisibilityIcon from "@mui/icons-material/Visibility"
+import OpenInNewIcon from "@mui/icons-material/OpenInNew"
 import CheckIcon from "@mui/icons-material/Check"
 import CloseIcon from "@mui/icons-material/Close"
 import { useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
@@ -89,13 +93,40 @@ async function fetchCompleted(p: GridParams): Promise<PageResponse<Record<string
   }
 }
 
+function invoiceIdOf(row: Record<string, unknown>): string {
+  return String(
+    row.invoiceId
+    ?? (row.invoice as { id?: string } | undefined)?.id
+    ?? "",
+  )
+}
+
 export default function InvoiceApprovalPage() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const qc = useQueryClient()
   const [tab, setTab] = useState<TabKey>("Pending")
   const [gridKey, setGridKey] = useState(0)
   const [reviewRow, setReviewRow] = useState<Record<string, unknown> | null>(null)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
+
+  // Email / notification deep-link → open InvoiceApprovalReviewDialog
+  useEffect(() => {
+    const invoiceId = searchParams.get("invoiceId")
+    const approveId = searchParams.get("approveId")
+    if (!invoiceId && !approveId) return
+    setReviewRow({
+      id: approveId || undefined,
+      invoiceId: invoiceId || undefined,
+      invoice: invoiceId ? { id: invoiceId } : undefined,
+    })
+    const next = new URLSearchParams(searchParams)
+    next.delete("invoiceId")
+    next.delete("approveId")
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   async function handleApprove(row: Record<string, unknown>, approve: boolean, reason = "") {
     try {
@@ -115,7 +146,7 @@ export default function InvoiceApprovalPage() {
   }
 
   return (
-    <PageShell title="Invoice Approvals" description="Invoices pending your approval">
+    <PageShell title={t("nav.approvals-invoice")} description={t("pages.invoiceApprovalsDesc")}>
       <Tabs value={tab} onChange={(_, v: TabKey) => { setTab(v); setGridKey(k => k + 1) }} sx={{ mb: 2 }}>
         <Tab label="Pending" value="Pending" />
         <Tab label="Completed" value="Completed" />
@@ -188,14 +219,20 @@ export default function InvoiceApprovalPage() {
         zebraStriping
         rowMenuItems={row => {
           const r = row as Record<string, unknown>
+          const invId = invoiceIdOf(r)
+          const detailsItem = invId
+            ? { label: "Details", icon: <OpenInNewIcon fontSize="small" />, onClick: () => navigate(`/billings/${invId}`) }
+            : { label: "Details", icon: <VisibilityIcon fontSize="small" />, onClick: () => setReviewRow(r) }
           if (tab === "Completed") {
             return [
+              detailsItem,
               { label: "View", icon: <VisibilityIcon fontSize="small" />, onClick: () => setReviewRow(r) },
             ]
           }
           return [
+            detailsItem,
             { label: "Review", icon: <VisibilityIcon fontSize="small" />, onClick: () => setReviewRow(r) },
-            { label: "Approve", icon: <CheckIcon fontSize="small" />, onClick: () => void handleApprove(r, true) },
+            { label: "Approve", icon: <CheckIcon fontSize="small" />, onClick: () => setReviewRow(r) },
             {
               label: "Reject",
               icon: <CloseIcon fontSize="small" />,

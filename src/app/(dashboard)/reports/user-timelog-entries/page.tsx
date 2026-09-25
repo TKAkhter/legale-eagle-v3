@@ -8,6 +8,7 @@ export default function Page() {
       description="Activity statistics by fee earner"
       queryKey={["reports", "user-timelog-entries"]}
       queryFn={p => reportsApi.getUserTimelogEntries(p)}
+      emailExcelFn={f => reportsApi.requestUserTimelogEntriesExcel(f)}
       filters={{"showUser":true,"showDepartment":true,"showDateRange":true}}
       columns={[
         { field: "userName", header: "User", renderCell: v => String(v || "—") },

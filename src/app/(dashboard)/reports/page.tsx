@@ -13,11 +13,23 @@ export default function ReportsHubPage() {
   const reports = useMemo(() => {
     const section = navigationConfig.find(n => n.id === "reports")
     const children = section?.children ?? []
-    return children.filter(c => c.id !== "reports-hub" && (!c.permission || hasPermission(c.permission)))
+    const cards = children.filter(c => c.id !== "reports-hub" && (!c.permission || hasPermission(c.permission)))
+    // LFA Report lives under LFA nav in NEW but was on OLD Reports hub
+    const lfaCard = {
+      id: "lfa-report",
+      title: "LFA Report",
+      path: "/lfa/reports",
+      icon: "DescriptionOutlined",
+      permission: undefined as string | undefined,
+    }
+    if (!cards.some(c => c.path === "/lfa/reports")) {
+      return [...cards, lfaCard]
+    }
+    return cards
   }, [hasPermission])
 
   return (
-    <PageShell title="Reports" description="All available reports">
+    <PageShell title={t("nav.reports")} description={t("pages.reportsDesc")}>
       <Box
         sx={{
           display: "grid",

@@ -1,7 +1,12 @@
+/**
+ * LFA Approvals — dual queue (OLD parity):
+ * - Approval → GET /api/lfa/approval/list  (OLD /LFAs-approval)
+ * - Pending  → GET /api/lfa/pending/approval (OLD /pending/approval)
+ */
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
-import { Box, Button } from "@mui/material"
+import { Box, Button, Tab, Tabs } from "@mui/material"
 import CheckIcon from "@mui/icons-material/Check"
 import CloseIcon from "@mui/icons-material/Close"
 import VisibilityIcon from "@mui/icons-material/Visibility"
@@ -9,6 +14,7 @@ import { PageShell } from "@/components/ui/PageShell"
 import { DataGrid } from "@components/data-grid/DataGrid"
 import { StatusBadge } from "@components/ui/StatusBadge"
 import { ClientSelectFilter } from "@components/filters/ClientSelectFilter"
+import { useTranslation } from "react-i18next"
 import { BillingTypeFilter } from "@components/filters/BillingTypeFilter"
 import { DateRangeFilter } from "@components/filters/DateRangeFilter"
 import { formatDate } from "@lib/utils/formatDate"
@@ -18,6 +24,14 @@ import { lfaApi } from "@/api/lfa"
 import { PERMISSIONS } from "@config/permissions"
 import type { FilterPanelProps } from "@components/data-grid/types"
 import type { GridParams } from "@/types/common.types"
+
+type TabKey = "approval" | "pending"
+
+function clientLabel(v: unknown): string {
+  const c = v as Record<string, string> | null | undefined
+  if (!c) return "—"
+  return c.companyName || `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || "—"
+}
 
 function ApprovalFilter({ onSearch, onReset, filters }: FilterPanelProps) {
   const [f, setF] = useState<Record<string, unknown>>(filters)
@@ -38,8 +52,10 @@ function ApprovalFilter({ onSearch, onReset, filters }: FilterPanelProps) {
 }
 
 export default function LfaApprovalPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const navigate = useNavigate()
+  const [tab, setTab] = useState<TabKey>("approval")
   const [gridKey, setGridKey] = useState(0)
 
   async function handleAction(row: Record<string, unknown>, status: string) {
@@ -53,17 +69,26 @@ export default function LfaApprovalPage() {
   }
 
   return (
-    <PageShell title="LFA Approvals" description="Fee agreements pending your approval">
+    <PageShell title={t("nav.approvals-lfa")} description={t("pages.lfaApprovalsDesc")}>
+      <Tabs
+        value={tab}
+        onChange={(_, v: TabKey) => { setTab(v); setGridKey(k => k + 1) }}
+        sx={{ mb: 2 }}
+      >
+        <Tab label="Approval" value="approval" />
+        <Tab label="Pending" value="pending" />
+      </Tabs>
+
       <DataGrid
-        key={gridKey}
+        key={`${tab}-${gridKey}`}
         columns={[
           { field: "agreementNo", header: "Agreement #" },
           {
             field: "client",
             header: "Client",
-            renderCell: v => {
-              const c = v as Record<string, string>
-              return c?.companyName ?? c?.firstName ?? "—"
+            renderCell: (v, row) => {
+              const r = row as Record<string, unknown>
+              return clientLabel(v ?? r.clients ?? r.client)
             },
           },
           { field: "lfaTitle", header: "Title", renderCell: v => String(v || "—") },
@@ -72,7 +97,11 @@ export default function LfaApprovalPage() {
             field: "fixedBillingAmount",
             header: "Amount",
             align: "right",
-            renderCell: v => v != null ? formatCurrency(Number(v)) : "—",
+            renderCell: (v, row) => {
+              const r = row as Record<string, unknown>
+              const amt = v ?? r.fixedFee
+              return amt != null && amt !== "" ? formatCurrency(Number(amt)) : "—"
+            },
           },
           { field: "agreementDate", header: "Date", renderCell: v => v ? formatDate(String(v)) : "—" },
           {
@@ -84,10 +113,12 @@ export default function LfaApprovalPage() {
             },
           },
         ]}
-        queryKey={["lfa", "approval"]}
-        queryFn={(p: GridParams) => lfaApi.getPendingApproval(p)}
-        FilterPanel={ApprovalFilter}
-        hasFilters
+        queryKey={["lfa", "approval", tab]}
+        queryFn={(p: GridParams) =>
+          tab === "approval" ? lfaApi.getApprovalList(p) : lfaApi.getPendingApproval(p)
+        }
+        FilterPanel={tab === "pending" ? ApprovalFilter : undefined}
+        hasFilters={tab === "pending"}
         detailPath={row => `/lfa/${String((row as { id?: string }).id ?? "")}`}
         rowMenuItems={row => {
           const r = row as Record<string, unknown>
@@ -108,7 +139,8 @@ export default function LfaApprovalPage() {
               icon: <CloseIcon fontSize="small" />,
               permission: PERMISSIONS.LFA_APPROVE,
               color: "error",
-              onClick: () => handleAction(r, "Canceled"),
+              // OLD approval OptionsMenu uses "Cancel"; keep that status for both queues
+              onClick: () => handleAction(r, "Cancel"),
             },
           ]
         }}

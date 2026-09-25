@@ -115,6 +115,62 @@ export const tasksApi = {
     await axiosClient.post("/api/task/approve", { taskId, status })
   },
 
+  /**
+   * LMS POST /task/submit/process — note + optional files (+ client uuid).
+   * Used when taskStatus is Pending or Re_Submit.
+   */
+  async submitProcess(taskId: string, opts: { note: string; uuid?: string; files?: File[] }): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return "Task submitted."
+    }
+    const form = new FormData()
+    form.append("note", opts.note)
+    form.append("uuid", opts.uuid ?? "")
+    if (opts.files?.length) {
+      for (const f of opts.files) form.append("files", f)
+    } else {
+      form.append("files", "")
+    }
+    const res = await axiosClient.post("/api/task/submit/process", form, {
+      params: { taskId },
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    return res.data?.Msg ?? res.data?.message ?? "Task submitted."
+  },
+
+  /**
+   * LMS POST /task/before|after/approving/process — remarks required; rating on approve.
+   * taskStatus: "Completed" (approve) | "Re_Submit" (reject).
+   */
+  async approveProcess(
+    taskId: string,
+    payload: {
+      approvalTaskType: "Before" | "After" | string
+      taskStatus: "Completed" | "Re_Submit"
+      reason: string
+      taskRating?: number
+      date?: string
+    },
+  ): Promise<string> {
+    if (env.USE_STATIC_DATA) {
+      await new Promise(r => setTimeout(r, 300))
+      return payload.taskStatus === "Completed" ? "Task approved." : "Task rejected."
+    }
+    const type = String(payload.approvalTaskType ?? "After").toLowerCase()
+    const path = type === "before" || type === "pre"
+      ? "/api/task/before/approving/process"
+      : "/api/task/after/approving/process"
+    const res = await axiosClient.post(path, {
+      approvalTaskType: payload.approvalTaskType,
+      taskStatus: payload.taskStatus,
+      reason: payload.reason,
+      taskRating: payload.taskRating ?? 0,
+      date: payload.date ?? new Date().toISOString(),
+    }, { params: { taskId } })
+    return res.data?.Msg ?? res.data?.message ?? (payload.taskStatus === "Completed" ? "Task approved." : "Task rejected.")
+  },
+
   async getApprovals(p: GridParams) {
     if (env.USE_STATIC_DATA) return this.getAll({ ...p, filters: { ...p.filters, taskStatus: "Pending" } })
     const res = await axiosClient.get("/api/task/get/type/approval", {

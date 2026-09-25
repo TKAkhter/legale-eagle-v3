@@ -224,6 +224,13 @@ export const navigationConfig: NavItem[] = [
         permission: PERMISSIONS.BILLING_VIEW,
       },
       {
+        id: 'generate-bill',
+        title: 'nav.generateBill',
+        path: '/billing',
+        icon: 'RequestPageOutlined',
+        permission: PERMISSIONS.BILLING_VIEW,
+      },
+      {
         id: 'payment',
         title: 'nav.payment',
         path: '/payment',
@@ -482,8 +489,6 @@ export const navigationConfig: NavItem[] = [
       { id: 'user-timelog-entries', title: 'nav.userTimelogEntries', path: '/reports/user-timelog-entries', icon: 'AccessTimeOutlined', permission: PERMISSIONS.REPORTS_VIEW },
       { id: 'rating', title: 'nav.ratingReport', path: '/reports/rating', icon: 'EmojiEventsOutlined', permission: PERMISSIONS.REPORTS_VIEW },
       { id: 'posts', title: 'nav.postsReport', path: '/reports/posts', icon: 'ArticleOutlined', permission: PERMISSIONS.REPORTS_VIEW },
-      { id: 'wip-attorney', title: 'nav.wipAttorney', path: '/reports/wip-attorney', icon: 'WorkOutlineOutlined', permission: PERMISSIONS.REPORTS_VIEW },
-      { id: 'wip-matter', title: 'nav.wipMatter', path: '/reports/wip-matter', icon: 'FolderOpenOutlined', permission: PERMISSIONS.REPORTS_VIEW },
       { id: 'retainer-statement', title: 'nav.retainerStatementReport', path: '/reports/retainer-statement', icon: 'AccountBalanceWalletOutlined', permission: PERMISSIONS.REPORTS_VIEW },
       { id: 'matter-summary', title: 'nav.matterSummary', path: '/reports/matter-summary', icon: 'SummarizeOutlined', permission: PERMISSIONS.REPORTS_VIEW },
       { id: 'closed-matters', title: 'nav.closedMatters', path: '/reports/closed-matters', icon: 'FolderOutlined', permission: PERMISSIONS.REPORTS_VIEW },
@@ -527,6 +532,7 @@ export const navigationConfig: NavItem[] = [
     icon: 'IntegrationInstructionsOutlined',
     dividerAfter: false,
     children: [
+      { id: 'email', title: 'nav.email', path: '/email', icon: 'EmailOutlined' },
       { id: 'onedrive', title: 'nav.oneDrive', path: '/integrations/onedrive', icon: 'CloudOutlined', permission: PERMISSIONS.ONEDRIVE_VIEW },
     ],
   },

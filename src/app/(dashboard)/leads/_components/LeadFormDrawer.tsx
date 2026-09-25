@@ -9,7 +9,9 @@ import { ControlledInput, ControlledSelect, ControlledAsyncSelect, FormSection }
 import { useDraftSave } from "@/hooks/useDraftSave"
 import { DraftBanner } from "@/components/ui/DraftBanner"
 import { leadsApi } from "@/api/leads"
+import { clientsApi } from "@/api/clients"
 import { adminApi } from "@/api/admin"
+import type { Client } from "@/transformers/client.transformer"
 
 const schema = z.object({
   firstName:      z.string().min(1, "Required"),
@@ -32,9 +34,11 @@ interface Props {
   onSaved: () => void
   /** When true, create payload includes `internal: true` (internal-leads flow). */
   internal?: boolean
+  /** Prefill from client (OLD `/leads/add/:clientId` / Add Matter on client Matters tab). */
+  clientId?: string
 }
 
-export function LeadFormDrawer({ open, onClose, leadId, onSaved, internal = false }: Props) {
+export function LeadFormDrawer({ open, onClose, leadId, onSaved, internal = false, clientId }: Props) {
   const isEdit = !!leadId
   const [error, setError] = useState("")
 
@@ -54,6 +58,12 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved, internal = fals
     queryKey: ["leads","detail",leadId],
     queryFn: () => leadsApi.getById(leadId!),
     enabled: !!leadId && open,
+  })
+
+  const { data: prefillClient } = useQuery({
+    queryKey: ["clients", "detail", clientId],
+    queryFn: () => clientsApi.getById(clientId!),
+    enabled: !!clientId && open && !isEdit,
   })
 
   const { data: users  = [] } = useQuery({ queryKey: ["users","min"],      queryFn: () => adminApi.getUsersMin()      })
@@ -94,6 +104,22 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved, internal = fals
     }
   }, [existing, isEdit, reset])
 
+  useEffect(() => {
+    if (!open || isEdit || !clientId || !prefillClient) return
+    const c = prefillClient as Client
+    const leadType = c.clientType === "COMPANY" ? "COMPANY" : "PERSON"
+    const email = (c.emails ?? [])[0]?.replace(" (primary)", "") || c.email || ""
+    const phone = (c.phones ?? [])[0] || c.phone || ""
+    reset({
+      leadType,
+      firstName: c.firstName || (leadType === "PERSON" ? (c.name?.split(/\s+/)[0] ?? "") : ""),
+      lastName: c.lastName || (leadType === "PERSON" ? (c.name?.split(/\s+/).slice(1).join(" ") ?? "") : ""),
+      companyName: c.companyName || (leadType === "COMPANY" ? c.name : "") || "",
+      email,
+      phone,
+    })
+  }, [open, isEdit, clientId, prefillClient, reset])
+
   const toOpts = (arr: unknown[]) => (arr as Record<string,string>[]).map(x => ({ value: x.id, label: x.firstName ? `${x.firstName} ${x.lastName}` : x.name }))
 
   async function onSubmit(vals: LeadForm) {
@@ -102,6 +128,7 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved, internal = fals
       const payload = {
         ...vals,
         ...(internal && !isEdit ? { internal: true } : {}),
+        ...(clientId && !isEdit ? { clientId, repeated: true } : {}),
         emails: vals.email ? [{ emailId: vals.email, type: "Work", primary: true }] : [],
         phones: vals.phone ? [{ phoneNo: vals.phone, type: "Mobile", primary: true }] : [],
         practiceArea: vals.practiceAreaId ? { id: vals.practiceAreaId } : undefined,
@@ -117,14 +144,18 @@ export function LeadFormDrawer({ open, onClose, leadId, onSaved, internal = fals
     }
   }
 
+  const createTitle = clientId
+    ? "Add Matter"
+    : (internal ? "New Internal Lead" : "New Lead")
+
   return (
     <FormDrawer
       open={open}
       onClose={onClose}
-      title={isEdit ? (internal ? "Edit Internal Lead" : "Edit Lead") : (internal ? "New Internal Lead" : "New Lead")}
+      title={isEdit ? (internal ? "Edit Internal Lead" : "Edit Lead") : createTitle}
       onSubmit={handleSubmit(onSubmit)}
       isSubmitting={isSubmitting}
-      submitLabel={isEdit ? "Update" : (internal ? "Create Internal Lead" : "Create Lead")}
+      submitLabel={isEdit ? "Update" : (clientId ? "Create" : (internal ? "Create Internal Lead" : "Create Lead"))}
     >
       {error && <Alert severity="error" sx={{ mb:2 }} onClose={() => setError("")}>{error}</Alert>}
       {hasDraft && !isEdit && <DraftBanner onRestore={loadDraft} onDiscard={clearDraft} />}

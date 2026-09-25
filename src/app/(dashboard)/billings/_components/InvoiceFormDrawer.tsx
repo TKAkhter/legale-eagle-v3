@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useFieldArray, useWatch } from 'react-hook-form'
 import { Box, Alert, Typography, Checkbox, Paper, Chip, IconButton, Button } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -19,21 +19,43 @@ import { env } from '@/config/env'
 
 type ItemRow = { name: string; rate: number; delete: boolean }
 
+/** Seed create-invoice drawer from Generate Bill selection. */
+export type InvoiceFormPrefill = {
+  clientId?: string
+  matterId?: string
+  agreementId?: string
+  activityIds?: string[]
+  billingType?: string
+  activities?: Record<string, unknown>[]
+}
+
 interface Props {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
   /** When set, drawer edits an existing invoice (LMS EditBill). */
   invoiceId?: string
+  /** Optional seed from `/billing` Generate Bill selection. */
+  prefill?: InvoiceFormPrefill
 }
 
-export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props) {
+function activityToItem(a: Record<string, unknown>): ItemRow {
+  return {
+    name: String(a.activity ?? a.note ?? 'Time entry'),
+    rate: Number(a.billing ?? a.rate ?? 0),
+    delete: false,
+  }
+}
+
+export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId, prefill }: Props) {
   const qc = useQueryClient()
   const isEdit = !!invoiceId
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [selectedActivities, setSelectedActivities] = useState<string[]>([])
   const [activities, setActivities] = useState<Record<string, unknown>[]>([])
   const [clientSearch, setClientSearch] = useState('')
+  const [billingType, setBillingType] = useState('Hourly')
+  const prefillApplied = useRef(false)
   const today = new Date().toISOString().slice(0, 10)
   const dueDefault = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
 
@@ -71,9 +93,11 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props
 
   useEffect(() => {
     if (!open) {
+      prefillApplied.current = false
       reset()
       setSelectedActivities([])
       setActivities([])
+      setBillingType('Hourly')
       return
     }
     if (isEdit && detailQ.data) {
@@ -101,8 +125,34 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props
       const aids = (inv.activityIds as string[] | undefined)
         ?? ((inv.activities as { id?: string }[] | undefined)?.map(a => String(a.id)).filter(Boolean) ?? [])
       setSelectedActivities(aids)
+      setBillingType(String(inv.billingType ?? inv.invoiceBillingType ?? 'Hourly'))
+      return
     }
-  }, [open, isEdit, detailQ.data, reset, today, dueDefault])
+    if (!isEdit && prefill && !prefillApplied.current) {
+      prefillApplied.current = true
+      const seededActs = prefill.activities ?? []
+      const ids = (prefill.activityIds?.length
+        ? prefill.activityIds
+        : seededActs.map(a => String(a.id ?? a.activityId)).filter(Boolean)) as string[]
+      reset({
+        clientId: prefill.clientId ?? '',
+        matterId: prefill.matterId ?? '',
+        lfaId: prefill.agreementId ?? '',
+        issueDate: today,
+        dueDate: dueDefault,
+        dateOfSupply: today,
+        tax: '5',
+        discount: '0',
+        discountType: 'Percentage',
+        discountAmount: '0',
+        notes: '',
+        items: seededActs.length ? seededActs.map(activityToItem) : [],
+      })
+      if (seededActs.length) setActivities(seededActs)
+      setSelectedActivities(ids)
+      setBillingType(prefill.billingType ?? 'Hourly')
+    }
+  }, [open, isEdit, detailQ.data, prefill, reset, today, dueDefault])
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients', 'short', clientSearch],
@@ -128,12 +178,22 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props
 
   const matterOpts = useMemo(() => {
     const list = (matters as Record<string, string>[]).filter(m => !clientId || m.clientId === clientId || !(m as { client?: { id?: string } }).client || (m as { client?: { id?: string } }).client?.id === clientId)
-    return list.map(m => ({ value: m.id, label: m.title ?? m.id }))
-  }, [matters, clientId])
+    const mapped = list.map(m => ({ value: m.id, label: m.title ?? m.id }))
+    if (prefill?.matterId && !mapped.some(o => o.value === prefill.matterId)) {
+      mapped.unshift({ value: prefill.matterId, label: prefill.matterId })
+    }
+    return mapped
+  }, [matters, clientId, prefill?.matterId])
 
-  const clientOpts = (clients as Record<string, string>[]).map(c => ({
-    value: c.id, label: c.companyName ?? c.name ?? c.id,
-  }))
+  const clientOpts = useMemo(() => {
+    const mapped = (clients as Record<string, string>[]).map(c => ({
+      value: c.id, label: c.companyName ?? c.name ?? c.id,
+    }))
+    if (prefill?.clientId && !mapped.some(o => o.value === prefill.clientId)) {
+      mapped.unshift({ value: prefill.clientId, label: prefill.clientId })
+    }
+    return mapped
+  }, [clients, prefill?.clientId])
 
   const { data: lfas = [] } = useQuery({
     queryKey: ['invoice', 'lfas', matterId, clientId],
@@ -145,23 +205,36 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props
     },
     enabled: open && (!!matterId || !!clientId),
   })
-  const lfaOpts = (lfas as Record<string, string>[]).map(l => ({
-    value: l.id, label: l.agreementNo ?? l.lfaTitle ?? l.id,
-  }))
+  const lfaOpts = useMemo(() => {
+    const mapped = (lfas as Record<string, string>[]).map(l => ({
+      value: l.id, label: l.agreementNo ?? l.lfaTitle ?? l.id,
+    }))
+    if (prefill?.agreementId && !mapped.some(o => o.value === prefill.agreementId)) {
+      mapped.unshift({ value: prefill.agreementId, label: prefill.agreementId })
+    }
+    return mapped
+  }, [lfas, prefill?.agreementId])
+
+  const hasPrefillActivities = Boolean(prefill?.activities?.length || prefill?.activityIds?.length)
 
   useQuery({
-    queryKey: ['invoice', 'unpaid', matterId],
+    queryKey: ['invoice', 'unpaid', matterId, hasPrefillActivities],
     queryFn: async () => {
       const list = await billingApi.getUnpaidByMatter(String(matterId))
+      if (hasPrefillActivities) {
+        // Keep Generate Bill selection; merge any missing unpaid rows for toggle UI.
+        setActivities(prev => {
+          const byId = new Map(prev.map(a => [String(a.id ?? a.activityId), a]))
+          for (const a of list) byId.set(String(a.id ?? a.activityId), a)
+          return Array.from(byId.values())
+        })
+        return list
+      }
       setActivities(list)
       if (!isEdit && list.length && selectedActivities.length === 0) {
         const ids = list.map(a => String(a.id ?? a.activityId)).filter(Boolean)
         setSelectedActivities(ids)
-        const seeded: ItemRow[] = list.map(a => ({
-          name: String(a.activity ?? a.note ?? 'Time entry'),
-          rate: Number(a.billing ?? a.rate ?? 0),
-          delete: false,
-        }))
+        const seeded: ItemRow[] = list.map(activityToItem)
         replace(seeded)
         void billingApi.calculateHoursMini(
           list.map(a => ({
@@ -171,12 +244,7 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props
             rate: a.rate,
             billingType: a.billingType,
           })),
-        ).then(calc => {
-          const total = Number((calc as { total?: number })?.total)
-          if (Number.isFinite(total) && total > 0 && seeded.length) {
-            // keep seeded lines; calc confirms totals
-          }
-        }).catch(() => undefined)
+        ).catch(() => undefined)
       }
       return list
     },
@@ -231,7 +299,7 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props
         activityIds: selectedActivities.length ? selectedActivities : undefined,
         invoiceRelatedToId: relatedId,
         invoiceType: data.matterId ? 'MATTER' : 'CLIENT',
-        invoiceBillingType: 'Hourly',
+        invoiceBillingType: billingType || 'Hourly',
         items: (data.items as ItemRow[]).filter(i => !i.delete).map(i => ({
           name: i.name,
           rate: Number(i.rate),
@@ -270,7 +338,7 @@ export function InvoiceFormDrawer({ open, onClose, onSuccess, invoiceId }: Props
 
       <FormSection title="Client, Matter & Agreement">
         <ControlledAsyncSelect name="clientId" control={control} label="Client" options={clientOpts} onInputChange={setClientSearch} />
-        <ControlledAsyncSelect name="matterId" control={control} label="Matter *" options={matterOpts} required />
+        <ControlledAsyncSelect name="matterId" control={control} label={clientId ? "Matter" : "Matter *"} options={matterOpts} required={!clientId} />
         <ControlledAsyncSelect name="lfaId" control={control} label="LFA (optional)" options={lfaOpts} />
       </FormSection>
 
